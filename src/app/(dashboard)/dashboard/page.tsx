@@ -336,7 +336,7 @@ function SectionTitle({
   action?: string;
 }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-3">
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <h2 className="text-[20px] leading-[1.2] text-slate-900">{title}</h2>
         <p className="mt-1 text-[13px] leading-6 text-slate-500">{note}</p>
@@ -345,7 +345,7 @@ function SectionTitle({
       {href && action ? (
         <Link
           href={href}
-          className="inline-flex items-center gap-2 rounded-2xl border border-[#d8e4e2] bg-white px-3 py-2 text-[12px] text-[#016564] shadow-sm"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d8e4e2] bg-white px-3 py-2 text-[12px] text-[#016564] shadow-sm sm:w-auto"
         >
           {action}
           <Icon name="arrow" className="h-4 w-4" />
@@ -450,27 +450,27 @@ function WarehouseDashboard({ fullName }: { fullName?: string }) {
   ];
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[32px] border border-[#d8e4e2] bg-[linear-gradient(135deg,#016564_0%,#0c706e_55%,#114f4f_100%)] p-6 text-white shadow-[0_18px_50px_rgba(1,101,100,0.18)]">
+    <div className="space-y-4 sm:space-y-6">
+      <section className="relative overflow-hidden rounded-[24px] border border-[#d8e4e2] bg-[linear-gradient(135deg,#016564_0%,#0c706e_55%,#114f4f_100%)] p-4 text-white shadow-[0_18px_50px_rgba(1,101,100,0.18)] sm:rounded-[32px] sm:p-6">
         <div className="absolute -left-10 top-0 h-36 w-36 rounded-full bg-[#d0b284]/10 blur-2xl" />
         <div className="absolute bottom-0 right-0 h-44 w-44 rounded-full bg-white/5 blur-2xl" />
 
-        <div className="relative grid gap-5 xl:grid-cols-[1.25fr_0.95fr]">
+        <div className="relative grid gap-4 xl:grid-cols-[1.25fr_0.95fr] sm:gap-5">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2 text-[12px]">
               <Icon name="inventory" className="h-4 w-4" />
               لوحة مسؤول المخزن
             </div>
 
-            <h1 className="mt-4 text-[32px] leading-[1.2]">
+            <h1 className="mt-3 text-[24px] leading-[1.25] sm:mt-4 sm:text-[32px]">
               {fullName ? `مرحبًا ${fullName}` : 'مرحبًا بك'}
             </h1>
-            <p className="mt-3 max-w-[760px] text-[14px] leading-8 text-white/85">
+            <p className="mt-3 max-w-[760px] text-[13px] leading-7 text-white/85 sm:text-[14px] sm:leading-8">
               رؤية سريعة لما يحتاج التنفيذ الآن داخل المخزون، الطلبات، والإرجاعات.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
             {[
               { label: 'طلبات جديدة', value: stats.newRequests, icon: 'requests' as const },
               { label: 'جاهزة للصرف', value: stats.readyToIssue, icon: 'inventory' as const },
@@ -479,14 +479,14 @@ function WarehouseDashboard({ fullName }: { fullName?: string }) {
             ].map((item) => (
               <div
                 key={item.label}
-                className="rounded-[24px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm"
+                className="rounded-[20px] border border-white/10 bg-white/10 p-3.5 backdrop-blur-sm sm:rounded-[24px] sm:p-4"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[13px] text-white/75">{item.label}</div>
-                    <div className="mt-2 text-[30px] leading-none">{item.value}</div>
+                    <div className="text-[12px] text-white/75 sm:text-[13px]">{item.label}</div>
+                    <div className="mt-2 text-[24px] leading-none sm:text-[30px]">{item.value}</div>
                   </div>
-                  <div className="rounded-2xl bg-white/10 p-3">
+                  <div className="rounded-2xl bg-white/10 p-2.5 sm:p-3">
                     <Icon name={item.icon} className="h-6 w-6" />
                   </div>
                 </div>
@@ -496,7 +496,7 @@ function WarehouseDashboard({ fullName }: { fullName?: string }) {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 sm:gap-4">
         {[
           {
             title: 'طلبات جديدة بانتظار التجهيز',
@@ -551,15 +551,15 @@ function WarehouseDashboard({ fullName }: { fullName?: string }) {
 
           return (
             <Link key={card.title} href={card.href}>
-              <Card className={`h-full rounded-[28px] border p-5 transition hover:-translate-y-[2px] hover:shadow-lg ${tone.border} ${tone.surface}`}>
+              <Card className={`h-full rounded-[22px] border p-4 transition hover:-translate-y-[2px] hover:shadow-lg sm:rounded-[28px] sm:p-5 ${tone.border} ${tone.surface}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-[13px] leading-6 text-slate-600">{card.title}</div>
-                    <div className="mt-3 text-[34px] leading-none text-slate-900">{card.value}</div>
-                    <div className="mt-3 text-[13px] leading-7 text-slate-600">{card.note}</div>
+                    <div className="mt-3 text-[28px] leading-none text-slate-900 sm:text-[34px]">{card.value}</div>
+                    <div className="mt-2 text-[12px] leading-6 text-slate-600 sm:mt-3 sm:text-[13px] sm:leading-7">{card.note}</div>
                   </div>
 
-                  <div className={`rounded-[20px] p-3 ${tone.badge}`}>
+                  <div className={`rounded-[18px] p-2.5 sm:rounded-[20px] sm:p-3 ${tone.badge}`}>
                     <Icon name={card.icon} className="h-6 w-6" />
                   </div>
                 </div>
@@ -569,12 +569,12 @@ function WarehouseDashboard({ fullName }: { fullName?: string }) {
         })}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="rounded-[28px] border border-[#dde8e6] bg-white p-5 shadow-soft">
+      <section className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr] sm:gap-4">
+        <Card className="rounded-[22px] border border-[#dde8e6] bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
           <SectionTitle title="ما الذي تعمل عليه الآن" note="أهم العناصر التنفيذية الحالية." href="/requests" action="فتح الطلبات" />
 
           {actionRows.length === 0 ? (
-            <div className="rounded-[22px] border border-dashed border-[#d8e4e2] p-10 text-center text-slate-500">
+            <div className="rounded-[20px] border border-dashed border-[#d8e4e2] p-6 text-center text-slate-500 sm:rounded-[22px] sm:p-10">
               لا توجد عناصر عاجلة حاليًا
             </div>
           ) : (
@@ -583,7 +583,7 @@ function WarehouseDashboard({ fullName }: { fullName?: string }) {
                 const tone = levelClasses(row.level);
 
                 return (
-                  <Link key={row.id} href={row.href} className={`block rounded-[22px] border p-4 ${tone.border} ${tone.surface}`}>
+                  <Link key={row.id} href={row.href} className={`block rounded-[20px] border p-3.5 sm:rounded-[22px] sm:p-4 ${tone.border} ${tone.surface}`}>
                     <div className="flex items-start gap-3">
                       <span className={`mt-2 h-2.5 w-2.5 rounded-full ${tone.dot}`} />
                       <div className="min-w-0 flex-1">
@@ -598,25 +598,25 @@ function WarehouseDashboard({ fullName }: { fullName?: string }) {
           )}
         </Card>
 
-        <Card className="rounded-[28px] border border-[#dde8e6] bg-white p-5 shadow-soft">
+        <Card className="rounded-[22px] border border-[#dde8e6] bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
           <SectionTitle title="اختصارات التنفيذ" note="أكثر المسارات استخدامًا لمسؤول المخزن." />
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
             {quickLinks.map((item) => (
               <Link
                 key={item.title}
                 href={item.href}
-                className="group rounded-[22px] border border-[#e0ebe9] bg-[#fbfdfd] p-4 transition hover:border-[#c6dad7] hover:bg-white hover:shadow-md"
+                className="group rounded-[20px] border border-[#e0ebe9] bg-[#fbfdfd] p-3.5 transition hover:border-[#c6dad7] hover:bg-white hover:shadow-md sm:rounded-[22px] sm:p-4"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="rounded-[18px] bg-[#016564]/8 p-3 text-[#016564]">
+                  <div className="rounded-[18px] bg-[#016564]/8 p-2.5 text-[#016564] sm:p-3">
                     <Icon name={item.icon} className="h-5 w-5" />
                   </div>
                   <Icon name="arrow" className="h-4 w-4 text-slate-400 transition group-hover:text-[#016564]" />
                 </div>
 
-                <div className="mt-4 text-[15px] text-slate-900">{item.title}</div>
-                <div className="mt-1 text-[12px] text-slate-500">{item.note}</div>
+                <div className="mt-3 text-[14px] text-slate-900 sm:mt-4 sm:text-[15px]">{item.title}</div>
+                <div className="mt-1 text-[12px] leading-6 text-slate-500">{item.note}</div>
               </Link>
             ))}
           </div>
@@ -780,27 +780,27 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
   ];
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[32px] border border-[#d8e4e2] bg-[linear-gradient(135deg,#016564_0%,#0c706e_55%,#114f4f_100%)] p-6 text-white shadow-[0_18px_50px_rgba(1,101,100,0.18)]">
+    <div className="space-y-4 sm:space-y-6">
+      <section className="relative overflow-hidden rounded-[24px] border border-[#d8e4e2] bg-[linear-gradient(135deg,#016564_0%,#0c706e_55%,#114f4f_100%)] p-4 text-white shadow-[0_18px_50px_rgba(1,101,100,0.18)] sm:rounded-[32px] sm:p-6">
         <div className="absolute -left-10 top-0 h-36 w-36 rounded-full bg-[#d0b284]/10 blur-2xl" />
         <div className="absolute bottom-0 right-0 h-44 w-44 rounded-full bg-white/5 blur-2xl" />
 
-        <div className="relative grid gap-5 xl:grid-cols-[1.25fr_0.95fr]">
+        <div className="relative grid gap-4 xl:grid-cols-[1.25fr_0.95fr] sm:gap-5">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2 text-[12px]">
               <Icon name="dashboard" className="h-4 w-4" />
               لوحة المدير
             </div>
 
-            <h1 className="mt-4 text-[32px] leading-[1.2]">
+            <h1 className="mt-3 text-[24px] leading-[1.25] sm:mt-4 sm:text-[32px]">
               {fullName ? `مرحبًا ${fullName}` : 'مرحبًا بك'}
             </h1>
-            <p className="mt-3 max-w-[760px] text-[14px] leading-8 text-white/85">
+            <p className="mt-3 max-w-[760px] text-[13px] leading-7 text-white/85 sm:text-[14px] sm:leading-8">
               لوحة قرار ورقابة: أين التعثر، أين التراكم، وما الذي يحتاج تدخلًا إداريًا الآن.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
             {[
               { label: 'طلبات معلقة', value: stats.pendingRequests, icon: 'requests' as const },
               { label: 'غير منفذ بعد الاعتماد', value: stats.approvedNotIssued, icon: 'trend' as const },
@@ -809,14 +809,14 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
             ].map((item) => (
               <div
                 key={item.label}
-                className="rounded-[24px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm"
+                className="rounded-[20px] border border-white/10 bg-white/10 p-3.5 backdrop-blur-sm sm:rounded-[24px] sm:p-4"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[13px] text-white/75">{item.label}</div>
-                    <div className="mt-2 text-[30px] leading-none">{item.value}</div>
+                    <div className="text-[12px] text-white/75 sm:text-[13px]">{item.label}</div>
+                    <div className="mt-2 text-[24px] leading-none sm:text-[30px]">{item.value}</div>
                   </div>
-                  <div className="rounded-2xl bg-white/10 p-3">
+                  <div className="rounded-2xl bg-white/10 p-2.5 sm:p-3">
                     <Icon name={item.icon} className="h-6 w-6" />
                   </div>
                 </div>
@@ -826,7 +826,7 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 sm:gap-4">
         {[
           {
             title: 'الطلبات المعلقة',
@@ -881,15 +881,15 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
 
           return (
             <Link key={card.title} href={card.href}>
-              <Card className={`h-full rounded-[28px] border p-5 transition hover:-translate-y-[2px] hover:shadow-lg ${tone.border} ${tone.surface}`}>
+              <Card className={`h-full rounded-[22px] border p-4 transition hover:-translate-y-[2px] hover:shadow-lg sm:rounded-[28px] sm:p-5 ${tone.border} ${tone.surface}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-[13px] leading-6 text-slate-600">{card.title}</div>
-                    <div className="mt-3 text-[34px] leading-none text-slate-900">{card.value}</div>
-                    <div className="mt-3 text-[13px] leading-7 text-slate-600">{card.note}</div>
+                    <div className="mt-3 text-[28px] leading-none text-slate-900 sm:text-[34px]">{card.value}</div>
+                    <div className="mt-2 text-[12px] leading-6 text-slate-600 sm:mt-3 sm:text-[13px] sm:leading-7">{card.note}</div>
                   </div>
 
-                  <div className={`rounded-[20px] p-3 ${tone.badge}`}>
+                  <div className={`rounded-[18px] p-2.5 sm:rounded-[20px] sm:p-3 ${tone.badge}`}>
                     <Icon name={card.icon} className="h-6 w-6" />
                   </div>
                 </div>
@@ -899,8 +899,8 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
         })}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <Card className="rounded-[28px] border border-[#dde8e6] bg-white p-5 shadow-soft">
+      <section className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr] sm:gap-4">
+        <Card className="rounded-[22px] border border-[#dde8e6] bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
           <SectionTitle
             title="أين القرار الآن"
             note="العناصر التي تعطي المدير صورة واضحة عن موضع التدخل."
@@ -909,7 +909,7 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
           />
 
           {decisionRows.length === 0 ? (
-            <div className="rounded-[22px] border border-dashed border-[#d8e4e2] p-10 text-center text-slate-500">
+            <div className="rounded-[20px] border border-dashed border-[#d8e4e2] p-6 text-center text-slate-500 sm:rounded-[22px] sm:p-10">
               لا توجد مؤشرات حرجة حالية
             </div>
           ) : (
@@ -918,7 +918,7 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
                 const tone = levelClasses(row.level);
 
                 return (
-                  <Link key={row.id} href={row.href} className={`block rounded-[22px] border p-4 ${tone.border} ${tone.surface}`}>
+                  <Link key={row.id} href={row.href} className={`block rounded-[20px] border p-3.5 sm:rounded-[22px] sm:p-4 ${tone.border} ${tone.surface}`}>
                     <div className="flex items-start gap-3">
                       <span className={`mt-2 h-2.5 w-2.5 rounded-full ${tone.dot}`} />
                       <div className="min-w-0 flex-1">
@@ -933,32 +933,32 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
           )}
         </Card>
 
-        <div className="grid gap-4">
-          <Card className="rounded-[28px] border border-[#dde8e6] bg-white p-5 shadow-soft">
+        <div className="grid gap-3 sm:gap-4">
+          <Card className="rounded-[22px] border border-[#dde8e6] bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
             <SectionTitle title="اختصارات المدير" note="أهم المسارات لاتخاذ القرار والمتابعة." />
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
               {quickLinks.map((item) => (
                 <Link
                   key={item.title}
                   href={item.href}
-                  className="group rounded-[22px] border border-[#e0ebe9] bg-[#fbfdfd] p-4 transition hover:border-[#c6dad7] hover:bg-white hover:shadow-md"
+                  className="group rounded-[20px] border border-[#e0ebe9] bg-[#fbfdfd] p-3.5 transition hover:border-[#c6dad7] hover:bg-white hover:shadow-md sm:rounded-[22px] sm:p-4"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="rounded-[18px] bg-[#016564]/8 p-3 text-[#016564]">
+                    <div className="rounded-[18px] bg-[#016564]/8 p-2.5 text-[#016564] sm:p-3">
                       <Icon name={item.icon} className="h-5 w-5" />
                     </div>
                     <Icon name="arrow" className="h-4 w-4 text-slate-400 transition group-hover:text-[#016564]" />
                   </div>
 
-                  <div className="mt-4 text-[15px] text-slate-900">{item.title}</div>
-                  <div className="mt-1 text-[12px] text-slate-500">{item.note}</div>
+                  <div className="mt-3 text-[14px] text-slate-900 sm:mt-4 sm:text-[15px]">{item.title}</div>
+                  <div className="mt-1 text-[12px] leading-6 text-slate-500">{item.note}</div>
                 </Link>
               ))}
             </div>
           </Card>
 
-          <Card className="rounded-[28px] border border-[#dde8e6] bg-white p-5 shadow-soft">
+          <Card className="rounded-[22px] border border-[#dde8e6] bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
             <SectionTitle
               title="آخر ما سُجل رقابيًا"
               note="معاينة سريعة لأحدث السجلات ذات الأثر."
@@ -967,7 +967,7 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
             />
 
             {auditPreview.length === 0 ? (
-              <div className="rounded-[20px] border border-dashed border-[#d8e4e2] p-8 text-center text-slate-500">
+              <div className="rounded-[20px] border border-dashed border-[#d8e4e2] p-6 text-center text-slate-500 sm:rounded-[22px] sm:p-8">
                 لا توجد سجلات حديثة
               </div>
             ) : (
@@ -979,7 +979,7 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
                     <Link
                       key={item.id}
                       href={item.href}
-                      className={`block rounded-[20px] border p-4 transition hover:shadow-md ${tone.border} ${tone.surface}`}
+                      className={`block rounded-[20px] border p-3.5 transition hover:shadow-md sm:p-4 ${tone.border} ${tone.surface}`}
                     >
                       <div className="flex items-start gap-3">
                         <span className={`mt-2 h-2.5 w-2.5 rounded-full ${tone.dot}`} />
@@ -1130,7 +1130,7 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
       note: 'مواد ما زالت بعهدتك ولم تغلق بعد',
       href: '/custody',
       icon: 'custody' as const,
-      level: stats.activeCustody > 0 ? 'normal' as const : 'normal' as const,
+      level: 'normal' as const,
     },
     {
       title: 'طلبات إرجاع معلقة',
@@ -1192,27 +1192,27 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
   }, [myNotifications, myCustody, myReturns]);
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[32px] border border-[#d8e4e2] bg-[linear-gradient(135deg,#016564_0%,#0c706e_55%,#114f4f_100%)] p-6 text-white shadow-[0_18px_50px_rgba(1,101,100,0.18)]">
+    <div className="space-y-4 sm:space-y-6">
+      <section className="relative overflow-hidden rounded-[24px] border border-[#d8e4e2] bg-[linear-gradient(135deg,#016564_0%,#0c706e_55%,#114f4f_100%)] p-4 text-white shadow-[0_18px_50px_rgba(1,101,100,0.18)] sm:rounded-[32px] sm:p-6">
         <div className="absolute -left-10 top-0 h-36 w-36 rounded-full bg-[#d0b284]/10 blur-2xl" />
         <div className="absolute bottom-0 right-0 h-44 w-44 rounded-full bg-white/5 blur-2xl" />
 
-        <div className="relative grid gap-5 xl:grid-cols-[1.25fr_0.95fr]">
+        <div className="relative grid gap-4 xl:grid-cols-[1.25fr_0.95fr] sm:gap-5">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2 text-[12px]">
               <Icon name="dashboard" className="h-4 w-4" />
               بوابة الموظف
             </div>
 
-            <h1 className="mt-4 text-[32px] leading-[1.2]">
+            <h1 className="mt-3 text-[24px] leading-[1.25] sm:mt-4 sm:text-[32px]">
               {fullName ? `مرحبًا ${fullName}` : 'مرحبًا بك'}
             </h1>
-            <p className="mt-3 max-w-[760px] text-[14px] leading-8 text-white/85">
+            <p className="mt-3 max-w-[760px] text-[13px] leading-7 text-white/85 sm:text-[14px] sm:leading-8">
               من هنا تبدأ كل احتياجاتك بوضوح: طلب مواد، إرجاع، صيانة، نظافة، شراء مباشر، أو أي طلب آخر.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
             {[
               { label: 'طلباتي المفتوحة', value: stats.openRequests + stats.openOtherRequests, icon: 'requests' as const },
               { label: 'مواد بعهدتي', value: stats.activeCustody, icon: 'custody' as const },
@@ -1221,14 +1221,14 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
             ].map((item) => (
               <div
                 key={item.label}
-                className="rounded-[24px] border border-white/10 bg-white/10 p-4 backdrop-blur-sm"
+                className="rounded-[20px] border border-white/10 bg-white/10 p-3.5 backdrop-blur-sm sm:rounded-[24px] sm:p-4"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[13px] text-white/75">{item.label}</div>
-                    <div className="mt-2 text-[30px] leading-none">{item.value}</div>
+                    <div className="text-[12px] text-white/75 sm:text-[13px]">{item.label}</div>
+                    <div className="mt-2 text-[24px] leading-none sm:text-[30px]">{item.value}</div>
                   </div>
-                  <div className="rounded-2xl bg-white/10 p-3">
+                  <div className="rounded-2xl bg-white/10 p-2.5 sm:p-3">
                     <Icon name={item.icon} className="h-6 w-6" />
                   </div>
                 </div>
@@ -1238,13 +1238,13 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
         </div>
       </section>
 
-      <Card className="rounded-[28px] border border-[#dde8e6] bg-white p-5 shadow-soft">
+      <Card className="rounded-[22px] border border-[#dde8e6] bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
         <SectionTitle
           title="ماذا تريد أن تنجز اليوم؟"
           note="اختر المسار الصحيح مباشرة دون حيرة أو تنقل عشوائي."
         />
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 sm:gap-4">
           {startCards.map((card) => {
             const tone = levelClasses(card.tone);
 
@@ -1252,7 +1252,7 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
               <Link
                 key={card.title}
                 href={card.href}
-                className={`group rounded-[24px] border p-5 transition hover:-translate-y-[2px] hover:shadow-lg ${tone.border} ${tone.surface}`}
+                className={`group rounded-[22px] border p-4 transition hover:-translate-y-[2px] hover:shadow-lg sm:rounded-[24px] sm:p-5 ${tone.border} ${tone.surface}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className={`rounded-[18px] p-3 ${tone.badge}`}>
@@ -1264,29 +1264,29 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
                   />
                 </div>
 
-                <div className="mt-4 text-[18px] text-slate-900">{card.title}</div>
-                <div className="mt-2 text-[13px] leading-7 text-slate-600">{card.note}</div>
+                <div className="mt-3 text-[16px] text-slate-900 sm:mt-4 sm:text-[18px]">{card.title}</div>
+                <div className="mt-2 text-[12px] leading-6 text-slate-600 sm:text-[13px] sm:leading-7">{card.note}</div>
               </Link>
             );
           })}
         </div>
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 sm:gap-4">
         {currentStatusCards.map((card) => {
           const tone = levelClasses(card.level);
 
           return (
             <Link key={card.title} href={card.href}>
-              <Card className={`h-full rounded-[26px] border p-5 transition hover:-translate-y-[2px] hover:shadow-lg ${tone.border} ${tone.surface}`}>
+              <Card className={`h-full rounded-[22px] border p-4 transition hover:-translate-y-[2px] hover:shadow-lg sm:rounded-[26px] sm:p-5 ${tone.border} ${tone.surface}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-[13px] leading-6 text-slate-600">{card.title}</div>
-                    <div className="mt-3 text-[32px] leading-none text-slate-900">{card.value}</div>
-                    <div className="mt-3 text-[13px] leading-7 text-slate-600">{card.note}</div>
+                    <div className="mt-3 text-[28px] leading-none text-slate-900 sm:text-[32px]">{card.value}</div>
+                    <div className="mt-2 text-[12px] leading-6 text-slate-600 sm:mt-3 sm:text-[13px] sm:leading-7">{card.note}</div>
                   </div>
 
-                  <div className={`rounded-[20px] p-3 ${tone.badge}`}>
+                  <div className={`rounded-[18px] p-2.5 sm:rounded-[20px] sm:p-3 ${tone.badge}`}>
                     <Icon name={card.icon} className="h-6 w-6" />
                   </div>
                 </div>
@@ -1296,8 +1296,8 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
         })}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <Card className="rounded-[28px] border border-[#dde8e6] bg-white p-5 shadow-soft">
+      <section className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr] sm:gap-4">
+        <Card className="rounded-[22px] border border-[#dde8e6] bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
           <SectionTitle
             title="وضعك الحالي"
             note="أهم ما يحتاج منك متابعة أو ينتظر ردًا أو استلامًا."
@@ -1306,7 +1306,7 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
           />
 
           {updates.length === 0 ? (
-            <div className="rounded-[22px] border border-dashed border-[#d8e4e2] p-10 text-center text-slate-500">
+            <div className="rounded-[20px] border border-dashed border-[#d8e4e2] p-6 text-center text-slate-500 sm:rounded-[22px] sm:p-10">
               لا توجد مستجدات حالية
             </div>
           ) : (
@@ -1315,7 +1315,7 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
                 const tone = levelClasses(row.level);
 
                 return (
-                  <Link key={row.id} href={row.href} className={`block rounded-[22px] border p-4 ${tone.border} ${tone.surface}`}>
+                  <Link key={row.id} href={row.href} className={`block rounded-[20px] border p-3.5 sm:rounded-[22px] sm:p-4 ${tone.border} ${tone.surface}`}>
                     <div className="flex items-start gap-3">
                       <span className={`mt-2 h-2.5 w-2.5 rounded-full ${tone.dot}`} />
                       <div className="min-w-0 flex-1">
@@ -1330,13 +1330,13 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
           )}
         </Card>
 
-        <Card className="rounded-[28px] border border-[#dde8e6] bg-white p-5 shadow-soft">
+        <Card className="rounded-[22px] border border-[#dde8e6] bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
           <SectionTitle
             title="اختصارات سريعة"
             note="المسارات الأكثر استخدامًا في العمل اليومي."
           />
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
             {[
               { title: 'طلباتي', href: '/requests', icon: 'requests' as const },
               { title: 'عهدتي', href: '/custody', icon: 'custody' as const },
@@ -1346,16 +1346,16 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
               <Link
                 key={item.title}
                 href={item.href}
-                className="group rounded-[22px] border border-[#e0ebe9] bg-[#fbfdfd] p-4 transition hover:border-[#c6dad7] hover:bg-white hover:shadow-md"
+                className="group rounded-[20px] border border-[#e0ebe9] bg-[#fbfdfd] p-3.5 transition hover:border-[#c6dad7] hover:bg-white hover:shadow-md sm:rounded-[22px] sm:p-4"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="rounded-[18px] bg-[#016564]/8 p-3 text-[#016564]">
+                  <div className="rounded-[18px] bg-[#016564]/8 p-2.5 text-[#016564] sm:p-3">
                     <Icon name={item.icon} className="h-5 w-5" />
                   </div>
                   <Icon name="arrow" className="h-4 w-4 text-slate-400 transition group-hover:text-[#016564]" />
                 </div>
 
-                <div className="mt-4 text-[15px] text-slate-900">{item.title}</div>
+                <div className="mt-3 text-[14px] text-slate-900 sm:mt-4 sm:text-[15px]">{item.title}</div>
               </Link>
             ))}
           </div>

@@ -70,15 +70,15 @@ export default function RequestAccountPage() {
   };
 
   const inputClassName =
-    'h-[40px] w-full rounded-[12px] border border-[#d7dde2] bg-white px-3 text-right text-[13px] font-normal text-[#1f2a44] outline-none transition focus:border-[#016564] focus:ring-2 focus:ring-[#016564]/10';
+    'min-h-[48px] w-full min-w-0 rounded-[16px] border border-[#d7dde2] bg-white px-4 text-right text-[14px] text-[#1f2a44] outline-none transition placeholder:text-[#9aa3b2] focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10';
 
   const labelClassName =
-    'mb-1.5 block text-right text-[12px] font-normal text-[#2a3550]';
+    'mb-2 block text-right text-[13px] font-semibold text-[#2a3550]';
 
   return (
     <div
       dir="rtl"
-      className="min-h-screen bg-[#edf3f2]"
+      className="min-h-screen overflow-x-hidden bg-[#edf3f2]"
       style={{
         background:
           'radial-gradient(circle at top right, rgba(1,101,100,0.06), transparent 20%), radial-gradient(circle at bottom left, rgba(208,178,132,0.06), transparent 18%), linear-gradient(180deg, #f7f9f9 0%, #edf3f2 100%)',
@@ -112,41 +112,54 @@ export default function RequestAccountPage() {
           </div>
         </section>
 
-        <section className="relative flex items-center justify-center px-4 py-6 lg:px-6 xl:px-8">
-          <div className="relative z-10 w-full max-w-[420px]">
-            <div className="rounded-[20px] border border-white/80 bg-white/95 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.07)] backdrop-blur-xl sm:p-5">
-              <div className="mb-4 text-center lg:hidden">
-                <div className="mb-3 flex justify-center">
-                  <div className="flex min-h-[82px] w-full items-center justify-center rounded-[18px] border border-[#d0b284]/20 bg-[#016564] px-4 shadow-[0_12px_28px_rgba(1,101,100,0.14)]">
-                    <img
-                      src="/nauss-gold-logo.png"
-                      alt="شعار جامعة نايف"
-                      className="max-h-[52px] w-auto object-contain"
-                    />
-                  </div>
+        <section className="relative flex min-h-screen items-center justify-center px-4 py-5 sm:px-5 sm:py-8 lg:px-6 xl:px-8">
+          <div className="absolute inset-0 opacity-60">
+            <div className="absolute right-6 top-6 h-24 w-24 rounded-full bg-[#016564]/6 blur-3xl sm:h-32 sm:w-32" />
+            <div className="absolute bottom-8 left-6 h-20 w-20 rounded-full bg-[#d0b284]/14 blur-3xl sm:h-28 sm:w-28" />
+          </div>
+
+          <div className="relative z-10 w-full max-w-[520px]">
+            <div className="mb-4 lg:hidden">
+              <div className="rounded-[26px] border border-white/15 bg-[linear-gradient(135deg,#015857_0%,#016564_50%,#0b7f7c_100%)] p-4 sm:rounded-[30px] sm:p-5">
+                <div className="flex items-center justify-center rounded-[22px] border border-white/10 bg-white/5 px-4 py-5 sm:rounded-[24px] sm:px-5 sm:py-6">
+                  <img
+                    src="/nauss-gold-logo.png"
+                    alt="شعار جامعة نايف"
+                    className="max-h-[72px] w-auto object-contain sm:max-h-[82px]"
+                  />
+                </div>
+
+                <div className="mt-4 rounded-[20px] border border-white/10 bg-white/10 px-4 py-4 text-center text-white sm:rounded-[22px]">
+                  <p className="text-lg font-normal leading-[1.8] sm:text-2xl sm:leading-[1.7]">
+                    طلب إنشاء حساب جديد
+                    <br />
+                    لمنصة إدارة المخزون
+                  </p>
                 </div>
               </div>
+            </div>
 
-              <div className="mb-4 text-center">
-                <h1 className="text-[32px] font-normal text-[#0f1d3b]">
+            <div className="rounded-[26px] border border-white/80 bg-white/95 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.07)] backdrop-blur-xl sm:rounded-[30px] sm:p-6">
+              <div className="mb-5 text-center">
+                <h1 className="text-[26px] font-normal text-[#0f1d3b] sm:text-[34px]">
                   طلب إنشاء حساب
                 </h1>
               </div>
 
               {submitted ? (
-                <div className="space-y-3 rounded-[14px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-center">
-                  <div className="text-[13px] font-normal text-emerald-700">
+                <div className="space-y-3 rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-center">
+                  <div className="text-[14px] leading-7 text-emerald-700">
                     تم إرسال الطلب بنجاح، وسيظهر للمدير بحالة قيد المراجعة.
                   </div>
                   <Link
                     href="/login"
-                    className="inline-flex rounded-[10px] bg-[#016564] px-3 py-1.5 text-[13px] font-normal text-white"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-[14px] bg-[#016564] px-4 py-2 text-[14px] text-white"
                   >
                     العودة لتسجيل الدخول
                   </Link>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className={labelClassName}>الاسم كامل</label>
                     <input
@@ -169,7 +182,7 @@ export default function RequestAccountPage() {
                     />
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className={labelClassName}>رقم الجوال</label>
                       <input
@@ -209,7 +222,7 @@ export default function RequestAccountPage() {
                     </select>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className={labelClassName}>كلمة المرور</label>
                       <input
@@ -233,21 +246,21 @@ export default function RequestAccountPage() {
                     </div>
                   </div>
 
-                  <label className="flex items-start gap-2.5 rounded-[14px] border border-[#d8dee1] bg-[#fbfcfc] px-3 py-3 text-[12px] font-normal leading-6 text-[#2f3851]">
+                  <label className="flex items-start gap-3 rounded-[16px] border border-[#d8dee1] bg-[#fbfcfc] px-4 py-4 text-[13px] leading-7 text-[#2f3851]">
                     <input
                       type="checkbox"
                       checked={undertakingAccepted}
                       onChange={(e) => setUndertakingAccepted(e.target.checked)}
-                      className="mt-1 h-4 w-4 rounded border border-[#aab3ba] text-[#016564] focus:ring-[#016564]"
+                      className="mt-1 h-4 w-4 shrink-0 rounded border border-[#aab3ba] text-[#016564] focus:ring-[#016564]"
                     />
-                    <span>
+                    <span className="min-w-0">
                       أتعهد بالمحافظة على سرية بيانات الدخول وصحة البيانات المدخلة،
                       وأتحمل مسؤولية استخدام الحساب وفق الأنظمة والإجراءات المعتمدة.
                     </span>
                   </label>
 
                   {error ? (
-                    <div className="rounded-[12px] border border-red-200 bg-red-50 px-3 py-2.5 text-[12px] font-normal text-red-700">
+                    <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] leading-6 text-red-700">
                       {error}
                     </div>
                   ) : null}
@@ -260,16 +273,16 @@ export default function RequestAccountPage() {
                       !form.password ||
                       form.password !== form.confirmPassword
                     }
-                    className="h-[42px] w-full rounded-[14px] bg-[#0b8a88] text-[14px] font-normal text-white shadow-[0_10px_22px_rgba(11,138,136,0.16)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="flex min-h-[50px] w-full items-center justify-center rounded-[16px] bg-[#0b8a88] px-4 text-[15px] text-white shadow-[0_10px_22px_rgba(11,138,136,0.16)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {loading ? 'جارٍ الإرسال...' : 'إرسال الطلب'}
                   </button>
                 </form>
               )}
 
-              <div className="mt-4 text-center text-[13px] font-normal text-[#5f687b]">
+              <div className="mt-5 text-center text-[14px] leading-7 text-[#5f687b]">
                 لديك حساب بالفعل؟
-                <Link href="/login" className="mr-2 font-normal text-[#016564]">
+                <Link href="/login" className="mr-2 text-[#016564]">
                   تسجيل الدخول
                 </Link>
               </div>

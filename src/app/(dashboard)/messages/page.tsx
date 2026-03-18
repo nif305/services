@@ -408,12 +408,14 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-[28px] border border-surface-border bg-white p-5 shadow-soft">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="rounded-[24px] border border-surface-border bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-[30px] leading-[1.25] text-primary">المراسلات الداخلية</h1>
-            <p className="mt-2 text-[14px] leading-7 text-surface-subtle">
+          <div className="min-w-0">
+            <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">
+              المراسلات الداخلية
+            </h1>
+            <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
               تواصل داخلي تفاعلي موثّق بين المدير ومسؤول المخزن والموظفين، مع الرد المباشر داخل نفس المحادثة.
             </p>
           </div>
@@ -423,40 +425,43 @@ export default function MessagesPage() {
               setIsComposeOpen(true);
               setError('');
             }}
+            className="w-full sm:w-auto"
           >
             رسالة جديدة
           </Button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <div className="rounded-[22px] border border-surface-border bg-slate-50 p-4">
-            <div className="text-[13px] text-surface-subtle">إجمالي المحادثات</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">{threads.length}</div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3 sm:mt-5 sm:gap-4">
+          <div className="rounded-[20px] border border-surface-border bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-surface-subtle sm:text-[13px]">إجمالي المحادثات</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {threads.length}
+            </div>
           </div>
 
-          <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 p-4">
-            <div className="text-[13px] text-emerald-700">غير المقروء</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">
+          <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-3 sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-emerald-700 sm:text-[13px]">غير المقروء</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
               {activeBox === 'inbox' ? unreadCount : '-'}
             </div>
           </div>
 
-          <div className="rounded-[22px] border border-surface-border bg-slate-50 p-4">
-            <div className="text-[13px] text-surface-subtle">الصندوق الحالي</div>
+          <div className="rounded-[20px] border border-surface-border bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-surface-subtle sm:text-[13px]">الصندوق الحالي</div>
             <div className="mt-2 text-[18px] leading-none text-slate-900">
               {activeBox === 'inbox' ? 'الوارد' : 'المرسل'}
             </div>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
           <button
             onClick={() => {
               setActiveBox('inbox');
               setSelectedThreadId(null);
               setThreadMessages([]);
             }}
-            className={`rounded-full px-4 py-2 text-sm transition ${
+            className={`min-h-[42px] rounded-full px-4 py-2 text-sm transition ${
               activeBox === 'inbox'
                 ? 'bg-[#016564] text-white'
                 : 'border border-slate-200 bg-white text-slate-700'
@@ -471,7 +476,7 @@ export default function MessagesPage() {
               setSelectedThreadId(null);
               setThreadMessages([]);
             }}
-            className={`rounded-full px-4 py-2 text-sm transition ${
+            className={`min-h-[42px] rounded-full px-4 py-2 text-sm transition ${
               activeBox === 'sent'
                 ? 'bg-[#016564] text-white'
                 : 'border border-slate-200 bg-white text-slate-700'
@@ -482,8 +487,8 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <Card className="rounded-[28px] border border-surface-border p-4 shadow-soft">
+      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <Card className="rounded-[24px] border border-surface-border p-4 shadow-soft sm:rounded-[28px]">
           <div className="mb-3 text-[18px] text-primary">المحادثات</div>
 
           <div className="space-y-3">
@@ -518,8 +523,8 @@ export default function MessagesPage() {
                     ) : null}
                   </div>
 
-                  <div className="text-[15px] text-slate-900">{thread.subject}</div>
-                  <div className="mt-1 text-[12px] text-slate-500">
+                  <div className="break-words text-[15px] text-slate-900">{thread.subject}</div>
+                  <div className="mt-1 break-words text-[12px] text-slate-500">
                     {activeBox === 'inbox'
                       ? `من: ${thread.otherPartyName}`
                       : `إلى: ${thread.otherPartyName}`}
@@ -536,9 +541,9 @@ export default function MessagesPage() {
           </div>
         </Card>
 
-        <Card className="rounded-[28px] border border-surface-border p-4 shadow-soft">
+        <Card className="rounded-[24px] border border-surface-border p-4 shadow-soft sm:rounded-[28px]">
           {!selectedThreadSummary ? (
-            <div className="flex min-h-[420px] items-center justify-center text-center text-slate-500">
+            <div className="flex min-h-[320px] items-center justify-center text-center text-slate-500 sm:min-h-[420px]">
               اختر محادثة من القائمة لعرض الرسائل والرد عليها مباشرة
             </div>
           ) : (
@@ -554,31 +559,33 @@ export default function MessagesPage() {
                   ) : null}
 
                   {selectedThreadSummary.relatedId ? (
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] leading-none text-gray-700">
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] leading-none text-gray-700 break-all">
                       {selectedThreadSummary.relatedId}
                     </span>
                   ) : null}
                 </div>
 
-                <div className="mt-3 text-[20px] text-primary">{selectedThreadSummary.subject}</div>
+                <div className="mt-3 break-words text-[18px] text-primary sm:text-[20px]">
+                  {selectedThreadSummary.subject}
+                </div>
               </div>
 
-              <div className="max-h-[420px] space-y-3 overflow-y-auto rounded-[20px] border border-surface-border bg-white p-3">
+              <div className="max-h-[360px] space-y-3 overflow-y-auto rounded-[20px] border border-surface-border bg-white p-3 sm:max-h-[420px]">
                 {threadMessages.map((msg) => {
                   const mine = msg.senderId === user?.id;
                   return (
                     <div key={msg.id} className={`flex ${mine ? 'justify-start' : 'justify-end'}`}>
                       <div
-                        className={`max-w-[78%] rounded-[20px] px-4 py-3 text-right ${
+                        className={`w-full max-w-full sm:max-w-[78%] rounded-[20px] px-4 py-3 text-right ${
                           mine
                             ? 'bg-[#016564] text-white'
                             : 'border border-surface-border bg-slate-50 text-slate-800'
                         }`}
                       >
-                        <div className={`text-[12px] ${mine ? 'text-white/80' : 'text-slate-500'}`}>
+                        <div className={`break-words text-[12px] ${mine ? 'text-white/80' : 'text-slate-500'}`}>
                           {msg.senderName} — {formatDate(msg.createdAt)}
                         </div>
-                        <div className="mt-2 whitespace-pre-wrap text-[14px] leading-8">
+                        <div className="mt-2 whitespace-pre-wrap break-words text-[14px] leading-8">
                           {msg.body}
                         </div>
                       </div>
@@ -604,7 +611,9 @@ export default function MessagesPage() {
                 ) : null}
 
                 <div className="mt-3 flex justify-end">
-                  <Button onClick={handleReply}>إرسال الرد</Button>
+                  <Button onClick={handleReply} className="w-full sm:w-auto">
+                    إرسال الرد
+                  </Button>
                 </div>
               </div>
             </div>
@@ -619,6 +628,7 @@ export default function MessagesPage() {
           setError('');
         }}
         title="رسالة داخلية جديدة"
+        size="lg"
       >
         <div className="space-y-4">
           <div>
@@ -635,8 +645,8 @@ export default function MessagesPage() {
                   {item.role === 'manager'
                     ? 'مدير'
                     : item.role === 'warehouse'
-                      ? 'مسؤول مخزن'
-                      : 'موظف'}
+                    ? 'مسؤول مخزن'
+                    : 'موظف'}
                 </option>
               ))}
             </select>
@@ -696,7 +706,7 @@ export default function MessagesPage() {
             </div>
           ) : null}
 
-          <div className="flex justify-end gap-2 border-t pt-4">
+          <div className="flex flex-col-reverse justify-end gap-2 border-t pt-4 sm:flex-row">
             <Button
               type="button"
               variant="ghost"
@@ -704,10 +714,11 @@ export default function MessagesPage() {
                 setIsComposeOpen(false);
                 setError('');
               }}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
-            <Button type="button" onClick={handleSendNew}>
+            <Button type="button" onClick={handleSendNew} className="w-full sm:w-auto">
               إرسال
             </Button>
           </div>

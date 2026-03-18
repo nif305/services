@@ -1,15 +1,58 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { useAuth } from '@/context/AuthContext';
 
-type EditableRole = 'manager' | 'warehouse' | 'user';
-type EditableStatus = 'active' | 'pending' | 'disabled' | 'rejected' | 'archived';
+type UserRow = {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  extension?: string | null;
+  role: 'manager' | 'warehouse' | 'user';
+  status: 'active' | 'pending' | 'disabled';
+  operationalProject?: string | null;
+  createdAt?: string;
+};
+
+type FormState = {
+  fullName: string;
+  email: string;
+  phone: string;
+  extension: string;
+  role: 'manager' | 'warehouse' | 'user';
+  status: 'active' | 'pending' | 'disabled';
+  operationalProject: string;
+};
+
+const emptyForm: FormState = {
+  fullName: '',
+  email: '',
+  phone: '',
+  extension: '',
+  role: 'user',
+  status: 'active',
+  operationalProject: '',
+};
+
+function formatDate(value?: string | null) {
+  if (!value) return '—';
+  try {
+    return new Intl.DateTimeFormat('ar-SA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(value));
+  } catch {
+    return '—';
+  }
+}
 
 function normalizeArabic(value: string) {
   return (value || '')
@@ -24,325 +67,398 @@ function normalizeArabic(value: string) {
     .replace(/\s+/g, ' ');
 }
 
-function formatDate(value?: string | null) {
-  if (!value) return '—';
-  try {
-    return new Intl.DateTimeFormat('ar-SA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: 'numeric',
-    }).format(new Date(value));
-  } catch {
-    return '—';
-  }
-}
-
-function roleLabel(role?: string) {
+function roleLabel(role: UserRow['role']) {
   if (role === 'manager') return 'مدير';
   if (role === 'warehouse') return 'مسؤول مخزن';
   return 'موظف';
 }
 
-function statusMeta(status?: string): {
-  label: string;
-  variant: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
-} {
-  if (status === 'active') return { label: 'نشط', variant: 'success' };
-  if (status === 'pending') return { label: 'بانتظار المراجعة', variant: 'warning' };
-  if (status === 'disabled') return { label: 'موقوف', variant: 'danger' };
-  if (status === 'rejected') return { label: 'مرفوض', variant: 'danger' };
-  if (status === 'archived') return { label: 'مؤرشف', variant: 'neutral' };
-  return { label: 'غير معروف', variant: 'neutral' };
+function statusLabel(status: UserRow['status']) {
+  if (status === 'active') return 'نشط';
+  if (status === 'pending') return 'قيد المراجعة';
+  return 'معطل';
+}
+
+function statusVariant(status: UserRow['status']): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (status === 'active') return 'success';
+  if (status === 'pending') return 'warning';
+  if (status === 'disabled') return 'danger';
+  return 'neutral';
 }
 
 export default function UsersPage() {
-  const {
-    allUsers,
-    canManageUsers,
-    updateUserProfile,
-    resetUserPassword,
-    setUserMustChangePassword,
-    activateUser,
-    disableUser,
-    archiveUser,
-    approveUser,
-    rejectUser,
-  } = useAuth();
+  const { user } = useAuth();
+  const isManager = user?.role === 'manager';
 
+  const [rows, setRows] = useState<UserRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [passwordResult, setPasswordResult] = useState<string>('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'manager' | 'warehouse' | 'user'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'pending' | 'disabled'>('ALL');
 
-  const selectedUser = useMemo(
-    () => allUsers.find((user) => user.id === selectedId) || null,
-    [allUsers, selectedId]
-  );
+  const [selected, setSelected] = useState<UserRow | null>(null);
+  const [editing, setEditing] = useState<UserRow | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [saving, setSaving] = useState(false);
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [extension, setExtension] = useState('');
-  const [department, setDepartment] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
-  const [operationalProject, setOperationalProject] = useState('');
-  const [role, setRole] = useState<EditableRole>('user');
-  const [status, setStatus] = useState<EditableStatus>('active');
-  const [customPassword, setCustomPassword] = useState('');
+  useEffect(() => {
+    let mounted = true;
 
-  const filteredUsers = useMemo(() => {
+    async function fetchUsers() {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/users', { cache: 'no-store' });
+        const data = await res.json();
+
+        if (mounted) {
+          setRows(Array.isArray(data?.data) ? data.data : []);
+        }
+      } catch {
+        if (mounted) setRows([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    fetchUsers();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const stats = useMemo(() => {
+    return {
+      total: rows.length,
+      active: rows.filter((row) => row.status === 'active').length,
+      pending: rows.filter((row) => row.status === 'pending').length,
+      disabled: rows.filter((row) => row.status === 'disabled').length,
+    };
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
     const q = normalizeArabic(search);
-    return allUsers.filter((user) => {
+
+    return rows.filter((row) => {
+      const matchesRole = roleFilter === 'ALL' ? true : row.role === roleFilter;
+      const matchesStatus = statusFilter === 'ALL' ? true : row.status === statusFilter;
+
       const haystack = normalizeArabic(
         [
-          user.fullName,
-          user.email,
-          user.employeeId,
-          user.department,
-          user.jobTitle,
-          user.operationalProject,
+          row.fullName,
+          row.email,
+          row.phone,
+          row.extension,
+          row.operationalProject,
+          roleLabel(row.role),
+          statusLabel(row.status),
         ]
           .filter(Boolean)
           .join(' ')
       );
-      return q ? haystack.includes(q) : true;
+
+      const matchesSearch = q ? haystack.includes(q) : true;
+      return matchesRole && matchesStatus && matchesSearch;
     });
-  }, [allUsers, search]);
+  }, [rows, search, roleFilter, statusFilter]);
 
-  const openEditor = (userId: string) => {
-    const user = allUsers.find((item) => item.id === userId);
-    if (!user) return;
-
-    setSelectedId(user.id);
-    setPasswordResult('');
-    setCustomPassword('');
-    setFullName(user.fullName || '');
-    setEmail(user.email || '');
-    setMobile(user.mobile || '');
-    setExtension(user.extension || '');
-    setDepartment(user.department || '');
-    setJobTitle(user.jobTitle || '');
-    setOperationalProject(user.operationalProject || '');
-    setRole((user.role as EditableRole) || 'user');
-    setStatus((user.status as EditableStatus) || 'active');
-  };
-
-  const closeEditor = () => {
-    setSelectedId(null);
-    setPasswordResult('');
-    setCustomPassword('');
-  };
-
-  const handleSave = () => {
-    if (!selectedUser) return;
-
-    const result = updateUserProfile(selectedUser.id, {
-      fullName,
-      email,
-      mobile,
-      extension,
-      department,
-      jobTitle,
-      operationalProject,
-      role,
-      status,
+  const openEdit = (row: UserRow) => {
+    setEditing(row);
+    setForm({
+      fullName: row.fullName || '',
+      email: row.email || '',
+      phone: row.phone || '',
+      extension: row.extension || '',
+      role: row.role,
+      status: row.status,
+      operationalProject: row.operationalProject || '',
     });
-
-    if (!result.ok) {
-      alert(result.message || 'تعذر حفظ التعديلات');
-      return;
-    }
-
-    alert('تم حفظ بيانات المستخدم');
   };
 
-  const handleResetPassword = () => {
-    if (!selectedUser) return;
-
-    const result = resetUserPassword(selectedUser.id, customPassword);
-    if (!result.ok) {
-      alert(result.message || 'تعذر إعادة تعيين كلمة المرور');
-      return;
-    }
-
-    setPasswordResult(result.password || '');
-    setCustomPassword('');
-    alert('تمت إعادة تعيين كلمة المرور بنجاح');
+  const closeEdit = () => {
+    setEditing(null);
+    setForm(emptyForm);
   };
 
-  if (!canManageUsers) {
+  const handleSave = async () => {
+    if (!editing) return;
+    setSaving(true);
+
+    try {
+      const res = await fetch(`/api/users/${editing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || 'تعذر حفظ التعديلات');
+        return;
+      }
+
+      setRows((prev) =>
+        prev.map((item) =>
+          item.id === editing.id
+            ? {
+                ...item,
+                ...form,
+              }
+            : item
+        )
+      );
+
+      closeEdit();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isManager) {
     return (
-      <Card className="rounded-[28px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">
-        هذه الصفحة مخصصة للمدير فقط.
-      </Card>
+      <div className="rounded-[22px] border border-red-200 bg-red-50 p-6 text-center text-red-700 sm:rounded-[26px]">
+        غير مصرح لك بالوصول لهذه الصفحة
+      </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-[28px] border border-[#d6d7d4] bg-white px-5 py-5 shadow-sm">
+    <div className="space-y-4 sm:space-y-5">
+      <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="space-y-2">
-          <h1 className="text-2xl font-extrabold text-[#016564]">إدارة المستخدمين</h1>
-          <p className="text-sm text-[#61706f]">
-            إدارة فعلية لبيانات المستخدمين، الصلاحيات، الحالات، وإعادة تعيين كلمات المرور.
+          <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">
+            المستخدمون
+          </h1>
+          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">
+            إدارة المستخدمين، مراجعة حالاتهم، وتحديث أدوارهم ومعلوماتهم التشغيلية.
           </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">إجمالي المستخدمين</div>
-            <div className="mt-1 text-xl font-extrabold text-[#016564]">{allUsers.length}</div>
-          </Card>
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">نشطون</div>
-            <div className="mt-1 text-xl font-extrabold text-[#016564]">
-              {allUsers.filter((u) => u.status === 'active').length}
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+            <div className="text-[12px] text-[#6f7b7a]">إجمالي المستخدمين</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564] sm:text-xl">
+              {stats.total}
             </div>
           </Card>
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">بانتظار المراجعة</div>
-            <div className="mt-1 text-xl font-extrabold text-[#d0b284]">
-              {allUsers.filter((u) => u.status === 'pending').length}
+
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+            <div className="text-[12px] text-[#6f7b7a]">النشطون</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564] sm:text-xl">
+              {stats.active}
             </div>
           </Card>
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">موقوفون / مؤرشفون</div>
-            <div className="mt-1 text-xl font-extrabold text-[#7c1e3e]">
-              {
-                allUsers.filter((u) => u.status === 'disabled' || u.status === 'archived').length
-              }
+
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+            <div className="text-[12px] text-[#6f7b7a]">قيد المراجعة</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284] sm:text-xl">
+              {stats.pending}
+            </div>
+          </Card>
+
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+            <div className="text-[12px] text-[#6f7b7a]">المعطلون</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e] sm:text-xl">
+              {stats.disabled}
             </div>
           </Card>
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:p-5">
-        <Input
-          label="بحث"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="ابحث بالاسم أو البريد أو الإدارة أو الرقم الوظيفي"
-        />
+      <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[1fr_180px_180px]">
+          <Input
+            label="بحث"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="الاسم، البريد، الجوال، أو المشروع التشغيلي"
+          />
+
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">الدور</label>
+            <select
+              value={roleFilter}
+              onChange={(e) =>
+                setRoleFilter(e.target.value as 'ALL' | 'manager' | 'warehouse' | 'user')
+              }
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
+            >
+              <option value="ALL">الكل</option>
+              <option value="manager">مدير</option>
+              <option value="warehouse">مسؤول مخزن</option>
+              <option value="user">موظف</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">الحالة</label>
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as 'ALL' | 'active' | 'pending' | 'disabled')
+              }
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
+            >
+              <option value="ALL">الكل</option>
+              <option value="active">نشط</option>
+              <option value="pending">قيد المراجعة</option>
+              <option value="disabled">معطل</option>
+            </select>
+          </div>
+        </div>
       </section>
 
       <section className="space-y-3">
-        {filteredUsers.length === 0 ? (
-          <Card className="rounded-[28px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((item) => (
+              <Skeleton key={item} className="h-32 w-full rounded-[24px] sm:rounded-3xl" />
+            ))}
+          </div>
+        ) : filteredRows.length === 0 ? (
+          <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">
             لا توجد نتائج مطابقة
           </Card>
         ) : (
-          filteredUsers.map((user) => {
-            const meta = statusMeta(user.status);
-            return (
-              <Card
-                key={user.id}
-                className="rounded-[28px] border border-[#d6d7d4] p-4 shadow-sm sm:p-5"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="text-base font-bold text-[#152625]">{user.fullName}</div>
-                      <Badge variant={meta.variant}>{meta.label}</Badge>
-                      <Badge variant="neutral">{roleLabel(user.role)}</Badge>
-                      {user.mustChangePassword ? (
-                        <Badge variant="warning">يجب تغيير كلمة المرور</Badge>
-                      ) : null}
+          filteredRows.map((row) => (
+            <Card
+              key={row.id}
+              className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="break-words text-[16px] font-bold leading-7 text-[#152625] sm:text-[18px]">
+                      {row.fullName}
                     </div>
-
-                    <div className="grid gap-2 text-xs text-[#61706f] sm:grid-cols-2">
-                      <div>البريد: {user.email || '—'}</div>
-                      <div>الرقم الوظيفي: {user.employeeId || '—'}</div>
-                      <div>الإدارة: {user.department || '—'}</div>
-                      <div>المسمى: {user.jobTitle || '—'}</div>
-                      <div>الجوال: {user.mobile || '—'}</div>
-                      <div>التحويلة: {user.extension || '—'}</div>
-                      <div>المشروع: {user.operationalProject || '—'}</div>
-                      <div>آخر دخول: {formatDate(user.lastLoginAt)}</div>
-                    </div>
+                    <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
+                    <Badge variant="info">{roleLabel(row.role)}</Badge>
                   </div>
 
-                  <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                    {user.status === 'pending' ? (
-                      <>
-                        <Button className="w-full sm:w-auto" onClick={() => approveUser(user.id)}>
-                          اعتماد
-                        </Button>
-                        <Button
-                          variant="danger"
-                          className="w-full sm:w-auto"
-                          onClick={() => rejectUser(user.id)}
-                        >
-                          رفض
-                        </Button>
-                      </>
-                    ) : null}
-
-                    {user.status === 'disabled' || user.status === 'archived' ? (
-                      <Button className="w-full sm:w-auto" onClick={() => activateUser(user.id)}>
-                        تفعيل
-                      </Button>
-                    ) : null}
-
-                    {user.status === 'active' ? (
-                      <>
-                        <Button
-                          variant="secondary"
-                          className="w-full sm:w-auto"
-                          onClick={() => disableUser(user.id)}
-                        >
-                          إيقاف
-                        </Button>
-                        <Button
-                          variant="danger"
-                          className="w-full sm:w-auto"
-                          onClick={() => archiveUser(user.id)}
-                        >
-                          أرشفة
-                        </Button>
-                      </>
-                    ) : null}
-
-                    <Button
-                      variant="secondary"
-                      className="w-full sm:w-auto"
-                      onClick={() => openEditor(user.id)}
-                    >
-                      إدارة المستخدم
-                    </Button>
+                  <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
+                    <div className="break-all">البريد: {row.email}</div>
+                    <div>الجوال: {row.phone || '—'}</div>
+                    <div>التحويلة: {row.extension || '—'}</div>
+                    <div className="break-words">المشروع: {row.operationalProject || '—'}</div>
+                    <div className="sm:col-span-2">تاريخ الإنشاء: {formatDate(row.createdAt)}</div>
                   </div>
                 </div>
-              </Card>
-            );
-          })
+
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                  <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setSelected(row)}>
+                    عرض
+                  </Button>
+                  <Button className="w-full sm:w-auto" onClick={() => openEdit(row)}>
+                    تعديل
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))
         )}
       </section>
 
       <Modal
-        isOpen={!!selectedUser}
-        onClose={closeEditor}
-        title={selectedUser ? `إدارة المستخدم: ${selectedUser.fullName}` : 'إدارة المستخدم'}
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected ? `تفاصيل المستخدم: ${selected.fullName}` : 'تفاصيل المستخدم'}
       >
-        {selectedUser ? (
-          <div className="space-y-5">
-            <section className="grid gap-4 sm:grid-cols-2">
-              <Input label="الاسم الكامل" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-              <Input label="البريد الإلكتروني" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <Input label="رقم الجوال" value={mobile} onChange={(e) => setMobile(e.target.value)} />
-              <Input label="التحويلة" value={extension} onChange={(e) => setExtension(e.target.value)} />
-              <Input label="الإدارة" value={department} onChange={(e) => setDepartment(e.target.value)} />
-              <Input label="المسمى الوظيفي" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+        {selected ? (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">الاسم</div>
+                <div className="mt-1 break-words text-sm leading-7 text-[#304342]">
+                  {selected.fullName}
+                </div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">البريد الإلكتروني</div>
+                <div className="mt-1 break-all text-sm leading-7 text-[#304342]">
+                  {selected.email}
+                </div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">الدور</div>
+                <div className="mt-1 text-sm leading-7 text-[#304342]">{roleLabel(selected.role)}</div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">الحالة</div>
+                <div className="mt-1 text-sm leading-7 text-[#304342]">{statusLabel(selected.status)}</div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">الجوال</div>
+                <div className="mt-1 text-sm leading-7 text-[#304342]">{selected.phone || '—'}</div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">التحويلة</div>
+                <div className="mt-1 text-sm leading-7 text-[#304342]">{selected.extension || '—'}</div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">المشروع التشغيلي</div>
+                <div className="mt-1 break-words text-sm leading-7 text-[#304342]">
+                  {selected.operationalProject || '—'}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">
+                إغلاق
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      <Modal
+        isOpen={!!editing}
+        onClose={closeEdit}
+        title={editing ? `تعديل المستخدم: ${editing.fullName}` : 'تعديل المستخدم'}
+      >
+        {editing ? (
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Input
-                label="المشروع التشغيلي"
-                value={operationalProject}
-                onChange={(e) => setOperationalProject(e.target.value)}
+                label="الاسم"
+                value={form.fullName}
+                onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
+              />
+
+              <Input
+                label="البريد الإلكتروني"
+                value={form.email}
+                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+              />
+
+              <Input
+                label="الجوال"
+                value={form.phone}
+                onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+              />
+
+              <Input
+                label="التحويلة"
+                value={form.extension}
+                onChange={(e) => setForm((prev) => ({ ...prev, extension: e.target.value }))}
               />
 
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700">الدور</label>
                 <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as EditableRole)}
+                  value={form.role}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      role: e.target.value as 'manager' | 'warehouse' | 'user',
+                    }))
+                  }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
                 >
                   <option value="manager">مدير</option>
@@ -354,82 +470,38 @@ export default function UsersPage() {
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700">الحالة</label>
                 <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as EditableStatus)}
+                  value={form.status}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      status: e.target.value as 'active' | 'pending' | 'disabled',
+                    }))
+                  }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
                 >
                   <option value="active">نشط</option>
-                  <option value="pending">بانتظار المراجعة</option>
-                  <option value="disabled">موقوف</option>
-                  <option value="rejected">مرفوض</option>
-                  <option value="archived">مؤرشف</option>
+                  <option value="pending">قيد المراجعة</option>
+                  <option value="disabled">معطل</option>
                 </select>
               </div>
-            </section>
 
-            <section className="rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] p-4">
-              <div className="mb-3 text-sm font-bold text-[#016564]">إدارة كلمة المرور</div>
-
-              <div className="grid gap-4 sm:grid-cols-[1fr_180px]">
+              <div className="sm:col-span-2">
                 <Input
-                  label="كلمة مرور جديدة"
-                  value={customPassword}
-                  onChange={(e) => setCustomPassword(e.target.value)}
-                  placeholder="اتركها فارغة لتوليد كلمة مرور مؤقتة"
+                  label="المشروع التشغيلي"
+                  value={form.operationalProject}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, operationalProject: e.target.value }))
+                  }
                 />
-                <div className="flex items-end">
-                  <Button className="w-full" onClick={handleResetPassword}>
-                    إعادة التعيين
-                  </Button>
-                </div>
               </div>
+            </div>
 
-              {passwordResult ? (
-                <div className="mt-4 rounded-2xl border border-[#d6d7d4] bg-white px-4 py-3 text-sm text-[#304342]">
-                  <div className="font-semibold text-[#016564]">كلمة المرور المؤقتة الجديدة</div>
-                  <div className="mt-2 font-mono text-base">{passwordResult}</div>
-                </div>
-              ) : null}
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  variant="secondary"
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    const result = setUserMustChangePassword(selectedUser.id, true);
-                    if (!result.ok) {
-                      alert(result.message || 'تعذر تنفيذ العملية');
-                      return;
-                    }
-                    alert('تم فرض تغيير كلمة المرور عند الدخول القادم');
-                  }}
-                >
-                  فرض تغيير كلمة المرور
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  className="w-full sm:w-auto"
-                  onClick={() => {
-                    const result = setUserMustChangePassword(selectedUser.id, false);
-                    if (!result.ok) {
-                      alert(result.message || 'تعذر تنفيذ العملية');
-                      return;
-                    }
-                    alert('تم إلغاء فرض تغيير كلمة المرور');
-                  }}
-                >
-                  إلغاء الفرض
-                </Button>
-              </div>
-            </section>
-
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="ghost" className="w-full sm:w-auto" onClick={closeEditor}>
-                إغلاق
+            <div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
+              <Button variant="ghost" onClick={closeEdit} className="w-full sm:w-auto">
+                إلغاء
               </Button>
-              <Button className="w-full sm:w-auto" onClick={handleSave}>
-                حفظ التعديلات
+              <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
+                {saving ? 'جارٍ الحفظ...' : 'حفظ التعديل'}
               </Button>
             </div>
           </div>

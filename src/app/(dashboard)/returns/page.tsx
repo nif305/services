@@ -82,6 +82,20 @@ function statusBadge(ret: ReturnItem) {
   return <Badge variant="warning">بانتظار الاستلام والتوثيق</Badge>;
 }
 
+function formatDate(value?: string | null) {
+  if (!value) return '-';
+
+  try {
+    return new Intl.DateTimeFormat('ar-SA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(value));
+  } catch {
+    return '-';
+  }
+}
+
 export default function ReturnsPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -155,8 +169,9 @@ export default function ReturnsPage() {
     setDeclarationAck(false);
   };
 
-  const handleCloseCreateModal = () => {
-    handleCloseCreateModal();
+  const closeCreateModal = () => {
+    setIsCreateOpen(false);
+    resetCreateForm();
 
     if (searchParams.get('new') === '1') {
       router.replace('/returns');
@@ -221,7 +236,7 @@ export default function ReturnsPage() {
       dedupeKey: `return-created-admin-${data?.id || custodyId}`,
     });
 
-    handleCloseCreateModal();
+    closeCreateModal();
     fetchReturns();
     fetchCustodies();
   };
@@ -250,7 +265,10 @@ export default function ReturnsPage() {
       return;
     }
 
-    const requesterId = (selectedReturn as any)?.requesterId || (data as any)?.requesterId || (selectedReturn as any)?.userId;
+    const requesterId =
+      (selectedReturn as any)?.requesterId ||
+      (data as any)?.requesterId ||
+      (selectedReturn as any)?.userId;
 
     if (requesterId) {
       createNotification({
@@ -307,7 +325,10 @@ export default function ReturnsPage() {
       return;
     }
 
-    const requesterId = (selectedReturn as any)?.requesterId || (data as any)?.requesterId || (selectedReturn as any)?.userId;
+    const requesterId =
+      (selectedReturn as any)?.requesterId ||
+      (data as any)?.requesterId ||
+      (selectedReturn as any)?.userId;
 
     if (requesterId) {
       createNotification({
@@ -315,7 +336,9 @@ export default function ReturnsPage() {
         kind: 'notification',
         severity: 'action',
         title: 'تم رفض طلب الإرجاع',
-        message: `تم رفض طلب الإرجاع ${selectedReturn.code}${receivedNotes ? ` بسبب: ${receivedNotes}` : '.'}`,
+        message: `تم رفض طلب الإرجاع ${selectedReturn.code}${
+          receivedNotes ? ` بسبب: ${receivedNotes}` : '.'
+        }`,
         link: '/returns',
         entityType: 'RETURN',
         entityId: selectedReturn.id,
@@ -328,14 +351,14 @@ export default function ReturnsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-[28px] border border-surface-border bg-white p-5 shadow-soft">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="rounded-[24px] border border-surface-border bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-[30px] leading-[1.25] text-primary">
+          <div className="min-w-0">
+            <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">
               {isEmployee ? 'طلبات الإرجاع' : 'الاستلام والإغلاق'}
             </h1>
-            <p className="mt-2 text-[14px] leading-7 text-surface-subtle">
+            <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
               {isEmployee
                 ? 'ارفع طلب إرجاع للعهدة الشخصية مع توضيح حالة المادة وإرفاق الصور عند الحاجة.'
                 : 'استلام المواد الراجعة وتوثيق حالتها وإغلاق الطلبات بشكل موحد للمدير ومسؤول المخزن.'}
@@ -343,45 +366,59 @@ export default function ReturnsPage() {
           </div>
 
           {isEmployee ? (
-            <Button onClick={() => setIsCreateOpen(true)}>طلب إرجاع جديد</Button>
+            <Button onClick={() => setIsCreateOpen(true)} className="w-full sm:w-auto">
+              طلب إرجاع جديد
+            </Button>
           ) : null}
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-4">
-          <Card className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-            <p className="text-[13px] text-slate-600">إجمالي الطلبات</p>
-            <p className="mt-2 text-[32px] leading-none text-slate-900">{stats.total}</p>
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4 sm:mt-5 sm:gap-4">
+          <Card className="rounded-[20px] border border-slate-200 bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
+            <p className="text-[12px] text-slate-600 sm:text-[13px]">إجمالي الطلبات</p>
+            <p className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.total}
+            </p>
           </Card>
 
-          <Card className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
-            <p className="text-[13px] text-amber-700">بانتظار الاستلام والتوثيق</p>
-            <p className="mt-2 text-[32px] leading-none text-slate-900">{stats.pending}</p>
+          <Card className="rounded-[20px] border border-amber-200 bg-amber-50 p-3 sm:rounded-[22px] sm:p-4">
+            <p className="text-[12px] text-amber-700 sm:text-[13px]">بانتظار الاستلام والتوثيق</p>
+            <p className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.pending}
+            </p>
           </Card>
 
-          <Card className="rounded-[22px] border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-[13px] text-emerald-700">أُغلقت سليمة</p>
-            <p className="mt-2 text-[32px] leading-none text-slate-900">{stats.good}</p>
+          <Card className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-3 sm:rounded-[22px] sm:p-4">
+            <p className="text-[12px] text-emerald-700 sm:text-[13px]">أُغلقت سليمة</p>
+            <p className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.good}
+            </p>
           </Card>
 
-          <Card className="rounded-[22px] border border-red-200 bg-red-50 p-4">
-            <p className="text-[13px] text-red-700">أُغلقت غير سليمة</p>
-            <p className="mt-2 text-[32px] leading-none text-slate-900">{stats.damaged}</p>
+          <Card className="rounded-[20px] border border-red-200 bg-red-50 p-3 sm:rounded-[22px] sm:p-4">
+            <p className="text-[12px] text-red-700 sm:text-[13px]">أُغلقت غير سليمة</p>
+            <p className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.damaged}
+            </p>
           </Card>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {returns.length === 0 ? (
-          <Card className="rounded-[28px] p-8 text-center text-slate-500">
+          <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px]">
             لا توجد طلبات إرجاع حالياً
           </Card>
         ) : (
           returns.map((ret) => (
-            <Card key={ret.id} className="rounded-[28px] border border-surface-border p-5 shadow-soft">
+            <Card
+              key={ret.id}
+              className="rounded-[24px] border border-surface-border p-4 shadow-soft sm:rounded-[28px] sm:p-5"
+            >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
                     {statusBadge(ret)}
+
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700">
                       الحالة المبلّغ عنها: {conditionLabel(ret.returnType)}
                     </span>
@@ -393,33 +430,30 @@ export default function ReturnsPage() {
                     ) : null}
                   </div>
 
-                  <h3 className="text-[20px] leading-8 text-primary">{ret.code}</h3>
+                  <h3 className="text-[18px] leading-8 text-primary sm:text-[20px]">{ret.code}</h3>
 
-                  <div className="mt-2 grid gap-2 text-[13px] leading-7 text-slate-600 md:grid-cols-2">
+                  <div className="mt-3 grid gap-2 rounded-[20px] bg-slate-50 p-3 text-[13px] leading-7 text-slate-600 md:grid-cols-2 sm:p-4">
                     <div>
                       المادة: <span className="text-slate-900">{ret.custody?.item?.name || '-'}</span>
                     </div>
                     <div>
-                      المستخدم: <span className="text-slate-900">{ret.custody?.user?.fullName || '-'}</span>
+                      المستخدم:{' '}
+                      <span className="text-slate-900">{ret.custody?.user?.fullName || '-'}</span>
                     </div>
                     <div>
-                      رقم المادة: <span className="text-slate-900">{ret.custody?.item?.code || '-'}</span>
+                      رقم المادة:{' '}
+                      <span className="text-slate-900">{ret.custody?.item?.code || '-'}</span>
                     </div>
                     <div>
-                      تاريخ الطلب:{' '}
-                      <span className="text-slate-900">
-                        {ret.createdAt ? new Date(ret.createdAt).toLocaleDateString('ar-SA') : '-'}
-                      </span>
+                      تاريخ الطلب: <span className="text-slate-900">{formatDate(ret.createdAt)}</span>
                     </div>
                     <div>
                       تاريخ الاستلام والتوثيق:{' '}
-                      <span className="text-slate-900">
-                        {ret.processedAt ? new Date(ret.processedAt).toLocaleDateString('ar-SA') : '-'}
-                      </span>
+                      <span className="text-slate-900">{formatDate(ret.processedAt)}</span>
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-[20px] border border-surface-border bg-slate-50 p-4 text-[13px] leading-7 text-slate-700">
+                  <div className="mt-3 rounded-[20px] border border-surface-border bg-white p-3 text-[13px] leading-7 text-slate-700 sm:p-4">
                     <div>
                       ملاحظات طالب الإرجاع:{' '}
                       <span className="text-slate-900">
@@ -443,21 +477,22 @@ export default function ReturnsPage() {
                   </div>
 
                   {ret.damageImages ? (
-                    <div className="mt-3 text-[12px] leading-6 text-slate-500">
+                    <div className="mt-3 break-words text-[12px] leading-6 text-slate-500">
                       صور مرفقة من طالب الإرجاع: {ret.damageImages}
                     </div>
                   ) : null}
 
                   {ret.receivedImages ? (
-                    <div className="mt-2 text-[12px] leading-6 text-slate-500">
+                    <div className="mt-2 break-words text-[12px] leading-6 text-slate-500">
                       صور مرفقة عند الاستلام: {ret.receivedImages}
                     </div>
                   ) : null}
                 </div>
 
                 {canProcessReturns && ret.status === 'PENDING' ? (
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex w-full shrink-0 flex-col gap-2 lg:w-auto">
                     <Button
+                      className="w-full lg:w-auto"
                       onClick={() => {
                         setSelectedReturn(ret);
                         setReceivedType(ret.returnType || 'GOOD');
@@ -477,11 +512,9 @@ export default function ReturnsPage() {
 
       <Modal
         isOpen={isCreateOpen}
-        onClose={() => {
-          setIsCreateOpen(false);
-          resetCreateForm();
-        }}
+        onClose={closeCreateModal}
         title="طلب إرجاع جديد"
+        size="lg"
       >
         <form onSubmit={handleCreateReturn} className="space-y-4">
           <div>
@@ -537,35 +570,32 @@ export default function ReturnsPage() {
               className="w-full rounded-xl border border-surface-border bg-white p-3"
             />
             {attachments.length > 0 ? (
-              <div className="mt-2 text-[12px] leading-6 text-slate-500">
+              <div className="mt-2 break-words text-[12px] leading-6 text-slate-500">
                 الملفات المختارة: {attachments.map((file) => file.name).join(' ، ')}
               </div>
             ) : null}
           </div>
 
-          <label className="flex items-start gap-3 rounded-xl border border-surface-border p-3 text-sm text-slate-700">
+          <label className="flex items-start gap-3 rounded-xl border border-surface-border p-3 text-sm leading-7 text-slate-700">
             <input
               type="checkbox"
-              className="mt-1 h-4 w-4"
+              className="mt-1 h-4 w-4 shrink-0"
               checked={declarationAck}
               onChange={(e) => setDeclarationAck(e.target.checked)}
               required
             />
-            <span>أقر بصحة المعلومات، وأن المادة ستُسلّم للاستلام والتوثيق حسب حالتها الفعلية.</span>
+            <span>
+              أقر بصحة المعلومات، وأن المادة ستُسلّم للاستلام والتوثيق حسب حالتها الفعلية.
+            </span>
           </label>
 
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setIsCreateOpen(false);
-                resetCreateForm();
-              }}
-            >
+          <div className="flex flex-col-reverse justify-end gap-2 border-t pt-4 sm:flex-row">
+            <Button type="button" variant="ghost" onClick={closeCreateModal} className="w-full sm:w-auto">
               إلغاء
             </Button>
-            <Button type="submit">إرسال طلب الإرجاع</Button>
+            <Button type="submit" className="w-full sm:w-auto">
+              إرسال طلب الإرجاع
+            </Button>
           </div>
         </form>
       </Modal>
@@ -574,6 +604,7 @@ export default function ReturnsPage() {
         isOpen={!!selectedReturn}
         onClose={resetProcessForm}
         title="استلام وتوثيق حالة المادة"
+        size="lg"
       >
         <div className="space-y-4">
           <div className="rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-7 text-slate-700">
@@ -619,20 +650,20 @@ export default function ReturnsPage() {
               className="w-full rounded-xl border border-surface-border bg-white p-3"
             />
             {receivedImages.length > 0 ? (
-              <div className="mt-2 text-[12px] leading-6 text-slate-500">
+              <div className="mt-2 break-words text-[12px] leading-6 text-slate-500">
                 الملفات المختارة: {receivedImages.map((file) => file.name).join(' ، ')}
               </div>
             ) : null}
           </div>
 
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <Button type="button" variant="ghost" onClick={resetProcessForm}>
+          <div className="flex flex-col-reverse justify-end gap-2 border-t pt-4 sm:flex-row">
+            <Button type="button" variant="ghost" onClick={resetProcessForm} className="w-full sm:w-auto">
               إلغاء
             </Button>
-            <Button type="button" variant="danger" onClick={handleRejectReturn}>
+            <Button type="button" variant="danger" onClick={handleRejectReturn} className="w-full sm:w-auto">
               رفض الطلب
             </Button>
-            <Button type="button" onClick={handleApproveReturn}>
+            <Button type="button" onClick={handleApproveReturn} className="w-full sm:w-auto">
               حفظ الاستلام والإغلاق
             </Button>
           </div>

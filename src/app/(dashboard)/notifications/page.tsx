@@ -156,44 +156,54 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-[28px] border border-surface-border bg-white p-5 shadow-soft">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="rounded-[24px] border border-surface-border bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-[30px] leading-[1.25] text-primary">الإشعارات والتنبيهات</h1>
-            <p className="mt-2 text-[14px] leading-7 text-surface-subtle">
+          <div className="min-w-0">
+            <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">
+              الإشعارات والتنبيهات
+            </h1>
+            <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
               سجل موحد يوضح ما يخصك من مستجدات تشغيلية، واعتمادات، وإرجاعات، وتنبيهات مرتبطة بالمخزون أو العهد.
             </p>
           </div>
 
-          <Button variant="secondary" onClick={handleMarkAllRead}>
+          <Button variant="secondary" onClick={handleMarkAllRead} className="w-full sm:w-auto">
             تعليم الكل كمقروء
           </Button>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-4">
-          <Card className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 shadow-none">
-            <div className="text-[13px] text-slate-600">إجمالي العناصر</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">{stats.total}</div>
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4 sm:mt-5 sm:gap-4">
+          <Card className="rounded-[20px] border border-slate-200 bg-slate-50 p-3 shadow-none sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-slate-600 sm:text-[13px]">إجمالي العناصر</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.total}
+            </div>
           </Card>
 
-          <Card className="rounded-[22px] border border-emerald-200 bg-emerald-50 p-4 shadow-none">
-            <div className="text-[13px] text-emerald-700">غير المقروء</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">{stats.unread}</div>
+          <Card className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-3 shadow-none sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-emerald-700 sm:text-[13px]">غير المقروء</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.unread}
+            </div>
           </Card>
 
-          <Card className="rounded-[22px] border border-amber-200 bg-amber-50 p-4 shadow-none">
-            <div className="text-[13px] text-amber-700">التنبيهات</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">{stats.alerts}</div>
+          <Card className="rounded-[20px] border border-amber-200 bg-amber-50 p-3 shadow-none sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-amber-700 sm:text-[13px]">التنبيهات</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.alerts}
+            </div>
           </Card>
 
-          <Card className="rounded-[22px] border border-rose-200 bg-rose-50 p-4 shadow-none">
-            <div className="text-[13px] text-rose-700">العناصر الحرجة</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">{stats.critical}</div>
+          <Card className="rounded-[20px] border border-rose-200 bg-rose-50 p-3 shadow-none sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-rose-700 sm:text-[13px]">العناصر الحرجة</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.critical}
+            </div>
           </Card>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
           {[
             { key: 'ALL', label: 'الكل' },
             { key: 'UNREAD', label: 'غير المقروء' },
@@ -204,8 +214,10 @@ export default function NotificationsPage() {
             <button
               key={tab.key}
               onClick={() => setFilter(tab.key as FilterKey)}
-              className={`rounded-full px-4 py-2 text-sm transition ${
-                filter === tab.key ? 'bg-[#016564] text-white' : 'border border-slate-200 bg-white text-slate-700'
+              className={`min-h-[42px] rounded-full px-4 py-2 text-sm transition ${
+                filter === tab.key
+                  ? 'bg-[#016564] text-white'
+                  : 'border border-slate-200 bg-white text-slate-700'
               }`}
             >
               {tab.label}
@@ -214,16 +226,16 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {filteredItems.length === 0 ? (
-          <Card className="rounded-[28px] border border-dashed border-slate-200 p-10 text-center text-slate-500">
+          <Card className="rounded-[24px] border border-dashed border-slate-200 p-8 text-center text-slate-500 sm:rounded-[28px] sm:p-10">
             لا توجد عناصر مطابقة لهذا التصنيف
           </Card>
         ) : (
           filteredItems.map((item) => (
             <Card
               key={item.id}
-              className={`rounded-[28px] border p-5 shadow-soft ${itemClasses(item)}`}
+              className={`rounded-[24px] border p-4 shadow-soft sm:rounded-[28px] sm:p-5 ${itemClasses(item)}`}
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
@@ -241,22 +253,39 @@ export default function NotificationsPage() {
                     ) : null}
                   </div>
 
-                  <h2 className="mt-3 text-[20px] leading-8 text-slate-900">{item.title}</h2>
-                  <p className="mt-2 text-[14px] leading-8 text-slate-600">{item.message}</p>
-                  <div className="mt-3 text-[12px] text-slate-500">{formatDate(item.createdAt)}</div>
+                  <h2 className="mt-3 break-words text-[18px] leading-8 text-slate-900 sm:text-[20px]">
+                    {item.title}
+                  </h2>
+                  <p className="mt-2 break-words text-[13px] leading-7 text-slate-600 sm:text-[14px] sm:leading-8">
+                    {item.message}
+                  </p>
+                  <div className="mt-3 text-[12px] leading-6 text-slate-500">
+                    {formatDate(item.createdAt)}
+                  </div>
                 </div>
 
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
                   {!item.isRead ? (
-                    <Button variant="secondary" onClick={() => handleMarkRead(item.id)}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleMarkRead(item.id)}
+                      className="w-full sm:w-auto"
+                    >
                       تعليم كمقروء
                     </Button>
                   ) : null}
 
                   {resolveItemLink(item) ? (
-                    <Button onClick={() => handleOpenItem(item)}>فتح</Button>
+                    <Button
+                      onClick={() => handleOpenItem(item)}
+                      className="w-full sm:w-auto"
+                    >
+                      فتح
+                    </Button>
                   ) : (
-                    <Button disabled>لا يوجد مسار</Button>
+                    <Button disabled className="w-full sm:w-auto">
+                      لا يوجد مسار
+                    </Button>
                   )}
                 </div>
               </div>
@@ -266,4 +295,4 @@ export default function NotificationsPage() {
       </div>
     </div>
   );
-} 
+}

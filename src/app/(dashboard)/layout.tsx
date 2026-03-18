@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -20,7 +20,7 @@ type NavGroup = {
   items: NavItem[];
 };
 
-const iconClass = 'h-5 w-5';
+const iconClass = 'h-5 w-5 shrink-0';
 
 const managerWarehouseGroups: NavGroup[] = [
   {
@@ -299,6 +299,22 @@ function UserIcon() {
   );
 }
 
+function MenuIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
+      <path d="M6 6 18 18M18 6 6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function DashboardLayout({
   children,
 }: {
@@ -307,6 +323,25 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { user, logout, switchViewRole, originalUser, canUseRoleSwitch } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const originalOverflow = document.body.style.overflow;
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = originalOverflow || '';
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow || '';
+    };
+  }, [mobileOpen]);
 
   const visibleGroups = useMemo(() => {
     return getNavGroups(user?.role)
@@ -317,25 +352,35 @@ export default function DashboardLayout({
       .filter((group) => group.items.length > 0);
   }, [user?.role]);
 
-  const Sidebar = (
-    <div className="flex h-full flex-col">
-      <div className="px-5 pb-4 pt-5">
-        <div className="rounded-[30px] border border-white/70 bg-white/90 p-4 shadow-soft backdrop-blur">
-          <div className="flex items-center justify-end">
+  const sidebarContent = (
+    <div className="flex h-full min-h-0 flex-col bg-[#f7f9f9]">
+      <div className="shrink-0 px-4 pb-4 pt-4 sm:px-5 sm:pt-5">
+        <div className="rounded-[26px] border border-white/70 bg-white/90 p-4 shadow-soft backdrop-blur">
+          <div className="flex items-center justify-between gap-3 xl:justify-end">
+            <div className="xl:hidden">
+              <button
+                onClick={() => setMobileOpen(false)}
+                aria-label="إغلاق القائمة"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-soft"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
             <img
               src="https://nauss.edu.sa/Style%20Library/ar-sa/Styles/images/home/Logo.svg"
               alt="شعار جامعة نايف"
-              className="h-24 w-auto object-contain"
+              className="h-16 w-auto object-contain sm:h-20 xl:h-24"
             />
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 sm:px-4 sm:pb-5">
         <div className="space-y-6">
           {visibleGroups.map((group) => (
             <div key={group.title}>
-              <p className="mb-3 px-2 text-xs tracking-[0.08em] text-slate-400">
+              <p className="mb-3 px-2 text-[11px] tracking-[0.08em] text-slate-400 sm:text-xs">
                 {group.title}
               </p>
 
@@ -348,24 +393,24 @@ export default function DashboardLayout({
                       key={item.href}
                       href={item.href}
                       onClick={() => setMobileOpen(false)}
-                      className={`group flex items-center gap-3 rounded-2xl px-3 py-3 transition ${
+                      className={`group flex min-h-[56px] items-center gap-3 rounded-2xl px-3 py-3 transition ${
                         active
                           ? 'bg-[#016564] text-white shadow-soft'
-                          : 'bg-white/88 text-slate-700 shadow-soft hover:bg-white hover:text-[#016564]'
+                          : 'bg-white/90 text-slate-700 shadow-soft hover:bg-white hover:text-[#016564]'
                       }`}
                     >
                       <span
-                        className={`flex h-11 w-11 items-center justify-center rounded-2xl transition ${
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition ${
                           active ? 'bg-white/10 text-white' : 'bg-[#016564]/7 text-[#016564]'
                         }`}
                       >
                         {item.icon}
                       </span>
 
-                      <span className="flex-1 text-sm">{item.label}</span>
+                      <span className="min-w-0 flex-1 text-sm leading-6">{item.label}</span>
 
                       <span
-                        className={`h-2.5 w-2.5 rounded-full ${
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${
                           active ? 'bg-[#d0b284]' : 'bg-slate-300'
                         }`}
                       />
@@ -381,138 +426,149 @@ export default function DashboardLayout({
   );
 
   return (
-    <div dir="rtl" className="min-h-screen bg-surface text-slate-900">
+    <div dir="rtl" className="min-h-screen overflow-x-clip bg-surface text-slate-900">
       <div className="flex min-h-screen">
         <aside className="hidden w-[320px] shrink-0 border-l border-slate-200/80 bg-white/70 backdrop-blur xl:block">
-          {Sidebar}
+          {sidebarContent}
         </aside>
 
         {mobileOpen ? (
-          <div className="fixed inset-0 z-50 xl:hidden">
-            <div
-              className="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px]"
+          <div className="fixed inset-0 z-[70] xl:hidden">
+            <button
+              aria-label="إغلاق القائمة"
+              className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
               onClick={() => setMobileOpen(false)}
             />
-            <div className="absolute right-0 top-0 h-full w-[88%] max-w-[360px] border-l border-slate-200 bg-[#f7f9f9] shadow-soft-lg">
-              {Sidebar}
-            </div>
+            <aside className="absolute right-0 top-0 h-[100dvh] w-[calc(100%-2rem)] max-w-[360px] border-l border-slate-200 bg-[#f7f9f9] shadow-soft-lg">
+              {sidebarContent}
+            </aside>
           </div>
         ) : null}
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-4 px-4 py-4 lg:px-6">
-              <div className="flex items-center gap-4 text-right">
-                <div>
-                  <h1 className="text-[24px] font-semibold text-[#016564] lg:text-[28px]">
-                    منصة إدارة مخزون المواد التدريبية
-                  </h1>
-                </div>
-              </div>
+          <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
+            <div className="px-3 py-3 sm:px-4 lg:px-6">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex min-w-0 items-start gap-3 sm:items-center">
+                  <button
+                    onClick={() => setMobileOpen((prev) => !prev)}
+                    aria-label={mobileOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#016564] shadow-soft xl:hidden"
+                  >
+                    {mobileOpen ? <CloseIcon /> : <MenuIcon />}
+                  </button>
 
-              <div className="mr-auto flex items-center gap-3">
-                {canUseRoleSwitch ? (
-                  <div className="flex items-center rounded-full border border-slate-200 bg-[#f7f9f9] p-1 shadow-inner">
-                    {originalUser?.role === 'manager' ? (
-                      <>
-                        <button
-                          onClick={() => switchViewRole('manager')}
-                          className={`rounded-full px-4 py-2 text-[13px] leading-none transition ${
-                            user?.role === 'manager'
-                              ? 'bg-[#016564] text-white shadow-sm'
-                              : 'text-slate-600 hover:bg-white'
-                          }`}
-                        >
-                          مدير
-                        </button>
-
-                        <button
-                          onClick={() => switchViewRole('user')}
-                          className={`rounded-full px-4 py-2 text-[13px] leading-none transition ${
-                            user?.role === 'user'
-                              ? 'bg-[#016564] text-white shadow-sm'
-                              : 'text-slate-600 hover:bg-white'
-                          }`}
-                        >
-                          موظف
-                        </button>
-                      </>
-                    ) : null}
-
-                    {originalUser?.role === 'warehouse' ? (
-                      <>
-                        <button
-                          onClick={() => switchViewRole('warehouse')}
-                          className={`rounded-full px-4 py-2 text-[13px] leading-none transition ${
-                            user?.role === 'warehouse'
-                              ? 'bg-[#016564] text-white shadow-sm'
-                              : 'text-slate-600 hover:bg-white'
-                          }`}
-                        >
-                          مسؤول مخزن
-                        </button>
-
-                        <button
-                          onClick={() => switchViewRole('user')}
-                          className={`rounded-full px-4 py-2 text-[13px] leading-none transition ${
-                            user?.role === 'user'
-                              ? 'bg-[#016564] text-white shadow-sm'
-                              : 'text-slate-600 hover:bg-white'
-                          }`}
-                        >
-                          موظف
-                        </button>
-                      </>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {user?.id ? <NotificationBell userId={user.id} /> : null}
-
-                <div className="flex items-center gap-3 rounded-[26px] border border-slate-200 bg-white px-3 py-2 shadow-soft">
-                  <div className="text-right">
-                    <p className="text-[15px] font-medium leading-6 text-slate-900">
-                      {user?.fullName || 'مستخدم النظام'}
+                  <div className="min-w-0">
+                    <h1 className="truncate text-base font-semibold text-[#016564] sm:text-xl lg:text-[28px]">
+                      منصة إدارة مخزون المواد التدريبية
+                    </h1>
+                    <p className="mt-1 text-[11px] text-slate-500 sm:text-xs xl:hidden">
+                      {user?.role === 'manager'
+                        ? 'وضع المدير'
+                        : user?.role === 'warehouse'
+                        ? 'وضع مسؤول المخزن'
+                        : 'وضع الموظف'}
                     </p>
-                    <p className="text-[12px] leading-5 text-slate-500">
-                      {user?.email || ''}
-                    </p>
-                  </div>
-
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#016564]/8 text-[#016564]">
-                    <UserIcon />
                   </div>
                 </div>
 
-                <button
-                  onClick={logout}
-                  title="تسجيل الخروج"
-                  aria-label="تسجيل الخروج"
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-soft transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-                >
-                  <LogoutIcon />
-                </button>
+                <div className="flex flex-col gap-3 xl:mr-auto xl:flex-row xl:items-center">
+                  {canUseRoleSwitch ? (
+                    <div className="flex w-full flex-wrap items-center rounded-[20px] border border-slate-200 bg-[#f7f9f9] p-1 shadow-inner sm:w-auto sm:rounded-full">
+                      {originalUser?.role === 'manager' ? (
+                        <>
+                          <button
+                            onClick={() => switchViewRole('manager')}
+                            className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
+                              user?.role === 'manager'
+                                ? 'bg-[#016564] text-white shadow-sm'
+                                : 'text-slate-600 hover:bg-white'
+                            }`}
+                          >
+                            مدير
+                          </button>
 
-                <button
-                  onClick={() => setMobileOpen((prev) => !prev)}
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#016564] shadow-soft xl:hidden"
-                >
-                  {mobileOpen ? (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-                      <path d="M6 6 18 18M18 6 6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none">
-                      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    </svg>
-                  )}
-                </button>
+                          <button
+                            onClick={() => switchViewRole('user')}
+                            className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
+                              user?.role === 'user'
+                                ? 'bg-[#016564] text-white shadow-sm'
+                                : 'text-slate-600 hover:bg-white'
+                            }`}
+                          >
+                            موظف
+                          </button>
+                        </>
+                      ) : null}
+
+                      {originalUser?.role === 'warehouse' ? (
+                        <>
+                          <button
+                            onClick={() => switchViewRole('warehouse')}
+                            className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
+                              user?.role === 'warehouse'
+                                ? 'bg-[#016564] text-white shadow-sm'
+                                : 'text-slate-600 hover:bg-white'
+                            }`}
+                          >
+                            مسؤول مخزن
+                          </button>
+
+                          <button
+                            onClick={() => switchViewRole('user')}
+                            className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
+                              user?.role === 'user'
+                                ? 'bg-[#016564] text-white shadow-sm'
+                                : 'text-slate-600 hover:bg-white'
+                            }`}
+                          >
+                            موظف
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    {user?.id ? (
+                      <div className="shrink-0">
+                        <NotificationBell userId={user.id} />
+                      </div>
+                    ) : null}
+
+                    <div className="min-w-0 flex-1 rounded-[24px] border border-slate-200 bg-white px-3 py-2 shadow-soft sm:flex-none">
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-0 flex-1 text-right">
+                          <p className="truncate text-sm font-medium leading-6 text-slate-900 sm:text-[15px]">
+                            {user?.fullName || 'مستخدم النظام'}
+                          </p>
+                          <p className="truncate text-[11px] leading-5 text-slate-500 sm:text-[12px]">
+                            {user?.email || ''}
+                          </p>
+                        </div>
+
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#016564]/8 text-[#016564] sm:h-11 sm:w-11">
+                          <UserIcon />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={logout}
+                      title="تسجيل الخروج"
+                      aria-label="تسجيل الخروج"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-soft transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:h-12 sm:w-12"
+                    >
+                      <LogoutIcon />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-4 lg:px-6 lg:py-6">
-            <div className="mx-auto max-w-[1600px]">{children}</div>
+          <main className="min-w-0 flex-1 overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6">
+            <div className="mx-auto min-w-0 max-w-[1600px]">{children}</div>
           </main>
         </div>
       </div>

@@ -39,11 +39,15 @@
 html {
   direction: rtl;
   scroll-behavior: smooth;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 html,
 body {
   font-family: var(--font-cairo), 'Cairo', sans-serif !important;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -89,9 +93,21 @@ h6 {
   font-family: var(--font-cairo), 'Cairo', sans-serif !important;
 }
 
-img {
+* {
+  min-width: 0;
+}
+
+img,
+svg,
+canvas,
+video,
+iframe {
   max-width: 100%;
   display: block;
+}
+
+img {
+  height: auto;
 }
 
 a {
@@ -104,6 +120,15 @@ input,
 select,
 textarea {
   font-family: var(--font-cairo), 'Cairo', sans-serif !important;
+}
+
+button,
+[role='button'] {
+  touch-action: manipulation;
+}
+
+textarea {
+  resize: vertical;
 }
 
 ::selection {
@@ -191,6 +216,18 @@ textarea {
     background: linear-gradient(180deg, rgba(208, 178, 132, 0.07) 0%, rgba(255, 255, 255, 0.86) 100%);
     border: 1px solid rgba(208, 178, 132, 0.18);
   }
+
+  .mobile-scroll-x {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-scroll-x > * {
+    min-width: max-content;
+  }
 }
 
 @layer utilities {
@@ -251,6 +288,14 @@ textarea {
       linear-gradient(rgba(1, 101, 100, 0.025) 1px, transparent 1px),
       linear-gradient(90deg, rgba(1, 101, 100, 0.025) 1px, transparent 1px);
     background-size: 28px 28px;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
   }
 
   /* ========= On-brand status palette overrides ========= */
@@ -479,13 +524,27 @@ textarea {
   }
 }
 
+@media (max-width: 1024px) {
+  table {
+    min-width: 720px;
+  }
+}
+
 @media (max-width: 768px) {
   body {
     background:
       radial-gradient(circle at top center, rgba(1, 101, 100, 0.04), transparent 22%),
       linear-gradient(180deg, #f8f9f9 0%, #f3f6f6 100%);
   }
+
+  .page-section,
+  .surface-card,
+  .surface-card-strong,
+  .stat-card {
+    border-radius: 20px;
+  }
 }
+
 /* ===== Chrome / Edge autofill reset ===== */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,

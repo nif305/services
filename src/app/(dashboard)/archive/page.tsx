@@ -84,9 +84,9 @@ function DetailRow({
   value: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-2xl border border-[#e7ebea] bg-white px-4 py-3">
+    <div className="flex min-w-0 flex-col gap-1 rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
       <div className="text-xs font-bold text-[#016564]">{label}</div>
-      <div className="text-sm text-[#304342]">{value}</div>
+      <div className="break-words text-sm leading-7 text-[#304342]">{value}</div>
     </div>
   );
 }
@@ -96,7 +96,9 @@ export default function ArchivePage() {
   const [rows, setRows] = useState<ArchiveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ISSUED' | 'RETURNED' | 'REJECTED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ISSUED' | 'RETURNED' | 'REJECTED'>(
+    'ALL'
+  );
   const [selected, setSelected] = useState<ArchiveRequest | null>(null);
 
   const canViewAll = user?.role === 'manager' || user?.role === 'warehouse';
@@ -164,39 +166,49 @@ export default function ArchivePage() {
   }, [rows]);
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-[28px] border border-[#d6d7d4] bg-white px-5 py-5 shadow-sm">
+    <div className="space-y-4 sm:space-y-5">
+      <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="space-y-2">
-          <h1 className="text-2xl font-extrabold text-[#016564]">الأرشيف</h1>
-          <p className="text-sm text-[#61706f]">
+          <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">
+            الأرشيف
+          </h1>
+          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">
             مراجعة الطلبات المنتهية وفتح تفاصيل كل معاملة لمعرفة ما صُرف وما أُعيد وما انتهت إليه الحالة.
           </p>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">إجمالي المعاملات</div>
-            <div className="mt-1 text-xl font-extrabold text-[#016564]">{stats.total}</div>
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+            <div className="text-[12px] text-[#6f7b7a]">إجمالي المعاملات</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564] sm:text-xl">
+              {stats.total}
+            </div>
           </Card>
 
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">تم الصرف</div>
-            <div className="mt-1 text-xl font-extrabold text-[#016564]">{stats.issued}</div>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+            <div className="text-[12px] text-[#6f7b7a]">تم الصرف</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564] sm:text-xl">
+              {stats.issued}
+            </div>
           </Card>
 
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">تمت الإعادة</div>
-            <div className="mt-1 text-xl font-extrabold text-[#498983]">{stats.returned}</div>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+            <div className="text-[12px] text-[#6f7b7a]">تمت الإعادة</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#498983] sm:text-xl">
+              {stats.returned}
+            </div>
           </Card>
 
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">ملغاة / مرفوضة</div>
-            <div className="mt-1 text-xl font-extrabold text-[#7c1e3e]">{stats.rejected}</div>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+            <div className="text-[12px] text-[#6f7b7a]">ملغاة / مرفوضة</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e] sm:text-xl">
+              {stats.rejected}
+            </div>
           </Card>
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:p-5">
+      <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
         <div className="grid gap-3 lg:grid-cols-[1fr_180px]">
           <Input
             label="بحث"
@@ -227,11 +239,11 @@ export default function ArchivePage() {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((item) => (
-              <Skeleton key={item} className="h-28 w-full rounded-3xl" />
+              <Skeleton key={item} className="h-28 w-full rounded-[24px] sm:rounded-3xl" />
             ))}
           </div>
         ) : filteredRows.length === 0 ? (
-          <Card className="rounded-[28px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">
+          <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">
             لا توجد معاملات مؤرشفة مطابقة
           </Card>
         ) : (
@@ -252,18 +264,22 @@ export default function ArchivePage() {
             return (
               <Card
                 key={row.id}
-                className="rounded-[28px] border border-[#d6d7d4] p-4 shadow-sm sm:p-5"
+                className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-3">
+                  <div className="min-w-0 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="font-mono text-sm font-bold text-[#016564]">{row.code}</div>
+                      <div className="break-all font-mono text-sm font-bold text-[#016564]">
+                        {row.code}
+                      </div>
                       <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
                     </div>
 
-                    <div className="text-base font-bold text-[#152625]">{row.purpose}</div>
+                    <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">
+                      {row.purpose}
+                    </div>
 
-                    <div className="grid gap-2 text-xs text-[#61706f] sm:grid-cols-2">
+                    <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
                       <div>التاريخ: {formatDate(row.createdAt)}</div>
                       <div>إجمالي الكمية: {totalQty}</div>
                       {canViewAll ? <div>الموظف: {row.requester?.fullName || '—'}</div> : null}
@@ -280,7 +296,7 @@ export default function ArchivePage() {
                     </div>
 
                     {row.rejectionReason ? (
-                      <div className="rounded-2xl border border-[#f0d7dd] bg-[#fff7f8] px-4 py-3 text-sm text-[#7c1e3e]">
+                      <div className="rounded-[18px] border border-[#f0d7dd] bg-[#fff7f8] px-4 py-3 text-sm leading-7 text-[#7c1e3e] sm:rounded-2xl">
                         سبب الإلغاء / الرفض: {row.rejectionReason}
                       </div>
                     ) : null}
@@ -333,51 +349,55 @@ export default function ArchivePage() {
             </div>
 
             {selected.notes ? (
-              <div className="rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] px-4 py-3">
+              <div className="rounded-[18px] border border-[#e7ebea] bg-[#fcfdfd] px-4 py-3 sm:rounded-2xl">
                 <div className="text-xs font-bold text-[#016564]">ملاحظات</div>
-                <div className="mt-2 text-sm text-[#304342]">{selected.notes}</div>
+                <div className="mt-2 break-words text-sm leading-7 text-[#304342]">
+                  {selected.notes}
+                </div>
               </div>
             ) : null}
 
             {selected.rejectionReason ? (
-              <div className="rounded-2xl border border-[#f0d7dd] bg-[#fff7f8] px-4 py-3">
+              <div className="rounded-[18px] border border-[#f0d7dd] bg-[#fff7f8] px-4 py-3 sm:rounded-2xl">
                 <div className="text-xs font-bold text-[#7c1e3e]">سبب الإلغاء / الرفض</div>
-                <div className="mt-2 text-sm text-[#7c1e3e]">{selected.rejectionReason}</div>
+                <div className="mt-2 break-words text-sm leading-7 text-[#7c1e3e]">
+                  {selected.rejectionReason}
+                </div>
               </div>
             ) : null}
 
-            <div className="rounded-2xl border border-[#e7ebea] bg-white">
+            <div className="rounded-[18px] border border-[#e7ebea] bg-white sm:rounded-2xl">
               <div className="border-b border-[#eef1f1] px-4 py-3 text-sm font-bold text-[#016564]">
                 المواد المرتبطة بالمعاملة
               </div>
 
               <div className="space-y-3 p-4">
                 {(selected.items || []).length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#d6d7d4] px-4 py-6 text-center text-sm text-[#61706f]">
+                  <div className="rounded-[18px] border border-dashed border-[#d6d7d4] px-4 py-6 text-center text-sm text-[#61706f] sm:rounded-2xl">
                     لا توجد مواد مرتبطة
                   </div>
                 ) : (
                   (selected.items || []).map((item) => (
                     <div
                       key={item.id}
-                      className="rounded-2xl border border-[#e7ebea] bg-[#fcfcfc] p-4"
+                      className="rounded-[18px] border border-[#e7ebea] bg-[#fcfcfc] p-4 sm:rounded-2xl"
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="space-y-1">
-                          <div className="text-sm font-semibold text-[#152625]">
+                        <div className="min-w-0 space-y-1">
+                          <div className="break-words text-sm font-semibold leading-7 text-[#152625]">
                             {item.item?.name || 'مادة'}
                           </div>
-                          <div className="text-xs text-[#61706f]">
+                          <div className="text-xs leading-6 text-[#61706f]">
                             الكمية المصروفة: {item.quantity}
                             {item.item?.unit ? ` ${item.item.unit}` : ''}
                           </div>
                           {item.expectedReturnDate ? (
-                            <div className="text-xs text-[#61706f]">
+                            <div className="text-xs leading-6 text-[#61706f]">
                               الإرجاع المتوقع: {formatDate(item.expectedReturnDate)}
                             </div>
                           ) : null}
                           {(item.activeIssuedQty || 0) > 0 ? (
-                            <div className="text-xs text-[#016564]">
+                            <div className="text-xs leading-6 text-[#016564]">
                               المتبقي غير المعاد: {item.activeIssuedQty}
                             </div>
                           ) : null}
@@ -394,7 +414,7 @@ export default function ArchivePage() {
             </div>
 
             <div className="flex justify-end">
-              <Button variant="ghost" onClick={() => setSelected(null)}>
+              <Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">
                 إغلاق
               </Button>
             </div>

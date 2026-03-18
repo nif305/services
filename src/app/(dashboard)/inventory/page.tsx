@@ -120,6 +120,9 @@ const getDisplayCode = (item: InventoryItem) => {
   return `${categoryPrefix}-${typePrefix}-${extractNumericCode(item.code)}`;
 };
 
+const statCardClass =
+  'surface-card-strong cursor-pointer rounded-[22px] p-4 transition duration-200 hover:-translate-y-1 hover:shadow-lg sm:rounded-[24px] sm:p-5';
+
 export default function InventoryPage() {
   const { user } = useAuth();
 
@@ -314,12 +317,9 @@ export default function InventoryPage() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  const statCardClass =
-    'surface-card-strong cursor-pointer p-5 transition duration-200 hover:-translate-y-1 hover:shadow-lg';
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="w-full lg:max-w-xl">
           <Input
             placeholder="ابحث بالاسم أو الرمز أو الفئة"
@@ -331,10 +331,10 @@ export default function InventoryPage() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
           {canModify ? (
             <Button
-              className="bg-[#016564] text-white hover:bg-[#014b4a]"
+              className="w-full bg-[#016564] text-white hover:bg-[#014b4a] sm:w-auto"
               onClick={openCreateModal}
             >
               إضافة مادة
@@ -343,103 +343,178 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 sm:gap-4">
         <Card className={statCardClass} onClick={() => clearFilters()}>
           <p className="text-sm font-semibold text-surface-subtle">إجمالي المواد</p>
-          <p className="mt-3 text-3xl font-extrabold text-primary">
+          <p className="mt-3 text-2xl font-extrabold text-primary sm:text-3xl">
             {formatNumber(stats.totalItems)}
           </p>
         </Card>
 
         <Card className={statCardClass} onClick={() => applyStatusFilter('AVAILABLE')}>
           <p className="text-sm font-semibold text-surface-subtle">إجمالي المواد المتاحة</p>
-          <p className="mt-3 text-3xl font-extrabold text-green-600">
+          <p className="mt-3 text-2xl font-extrabold text-green-600 sm:text-3xl">
             {formatNumber(stats.availableCount)}
           </p>
         </Card>
 
         <Card className={statCardClass} onClick={() => applyTypeFilter('CONSUMABLE')}>
           <p className="text-sm font-semibold text-surface-subtle">المواد المستهلكة</p>
-          <p className="mt-3 text-3xl font-extrabold text-amber-700">
+          <p className="mt-3 text-2xl font-extrabold text-amber-700 sm:text-3xl">
             {formatNumber(stats.consumableCount)}
           </p>
         </Card>
 
         <Card className={statCardClass} onClick={() => applyTypeFilter('RETURNABLE')}>
           <p className="text-sm font-semibold text-surface-subtle">المواد المسترجعة</p>
-          <p className="mt-3 text-3xl font-extrabold text-emerald-700">
+          <p className="mt-3 text-2xl font-extrabold text-emerald-700 sm:text-3xl">
             {formatNumber(stats.returnableCount)}
           </p>
         </Card>
 
         <Card className={statCardClass} onClick={() => applyStatusFilter('LOW_STOCK')}>
           <p className="text-sm font-semibold text-surface-subtle">مواد منخفضة المخزون</p>
-          <p className="mt-3 text-3xl font-extrabold text-orange-600">
+          <p className="mt-3 text-2xl font-extrabold text-orange-600 sm:text-3xl">
             {formatNumber(stats.lowStockCount)}
           </p>
         </Card>
 
         <Card className={statCardClass} onClick={() => applyStatusFilter('OUT_OF_STOCK')}>
           <p className="text-sm font-semibold text-surface-subtle">مواد نافدة</p>
-          <p className="mt-3 text-3xl font-extrabold text-red-600">
+          <p className="mt-3 text-2xl font-extrabold text-red-600 sm:text-3xl">
             {formatNumber(stats.outOfStockCount)}
           </p>
         </Card>
 
         <Card className={statCardClass} onClick={() => clearFilters()}>
           <p className="text-sm font-semibold text-surface-subtle">مواد مستخدمة جزئيًا</p>
-          <p className="mt-3 text-3xl font-extrabold text-sky-700">
+          <p className="mt-3 text-2xl font-extrabold text-sky-700 sm:text-3xl">
             {formatNumber(stats.usedCount)}
           </p>
         </Card>
 
         <Card className={statCardClass} onClick={() => clearFilters()}>
           <p className="text-sm font-semibold text-surface-subtle">القيمة التقديرية</p>
-          <p className="mt-3 text-2xl font-extrabold text-primary">
+          <p className="mt-3 text-xl font-extrabold text-primary sm:text-2xl">
             {formatCurrency(stats.totalEstimatedValue)}
           </p>
         </Card>
       </div>
 
-      <Card className="surface-card-strong overflow-hidden">
+      <Card className="surface-card-strong overflow-hidden rounded-[22px] sm:rounded-[28px]">
         {loading ? (
-          <div className="space-y-4 p-4">
+          <div className="space-y-3 p-4 sm:space-y-4">
             {[1, 2, 3, 4, 5, 6].map((value) => (
               <Skeleton key={value} className="h-14 w-full" />
             ))}
           </div>
+        ) : items.length === 0 ? (
+          <div className="p-8 text-center text-sm font-medium text-slate-500 sm:p-10">
+            لا توجد مواد مطابقة
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-[1150px] text-right">
-              <thead className="bg-[#f4f8f8]">
-                <tr>
-                  <th className="p-4 text-sm font-bold text-primary">الرمز</th>
-                  <th className="p-4 text-sm font-bold text-primary">اسم المادة</th>
-                  <th className="p-4 text-sm font-bold text-primary">الفئة</th>
-                  <th className="p-4 text-sm font-bold text-primary">النوع</th>
-                  <th className="p-4 text-sm font-bold text-primary">الكمية</th>
-                  <th className="p-4 text-sm font-bold text-primary">المتاح</th>
-                  <th className="p-4 text-sm font-bold text-primary">سعر المفرد</th>
-                  <th className="p-4 text-sm font-bold text-primary">الإجمالي</th>
-                  <th className="p-4 text-sm font-bold text-primary">الحالة</th>
-                  {canModify ? (
-                    <th className="p-4 text-sm font-bold text-primary">الإجراءات</th>
-                  ) : null}
-                </tr>
-              </thead>
+          <>
+            <div className="space-y-3 p-3 sm:hidden">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-soft"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-extrabold text-slate-900">{item.name}</p>
+                      <p className="mt-1 text-xs font-semibold text-[#016564]">
+                        {getDisplayCode(item)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-400">{item.code}</p>
+                    </div>
+                    <div className="shrink-0">{getStatusBadge(item.status)}</div>
+                  </div>
 
-              <tbody>
-                {items.length === 0 ? (
+                  <div className="mt-4 grid grid-cols-2 gap-3 rounded-[18px] bg-slate-50 p-3">
+                    <div>
+                      <p className="text-[11px] text-slate-500">الفئة</p>
+                      <p className="mt-1 text-[13px] font-semibold text-slate-800">
+                        {item.category}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-500">النوع</p>
+                      <p className="mt-1 text-[13px] font-semibold text-slate-800">
+                        {item.type === 'RETURNABLE' ? 'مسترجعة' : 'مستهلكة'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-500">الكمية</p>
+                      <p className="mt-1 text-[13px] font-semibold text-slate-800">
+                        {formatNumber(item.quantity)} {item.unit}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-500">المتاح</p>
+                      <p className="mt-1 text-[13px] font-semibold text-slate-800">
+                        {formatNumber(item.availableQty)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-500">سعر المفرد</p>
+                      <p className="mt-1 text-[13px] font-semibold text-slate-800">
+                        {formatCurrency(item.unitPrice)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-500">الإجمالي</p>
+                      <p className="mt-1 text-[13px] font-semibold text-slate-800">
+                        {formatCurrency(item.totalPrice)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {canModify ? (
+                    <div className="mt-4 flex flex-col gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-full border border-slate-200"
+                        onClick={() => openEditModal(item)}
+                      >
+                        تعديل
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-full border border-red-200 text-red-600 hover:bg-red-50"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        حذف
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden sm:block mobile-scroll-x">
+              <table className="min-w-[1150px] text-right">
+                <thead className="bg-[#f4f8f8]">
                   <tr>
-                    <td
-                      colSpan={canModify ? 10 : 9}
-                      className="p-10 text-center text-sm font-medium text-slate-500"
-                    >
-                      لا توجد مواد مطابقة
-                    </td>
+                    <th className="p-4 text-sm font-bold text-primary">الرمز</th>
+                    <th className="p-4 text-sm font-bold text-primary">اسم المادة</th>
+                    <th className="p-4 text-sm font-bold text-primary">الفئة</th>
+                    <th className="p-4 text-sm font-bold text-primary">النوع</th>
+                    <th className="p-4 text-sm font-bold text-primary">الكمية</th>
+                    <th className="p-4 text-sm font-bold text-primary">المتاح</th>
+                    <th className="p-4 text-sm font-bold text-primary">سعر المفرد</th>
+                    <th className="p-4 text-sm font-bold text-primary">الإجمالي</th>
+                    <th className="p-4 text-sm font-bold text-primary">الحالة</th>
+                    {canModify ? (
+                      <th className="p-4 text-sm font-bold text-primary">الإجراءات</th>
+                    ) : null}
                   </tr>
-                ) : (
-                  items.map((item) => (
+                </thead>
+
+                <tbody>
+                  {items.map((item) => (
                     <tr
                       key={item.id}
                       className="border-t border-slate-100 transition hover:bg-[#f8fbfb]"
@@ -511,22 +586,23 @@ export default function InventoryPage() {
                         </td>
                       ) : null}
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
 
-      <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm sm:rounded-3xl md:flex-row md:items-center md:justify-between">
         <div className="text-sm font-semibold text-slate-600">
           إجمالي النتائج: {formatNumber(pagination.total)}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <Button
             variant="ghost"
+            className="w-full"
             disabled={pagination.page <= 1}
             onClick={() =>
               setPagination((prev) => ({
@@ -538,12 +614,13 @@ export default function InventoryPage() {
             السابق
           </Button>
 
-          <div className="rounded-2xl bg-[#f4f8f8] px-4 py-2 text-sm font-bold text-primary">
-            صفحة {pagination.page} من {pagination.totalPages}
+          <div className="flex items-center justify-center rounded-2xl bg-[#f4f8f8] px-3 py-2 text-center text-sm font-bold text-primary">
+            {pagination.page} / {pagination.totalPages}
           </div>
 
           <Button
             variant="ghost"
+            className="w-full"
             disabled={pagination.page >= pagination.totalPages}
             onClick={() =>
               setPagination((prev) => ({
@@ -607,7 +684,7 @@ export default function InventoryPage() {
 
           <div className="rounded-2xl border border-[#d0b284]/40 bg-[#fbf7ef] p-4">
             <p className="text-sm font-semibold text-slate-700">الإجمالي التقديري</p>
-            <p className="mt-2 text-2xl font-extrabold text-[#7c5a24]">
+            <p className="mt-2 text-xl font-extrabold text-[#7c5a24] sm:text-2xl">
               {formatCurrency(estimatedLineValue)}
             </p>
           </div>
@@ -618,13 +695,13 @@ export default function InventoryPage() {
             ))}
           </datalist>
 
-          <div className="flex flex-wrap justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={closeModal}>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" variant="ghost" onClick={closeModal} className="w-full sm:w-auto">
               إلغاء
             </Button>
             <Button
               type="submit"
-              className="bg-[#016564] text-white hover:bg-[#014b4a]"
+              className="w-full bg-[#016564] text-white hover:bg-[#014b4a] sm:w-auto"
               disabled={saving}
             >
               {saving ? 'جارٍ الحفظ...' : selectedItem ? 'حفظ التعديل' : 'إضافة'}
@@ -635,4 +712,3 @@ export default function InventoryPage() {
     </div>
   );
 }
-

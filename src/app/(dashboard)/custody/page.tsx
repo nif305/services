@@ -147,7 +147,9 @@ export default function CustodyPage() {
   const stats = useMemo(() => {
     return {
       total: items.length,
-      active: items.filter((i) => i.status === 'ACTIVE' || i.status === 'DUE_SOON' || i.status === 'OVERDUE').length,
+      active: items.filter(
+        (i) => i.status === 'ACTIVE' || i.status === 'DUE_SOON' || i.status === 'OVERDUE'
+      ).length,
       returnRequested: items.filter((i) => i.status === 'RETURN_REQUESTED').length,
     };
   }, [items]);
@@ -217,39 +219,47 @@ export default function CustodyPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-[28px] border border-surface-border bg-white p-5 shadow-soft">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="rounded-[24px] border border-surface-border bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h1 className="text-[30px] leading-[1.25] text-primary">عهدتي</h1>
-            <p className="mt-2 text-[14px] leading-7 text-surface-subtle">
+          <div className="min-w-0">
+            <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">عهدتي</h1>
+            <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
               عرض المواد المسجلة عليك حاليًا، مع توضيح حالتها وتسهيل رفع طلب الإرجاع عند الحاجة.
             </p>
           </div>
 
-          <Link href="/requests">
-            <Button variant="ghost">طلب مادة جديدة</Button>
+          <Link href="/requests" className="w-full sm:w-auto">
+            <Button variant="ghost" className="w-full sm:w-auto">
+              طلب مادة جديدة
+            </Button>
           </Link>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <div className="rounded-[22px] border border-surface-border bg-slate-50 p-4">
-            <div className="text-[13px] text-surface-subtle">إجمالي المواد</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">{stats.total}</div>
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-3 sm:mt-5 sm:gap-4">
+          <div className="rounded-[20px] border border-surface-border bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-surface-subtle sm:text-[13px]">إجمالي المواد</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.total}
+            </div>
           </div>
 
-          <div className="rounded-[22px] border border-emerald-200 bg-emerald-50 p-4">
-            <div className="text-[13px] text-emerald-700">مواد حالية</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">{stats.active}</div>
+          <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-3 sm:rounded-[22px] sm:p-4">
+            <div className="text-[12px] text-emerald-700 sm:text-[13px]">مواد حالية</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.active}
+            </div>
           </div>
 
-          <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
-            <div className="text-[13px] text-amber-700">طلبات إرجاع مفتوحة</div>
-            <div className="mt-2 text-[32px] leading-none text-slate-900">{stats.returnRequested}</div>
+          <div className="rounded-[20px] border border-amber-200 bg-amber-50 p-3 sm:col-span-2 sm:rounded-[22px] sm:p-4 xl:col-span-1">
+            <div className="text-[12px] text-amber-700 sm:text-[13px]">طلبات إرجاع مفتوحة</div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
+              {stats.returnRequested}
+            </div>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
           {[
             { key: 'ALL', label: 'الكل' },
             { key: 'ACTIVE', label: 'نشطة' },
@@ -260,7 +270,7 @@ export default function CustodyPage() {
             <button
               key={tab.key}
               onClick={() => setActiveFilter(tab.key as 'ALL' | CustodyStatus)}
-              className={`rounded-full px-4 py-2 text-sm transition ${
+              className={`min-h-[42px] rounded-full px-4 py-2 text-sm transition ${
                 activeFilter === tab.key
                   ? 'bg-[#016564] text-white'
                   : 'border border-slate-200 bg-white text-slate-700'
@@ -272,9 +282,9 @@ export default function CustodyPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-2 sm:gap-4">
         {filteredItems.length === 0 ? (
-          <Card className="rounded-[28px] p-8 text-center text-slate-500 xl:col-span-2">
+          <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
             لا توجد مواد مسجلة عليك حاليًا
           </Card>
         ) : (
@@ -284,20 +294,22 @@ export default function CustodyPage() {
             return (
               <Card
                 key={item.id}
-                className="rounded-[28px] border border-surface-border p-5 shadow-soft"
+                className="rounded-[24px] border border-surface-border p-4 shadow-soft sm:rounded-[28px] sm:p-5"
               >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <Badge variant={statusVariant(item.status)}>{statusLabel(item.status)}</Badge>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700 break-all">
                         {item.code}
                       </span>
                     </div>
 
-                    <h3 className="text-[22px] leading-8 text-primary">{item.itemName}</h3>
+                    <h3 className="text-[20px] leading-8 text-primary sm:text-[22px]">
+                      {item.itemName}
+                    </h3>
 
-                    <div className="mt-3 grid gap-2 text-[13px] leading-7 text-slate-600 md:grid-cols-2">
+                    <div className="mt-3 grid gap-2 rounded-[18px] bg-slate-50 p-3 text-[13px] leading-7 text-slate-600 sm:rounded-[20px] sm:p-4 md:grid-cols-2">
                       <div>
                         الفئة: <span className="text-slate-900">{item.category || '-'}</span>
                       </div>
@@ -312,33 +324,39 @@ export default function CustodyPage() {
                       <div>
                         حالة الإرجاع:{' '}
                         <span className="text-slate-900">
-                          {openReturn ? 'تم رفع طلب إرجاع' : item.status === 'RETURNED' ? 'تمت الإعادة' : 'لا يوجد'}
+                          {openReturn
+                            ? 'تم رفع طلب إرجاع'
+                            : item.status === 'RETURNED'
+                            ? 'تمت الإعادة'
+                            : 'لا يوجد'}
                         </span>
                       </div>
                     </div>
 
                     {item.notes ? (
-                      <div className="mt-4 rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[13px] leading-7 text-slate-700">
+                      <div className="mt-4 rounded-[18px] border border-surface-border bg-white p-4 text-[13px] leading-7 text-slate-700 whitespace-pre-wrap break-words">
                         {item.notes}
                       </div>
                     ) : null}
                   </div>
 
-                  <div className="flex shrink-0 gap-2">
-                    <Button variant="ghost" onClick={() => setSelectedItem(item)}>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    <Button variant="ghost" onClick={() => setSelectedItem(item)} className="w-full sm:w-auto">
                       عرض
                     </Button>
 
                     {item.status === 'RETURN_REQUESTED' || openReturn ? (
-                      <Button variant="ghost" disabled>
+                      <Button variant="ghost" disabled className="w-full sm:w-auto">
                         تم رفع طلب إرجاع
                       </Button>
                     ) : item.status === 'RETURNED' ? (
-                      <Button variant="ghost" disabled>
+                      <Button variant="ghost" disabled className="w-full sm:w-auto">
                         تمت الإعادة
                       </Button>
                     ) : (
-                      <Button onClick={() => createReturnRequest(item)}>طلب إرجاع</Button>
+                      <Button onClick={() => createReturnRequest(item)} className="w-full sm:w-auto">
+                        طلب إرجاع
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -354,7 +372,7 @@ export default function CustodyPage() {
         title="تفاصيل العهدة"
       >
         <div className="space-y-4">
-          <div className="rounded-[20px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-8 text-slate-700">
+          <div className="rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-8 text-slate-700 sm:rounded-[20px] break-words">
             <div>
               المادة: <span className="text-slate-900">{selectedItem?.itemName || '-'}</span>
             </div>
@@ -373,18 +391,21 @@ export default function CustodyPage() {
               <span className="text-slate-900">{formatDate(selectedItem?.dueDate)}</span>
             </div>
             <div>
-              الحالة: <span className="text-slate-900">{selectedItem ? statusLabel(selectedItem.status) : '-'}</span>
+              الحالة:{' '}
+              <span className="text-slate-900">
+                {selectedItem ? statusLabel(selectedItem.status) : '-'}
+              </span>
             </div>
           </div>
 
           {selectedItem?.notes ? (
-            <div className="rounded-[20px] border border-surface-border bg-white p-4 text-[14px] leading-8 text-slate-700 whitespace-pre-wrap">
+            <div className="rounded-[18px] border border-surface-border bg-white p-4 text-[14px] leading-8 text-slate-700 whitespace-pre-wrap break-words sm:rounded-[20px]">
               {selectedItem.notes}
             </div>
           ) : null}
 
           <div className="flex justify-end border-t pt-4">
-            <Button type="button" variant="ghost" onClick={() => setSelectedItem(null)}>
+            <Button type="button" variant="ghost" onClick={() => setSelectedItem(null)} className="w-full sm:w-auto">
               إغلاق
             </Button>
           </div>

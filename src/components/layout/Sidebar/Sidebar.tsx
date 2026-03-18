@@ -144,66 +144,76 @@ export function Sidebar() {
   const role = ((user?.role || 'user') as AppRole);
 
   const items = navigationItems.filter((item) => !item.roles || item.roles.includes(role));
-
   const groups = ['main', 'operations', 'governance', 'management'] as const;
 
   return (
-    <aside className="w-full border-b border-[#dbe6e4] bg-white lg:min-h-screen lg:w-80 lg:border-b-0 lg:border-l">
-      <div className="border-b border-[#dbe6e4] bg-[linear-gradient(135deg,#016564_0%,#0b6d6b_100%)] px-6 py-6 text-white">
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[11px]">
-          منصة إدارة مخزون المواد التدريبية
+    <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-b border-[#dbe6e4] bg-white lg:min-h-screen lg:w-80 lg:border-b-0 lg:border-l">
+      <div className="shrink-0 border-b border-[#dbe6e4] bg-[linear-gradient(135deg,#016564_0%,#0b6d6b_100%)] px-4 py-4 text-white sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+        <div className="inline-flex max-w-full items-center rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-[11px] leading-5 text-white/95">
+          <span className="truncate">منصة إدارة مخزون المواد التدريبية</span>
         </div>
-        <h2 className="mt-4 text-[22px] leading-[1.2]">وكالة التدريب</h2>
+
+        <h2 className="mt-4 text-[20px] leading-[1.25] sm:text-[22px]">وكالة التدريب</h2>
+
         <p className="mt-2 text-[12px] leading-6 text-white/80">
-          {role === 'manager' ? 'وضع المدير' : role === 'warehouse' ? 'وضع مسؤول المخزن' : 'وضع الموظف'}
+          {role === 'manager'
+            ? 'وضع المدير'
+            : role === 'warehouse'
+            ? 'وضع مسؤول المخزن'
+            : 'وضع الموظف'}
         </p>
       </div>
 
-      <nav className="space-y-6 p-4">
-        {groups.map((group) => {
-          const groupItems = items.filter((item) => item.group === group);
-          if (groupItems.length === 0) return null;
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-4">
+        <div className="space-y-6">
+          {groups.map((group) => {
+            const groupItems = items.filter((item) => item.group === group);
+            if (groupItems.length === 0) return null;
 
-          return (
-            <div key={group}>
-              <div className="mb-2 px-2 text-[11px] font-semibold tracking-wide text-slate-400">
-                {groupLabels[group]}
-              </div>
+            return (
+              <div key={group}>
+                <div className="mb-2 px-2 text-[11px] font-semibold tracking-wide text-slate-400">
+                  {groupLabels[group]}
+                </div>
 
-              <div className="space-y-1.5">
-                {groupItems.map((item) => {
-                  const active = pathname === item.href;
+                <div className="space-y-1.5">
+                  {groupItems.map((item) => {
+                    const active =
+                      item.href === '/dashboard'
+                        ? pathname === '/dashboard'
+                        : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        'group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition',
-                        active
-                          ? 'bg-[#016564] text-white shadow-[0_10px_25px_rgba(1,101,100,0.18)]'
-                          : 'text-slate-700 hover:bg-[#f5f9f8] hover:text-[#016564]'
-                      )}
-                    >
-                      <span
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
                         className={cn(
-                          'flex h-10 w-10 items-center justify-center rounded-2xl transition',
+                          'group flex min-h-[52px] items-center gap-3 rounded-2xl px-3 py-3 text-sm transition sm:px-4',
                           active
-                            ? 'bg-white/10 text-white'
-                            : 'bg-[#016564]/8 text-[#016564] group-hover:bg-[#016564]/12'
+                            ? 'bg-[#016564] text-white shadow-[0_10px_25px_rgba(1,101,100,0.18)]'
+                            : 'text-slate-700 hover:bg-[#f5f9f8] hover:text-[#016564]'
                         )}
                       >
-                        <Icon name={item.icon} className="h-5 w-5" />
-                      </span>
+                        <span
+                          className={cn(
+                            'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition',
+                            active
+                              ? 'bg-white/10 text-white'
+                              : 'bg-[#016564]/8 text-[#016564] group-hover:bg-[#016564]/12'
+                          )}
+                        >
+                          <Icon name={item.icon} className="h-5 w-5" />
+                        </span>
 
-                      <span className="flex-1">{item.label}</span>
-                    </Link>
-                  );
-                })}
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </nav>
     </aside>
   );

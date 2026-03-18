@@ -3,19 +3,27 @@ import { cn } from '@/lib/utils/cn';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  hint?: string;
+  error?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, id, ...props }, ref) => {
+  ({ className, label, hint, error, id, type = 'text', ...props }, ref) => {
     const reactId = useId();
     const generatedId = id || props.name || `input-${reactId}`;
+    const describedBy = [
+      hint ? `${generatedId}-hint` : null,
+      error ? `${generatedId}-error` : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     return (
-      <div className="space-y-2">
+      <div className="w-full min-w-0 space-y-2">
         {label ? (
           <label
             htmlFor={generatedId}
-            className="block text-sm font-semibold text-slate-700"
+            className="block text-sm font-semibold leading-6 text-slate-700"
           >
             {label}
           </label>
@@ -24,13 +32,30 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           id={generatedId}
           ref={ref}
+          type={type}
+          aria-invalid={error ? 'true' : 'false'}
+          aria-describedby={describedBy || undefined}
           className={cn(
-            'w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition',
+            'block w-full min-w-0 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition',
             'placeholder:text-slate-400 focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10',
+            'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400',
+            '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
             className
           )}
           {...props}
         />
+
+        {hint ? (
+          <p id={`${generatedId}-hint`} className="text-xs leading-5 text-slate-500">
+            {hint}
+          </p>
+        ) : null}
+
+        {error ? (
+          <p id={`${generatedId}-error`} className="text-xs leading-5 text-red-600">
+            {error}
+          </p>
+        ) : null}
       </div>
     );
   }

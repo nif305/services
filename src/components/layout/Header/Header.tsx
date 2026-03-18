@@ -1,12 +1,31 @@
 'use client';
+
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
+
 export function Header() {
   const { user, logout } = useAuth();
+
   return (
-    <header className="flex items-center justify-between rounded-2xl border border-surface-border bg-white px-5 py-4 shadow-sm">
-      <div><h1 className="font-bold text-primary">مرحباً، {user?.fullName}</h1><p className="text-xs text-surface-subtle">{user?.department}</p></div>
-      <Button variant="ghost" onClick={logout}>تسجيل الخروج</Button>
+    <header className="rounded-[22px] border border-surface-border bg-white px-4 py-4 shadow-soft sm:rounded-[24px] sm:px-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="truncate text-[18px] font-bold text-primary sm:text-[20px]">
+            مرحبًا، {user?.fullName || 'مستخدم النظام'}
+          </h1>
+          <p className="mt-1 truncate text-[12px] leading-6 text-surface-subtle sm:text-[13px]">
+            {user?.department || 'وكالة التدريب'}
+          </p>
+        </div>
+
+        <Button
+          variant="ghost"
+          onClick={logout}
+          className="w-full sm:w-auto"
+        >
+          تسجيل الخروج
+        </Button>
+      </div>
     </header>
   );
 }

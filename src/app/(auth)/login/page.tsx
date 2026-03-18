@@ -31,7 +31,7 @@ export default function LoginPage() {
   return (
     <div
       dir="rtl"
-      className="min-h-screen overflow-hidden bg-[#edf3f2]"
+      className="min-h-screen overflow-x-hidden bg-[#edf3f2]"
       style={{
         background:
           'radial-gradient(circle at top right, rgba(1,101,100,0.08), transparent 22%), radial-gradient(circle at bottom left, rgba(208,178,132,0.10), transparent 22%), linear-gradient(180deg, #f6f8f8 0%, #edf3f2 100%)',
@@ -63,7 +63,7 @@ export default function LoginPage() {
 
             <div className="mt-10 rounded-[28px] border border-white/10 bg-white/10 px-8 py-6 backdrop-blur-md">
               <p className="text-[34px] font-normal leading-[1.6]">
-                منصة مواد التدريب 
+                منصة مواد التدريب
                 <br />
                 وكالة التدريب
               </p>
@@ -71,25 +71,25 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="relative flex items-center justify-center px-5 py-8 lg:px-8 xl:px-12">
+        <section className="relative flex min-h-screen items-center justify-center px-4 py-5 sm:px-5 sm:py-8 lg:px-8 xl:px-12">
           <div className="absolute inset-0 opacity-50">
-            <div className="absolute right-10 top-10 h-40 w-40 rounded-full bg-[#016564]/6 blur-3xl" />
-            <div className="absolute bottom-10 left-10 h-32 w-32 rounded-full bg-[#d0b284]/16 blur-3xl" />
+            <div className="absolute right-6 top-6 h-28 w-28 rounded-full bg-[#016564]/6 blur-3xl sm:right-10 sm:top-10 sm:h-40 sm:w-40" />
+            <div className="absolute bottom-6 left-6 h-24 w-24 rounded-full bg-[#d0b284]/16 blur-3xl sm:bottom-10 sm:left-10 sm:h-32 sm:w-32" />
           </div>
 
           <div className="relative z-10 w-full max-w-[480px]">
-            <div className="mb-6 lg:hidden">
-              <div className="rounded-[30px] border border-white/15 bg-[linear-gradient(135deg,#015857_0%,#016564_50%,#0b7f7c_100%)] p-5">
-                <div className="flex items-center justify-center rounded-[24px] border border-white/10 bg-white/5 px-5 py-6">
+            <div className="mb-4 lg:hidden">
+              <div className="rounded-[26px] border border-white/15 bg-[linear-gradient(135deg,#015857_0%,#016564_50%,#0b7f7c_100%)] p-4 sm:rounded-[30px] sm:p-5">
+                <div className="flex items-center justify-center rounded-[22px] border border-white/10 bg-white/5 px-4 py-5 sm:rounded-[24px] sm:px-5 sm:py-6">
                   <img
                     src="/nauss-gold-logo.png"
                     alt="شعار جامعة نايف"
-                    className="max-h-[82px] w-auto object-contain"
+                    className="max-h-[72px] w-auto object-contain sm:max-h-[82px]"
                   />
                 </div>
 
-                <div className="mt-4 rounded-[22px] border border-white/10 bg-white/10 px-4 py-4 text-center text-white">
-                  <p className="text-2xl font-normal leading-[1.7]">
+                <div className="mt-4 rounded-[20px] border border-white/10 bg-white/10 px-4 py-4 text-center text-white sm:rounded-[22px]">
+                  <p className="text-lg font-normal leading-[1.8] sm:text-2xl sm:leading-[1.7]">
                     منصة حوكمة وإدارة
                     <br />
                     مخزون وكالة التدريب
@@ -98,13 +98,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="rounded-[32px] border border-white/80 bg-white/92 p-6 shadow-soft sm:p-8">
-              <div className="mb-7 text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#016564]/10 text-[#016564]">
+            <div className="rounded-[26px] border border-white/80 bg-white/92 p-5 shadow-soft sm:rounded-[32px] sm:p-8">
+              <div className="mb-6 text-center sm:mb-7">
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#016564]/10 text-[#016564] sm:h-14 sm:w-14">
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
-                    className="h-7 w-7"
+                    className="h-6 w-6 sm:h-7 sm:w-7"
                     aria-hidden="true"
                   >
                     <path
@@ -124,17 +124,17 @@ export default function LoginPage() {
                   </svg>
                 </div>
 
-                <h1 className="text-3xl font-normal text-[#0f1d3b] sm:text-4xl">
+                <h1 className="text-2xl font-normal text-[#0f1d3b] sm:text-4xl">
                   تسجيل الدخول
                 </h1>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
+                <div className="min-w-0">
                   <label className="mb-2 block text-right text-[14px] font-normal text-[#1d2640]">
                     البريد الإلكتروني
                   </label>
-                  <div className="group flex h-[56px] items-center gap-3 rounded-[18px] border border-[#d8dee1] bg-white px-4 transition focus-within:border-[#016564]">
+                  <div className="group flex min-h-[54px] w-full min-w-0 items-center gap-3 rounded-[18px] border border-[#d8dee1] bg-white px-4 transition focus-within:border-[#016564] focus-within:ring-4 focus-within:ring-[#016564]/10">
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -159,17 +159,17 @@ export default function LoginPage() {
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
                       placeholder="أدخل البريد الإلكتروني"
-                      className="h-full w-full border-none bg-transparent px-0 text-right text-[15px] font-normal text-[#1d2640] outline-none placeholder:text-[#9aa3b2]"
+                      className="h-full w-full min-w-0 border-none bg-transparent px-0 text-right text-[15px] font-normal text-[#1d2640] outline-none placeholder:text-[#9aa3b2]"
                       required
                     />
                   </div>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="mb-2 block text-right text-[14px] font-normal text-[#1d2640]">
                     كلمة المرور
                   </label>
-                  <div className="group flex h-[56px] items-center gap-3 rounded-[18px] border border-[#d8dee1] bg-white px-4 transition focus-within:border-[#016564]">
+                  <div className="group flex min-h-[54px] w-full min-w-0 items-center gap-3 rounded-[18px] border border-[#d8dee1] bg-white px-4 transition focus-within:border-[#016564] focus-within:ring-4 focus-within:ring-[#016564]/10">
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -199,13 +199,13 @@ export default function LoginPage() {
                       value={form.password}
                       onChange={(e) => setForm({ ...form, password: e.target.value })}
                       placeholder="أدخل كلمة المرور"
-                      className="h-full w-full border-none bg-transparent px-0 text-right text-[15px] font-normal text-[#1d2640] outline-none placeholder:text-[#9aa3b2]"
+                      className="h-full w-full min-w-0 border-none bg-transparent px-0 text-right text-[15px] font-normal text-[#1d2640] outline-none placeholder:text-[#9aa3b2]"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-4 pt-1">
+                <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
                   <label className="flex items-center gap-3 text-[14px] font-normal text-[#2f3851]">
                     <input
                       type="checkbox"
@@ -233,14 +233,14 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex h-[58px] w-full items-center justify-center gap-2 rounded-[18px] bg-[linear-gradient(135deg,#016564_0%,#0d8b88_100%)] text-[20px] font-normal text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-[18px] bg-[linear-gradient(135deg,#016564_0%,#0d8b88_100%)] px-4 text-lg font-normal text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70 sm:min-h-[58px] sm:text-[20px]"
                 >
-                  <span>{loading ? 'جاري الدخول...' : 'تسجيل الدخول'}</span>
+                  <span className="truncate">{loading ? 'جاري الدخول...' : 'تسجيل الدخول'}</span>
                   {!loading && (
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
-                      className="h-[18px] w-[18px]"
+                      className="h-[18px] w-[18px] shrink-0"
                       aria-hidden="true"
                     >
                       <path
@@ -255,7 +255,7 @@ export default function LoginPage() {
                 </button>
               </form>
 
-              <div className="mt-6 rounded-[20px] border border-[#eef1f4] bg-[#f9fbfb] px-4 py-4 text-center text-[16px] font-normal text-[#5f687b]">
+              <div className="mt-5 rounded-[20px] border border-[#eef1f4] bg-[#f9fbfb] px-4 py-4 text-center text-[15px] font-normal leading-7 text-[#5f687b] sm:mt-6 sm:text-[16px]">
                 ليس لديك حساب؟
                 <Link
                   href="/request-account"

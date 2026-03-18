@@ -10,20 +10,23 @@ export default function PendingApprovalPage() {
   const router = useRouter();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface px-4">
-      <Card className="w-full max-w-xl rounded-[28px] p-8 text-center shadow-soft">
-        <h1 className="text-[30px] leading-[1.25] text-primary">
+    <div
+      dir="rtl"
+      className="flex min-h-screen items-center justify-center overflow-x-hidden bg-surface px-4 py-6 sm:px-5 sm:py-8"
+    >
+      <Card className="w-full max-w-xl rounded-[24px] p-5 text-center shadow-soft sm:rounded-[28px] sm:p-8">
+        <h1 className="text-[24px] leading-[1.3] text-primary sm:text-[30px]">
           طلبك قيد المراجعة
         </h1>
 
-        <p className="mt-4 text-[15px] leading-8 text-surface-subtle">
+        <p className="mt-4 text-[14px] leading-7 text-surface-subtle sm:text-[15px] sm:leading-8">
           تم استلام طلب إنشاء الحساب بنجاح، وسيتم إشعارك بعد اعتماده من الإدارة المختصة.
         </p>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:justify-center">
           <Button
             onClick={logout}
-            className="min-w-[160px]"
+            className="w-full sm:min-w-[160px] sm:w-auto"
           >
             تسجيل الخروج
           </Button>
@@ -31,7 +34,7 @@ export default function PendingApprovalPage() {
           <Button
             variant="ghost"
             onClick={() => router.push('/login')}
-            className="min-w-[160px]"
+            className="w-full sm:min-w-[160px] sm:w-auto"
           >
             العودة لتسجيل الدخول
           </Button>

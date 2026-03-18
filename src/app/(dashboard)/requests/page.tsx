@@ -168,7 +168,7 @@ function RequestItemsPreview({
           {items.map((item) => (
             <div key={item.id} className="rounded-2xl border border-[#e8ecec] bg-white p-4">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <div className="text-base font-bold text-[#152625]">
                     {item.item?.name || 'مادة'}
                   </div>
@@ -219,18 +219,18 @@ function FormShell({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 px-2 py-2 sm:px-4 sm:py-6">
+    <div className="fixed inset-0 z-[70] bg-black/45 px-0 py-0 sm:px-4 sm:py-6">
       <div className="mx-auto flex h-full items-center justify-center">
         <div className="flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden rounded-none border-0 bg-white shadow-2xl sm:h-auto sm:max-h-[92vh] sm:max-w-[1080px] sm:rounded-[28px] sm:border sm:border-[#d6d7d4]">
-          <div className="flex items-center justify-between border-b border-[#eceeed] px-4 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-3 border-b border-[#eceeed] px-4 py-4 sm:px-6">
             <div className="min-w-0">
-              <h2 className="truncate text-lg font-extrabold text-[#016564] sm:text-xl">{title}</h2>
+              <h2 className="truncate text-base font-extrabold text-[#016564] sm:text-xl">{title}</h2>
               <p className="mt-1 text-[11px] text-[#6f7b7a] sm:text-xs">
                 نموذج طلب بسيط، مباشر، وواضح للمستخدم.
               </p>
             </div>
 
-            <Button type="button" variant="ghost" onClick={onClose}>
+            <Button type="button" variant="ghost" onClick={onClose} className="shrink-0">
               إغلاق
             </Button>
           </div>
@@ -650,33 +650,39 @@ export default function RequestsPage() {
       : 'طلب إرجاع فائض';
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-[28px] border border-[#d6d7d4] bg-white px-5 py-5 shadow-sm">
+    <div className="space-y-4 sm:space-y-5">
+      <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
-            <h1 className="text-2xl font-extrabold text-[#016564]">
+            <h1 className="text-xl font-extrabold text-[#016564] sm:text-2xl">
               {isEmployee ? 'طلب مواد' : 'الطلبات التشغيلية'}
             </h1>
-            <p className="text-sm text-[#61706f]">
+            <p className="text-sm leading-7 text-[#61706f]">
               {isEmployee
                 ? 'رفع الطلبات وتعديلها قبل الصرف وطلب إرجاع الفائض بعد الصرف.'
                 : 'تنفيذ الصرف مباشرة ومتابعة الطلبات من مكان واحد دون دورة اعتماد.'}
             </p>
           </div>
 
-          {isEmployee ? <Button onClick={openCreateModal}>طلب جديد</Button> : null}
+          {isEmployee ? (
+            <Button onClick={openCreateModal} className="w-full sm:w-auto">
+              طلب جديد
+            </Button>
+          ) : null}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
           <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">{canUseWarehouseTabs ? 'طلبات جديدة' : 'الإجمالي'}</div>
+            <div className="text-xs leading-5 text-[#6f7b7a]">
+              {canUseWarehouseTabs ? 'طلبات جديدة' : 'الإجمالي'}
+            </div>
             <div className="mt-1 text-xl font-extrabold text-[#016564]">
               {canUseWarehouseTabs ? stats.warehouseNew : stats.total}
             </div>
           </Card>
 
           <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">
+            <div className="text-xs leading-5 text-[#6f7b7a]">
               {canUseWarehouseTabs ? 'طلبات منتهية' : 'جديدة'}
             </div>
             <div className="mt-1 text-xl font-extrabold text-[#d0b284]">
@@ -685,7 +691,7 @@ export default function RequestsPage() {
           </Card>
 
           <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">
+            <div className="text-xs leading-5 text-[#6f7b7a]">
               {canUseWarehouseTabs ? 'طلبات أُعيدت' : 'تمت الإعادة'}
             </div>
             <div className="mt-1 text-xl font-extrabold text-[#498983]">
@@ -694,41 +700,44 @@ export default function RequestsPage() {
           </Card>
 
           <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">تم الصرف</div>
+            <div className="text-xs leading-5 text-[#6f7b7a]">تم الصرف</div>
             <div className="mt-1 text-xl font-extrabold text-[#016564]">{stats.issued}</div>
           </Card>
 
           <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs text-[#6f7b7a]">الملغاة / المرفوضة</div>
+            <div className="text-xs leading-5 text-[#6f7b7a]">الملغاة / المرفوضة</div>
             <div className="mt-1 text-xl font-extrabold text-[#7c1e3e]">{stats.rejected}</div>
           </Card>
         </div>
       </section>
 
       {canUseWarehouseTabs ? (
-        <section className="flex flex-wrap gap-2">
+        <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Button
             variant={warehouseViewMode === 'new' ? 'primary' : 'secondary'}
             onClick={() => setWarehouseViewMode('new')}
+            className="w-full"
           >
             الطلبات الجديدة
           </Button>
           <Button
             variant={warehouseViewMode === 'finished' ? 'primary' : 'secondary'}
             onClick={() => setWarehouseViewMode('finished')}
+            className="w-full"
           >
             الطلبات المنتهية
           </Button>
           <Button
             variant={warehouseViewMode === 'returns' ? 'primary' : 'secondary'}
             onClick={() => setWarehouseViewMode('returns')}
+            className="w-full"
           >
             الطلبات المعادة
           </Button>
         </section>
       ) : null}
 
-      <Card className="overflow-hidden rounded-[28px] border border-[#d6d7d4] shadow-sm">
+      <Card className="overflow-hidden rounded-[24px] border border-[#d6d7d4] shadow-sm sm:rounded-[28px]">
         {loading ? (
           <div className="space-y-4 p-4">
             {[1, 2, 3, 4].map((i) => (
@@ -736,105 +745,229 @@ export default function RequestsPage() {
             ))}
           </div>
         ) : displayedRequests.length === 0 ? (
-          <div className="p-10 text-center text-sm text-[#6f7b7a]">لا توجد طلبات حتى الآن</div>
+          <div className="p-8 text-center text-sm text-[#6f7b7a] sm:p-10">لا توجد طلبات حتى الآن</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-right">
-              <thead className="border-b bg-[#f8f9f9]">
-                <tr className="text-sm text-[#016564]">
-                  <th className="p-4 font-bold">رقم الطلب</th>
-                  {!isEmployee ? <th className="p-4 font-bold">مقدم الطلب</th> : null}
-                  <th className="p-4 font-bold">الغرض</th>
-                  <th className="p-4 font-bold">المواد المطلوبة</th>
-                  <th className="p-4 font-bold">الحالة</th>
-                  <th className="p-4 font-bold">تاريخ الطلب</th>
-                  <th className="p-4 font-bold">الإجراءات</th>
-                </tr>
-              </thead>
+          <>
+            <div className="space-y-3 p-3 sm:hidden">
+              {displayedRequests.map((req) => {
+                const statusMeta = STATUS_MAP[req.status] || {
+                  label: req.status,
+                  variant: 'neutral' as const,
+                };
 
-              <tbody className="divide-y divide-[#eef1f1]">
-                {displayedRequests.map((req) => {
-                  const statusMeta = STATUS_MAP[req.status] || {
-                    label: req.status,
-                    variant: 'neutral' as const,
-                  };
+                return (
+                  <div
+                    key={req.id}
+                    className="rounded-[22px] border border-[#e8ecec] bg-white p-4 shadow-soft"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-extrabold text-[#016564]">{req.code}</div>
+                        <div className="mt-1 text-sm font-semibold text-[#152625]">{req.purpose}</div>
+                      </div>
 
-                  return (
-                    <tr key={req.id} className="align-middle hover:bg-[#f8f9f9]">
-                      <td className="p-4 font-mono text-sm font-bold text-[#016564]">{req.code}</td>
+                      <div className="shrink-0">
+                        <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                      </div>
+                    </div>
 
-                      {!isEmployee ? (
-                        <td className="p-4 text-sm text-[#304342]">
-                          <div>{req.requester?.fullName || '—'}</div>
-                          <div className="mt-1 text-xs text-[#6f7b7a]">
-                            {req.requester?.department || ''}
-                          </div>
-                        </td>
+                    {!isEmployee ? (
+                      <div className="mt-3 rounded-2xl bg-[#f8f9f9] px-3 py-2">
+                        <div className="text-xs text-[#6f7b7a]">مقدم الطلب</div>
+                        <div className="mt-1 text-sm font-semibold text-[#304342]">
+                          {req.requester?.fullName || '—'}
+                        </div>
+                        {req.requester?.department ? (
+                          <div className="mt-1 text-xs text-[#6f7b7a]">{req.requester.department}</div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3 space-y-3 rounded-2xl bg-[#fafcfc] p-3">
+                      <div>
+                        <div className="text-[11px] text-[#6f7b7a]">تاريخ الطلب</div>
+                        <div className="mt-1 text-sm font-semibold text-[#304342]">
+                          {formatDate(req.createdAt)}
+                        </div>
+                      </div>
+
+                      {req.notes ? (
+                        <div>
+                          <div className="text-[11px] text-[#6f7b7a]">ملاحظات</div>
+                          <div className="mt-1 text-sm leading-6 text-[#304342]">{req.notes}</div>
+                        </div>
                       ) : null}
 
-                      <td className="p-4">
-                        <div className="max-w-[260px] text-sm font-semibold text-[#152625]">
-                          {req.purpose}
-                        </div>
-                        {req.notes ? <div className="mt-1 text-xs text-[#61706f]">{req.notes}</div> : null}
-                        {req.rejectionReason ? (
-                          <div className="mt-1 text-xs text-[#7c1e3e]">
-                            سبب الإلغاء / الرفض: {req.rejectionReason}
+                      {req.rejectionReason ? (
+                        <div>
+                          <div className="text-[11px] text-[#7c1e3e]">سبب الإلغاء / الرفض</div>
+                          <div className="mt-1 text-sm leading-6 text-[#7c1e3e]">
+                            {req.rejectionReason}
                           </div>
-                        ) : null}
-                      </td>
-
-                      <td className="p-4">
-                        <RequestItemsPreview items={req.items || []} requestCode={req.code} />
-                      </td>
-
-                      <td className="p-4">
-                        <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
-                      </td>
-
-                      <td className="p-4 text-sm text-[#61706f]">{formatDate(req.createdAt)}</td>
-
-                      <td className="p-4">
-                        <div className="flex flex-wrap gap-2">
-                          {canIssue && req.status === 'PENDING' ? (
-                            <>
-                              <Button size="sm" onClick={() => handleIssueOrReject(req.id, 'issue')}>
-                                صرف المواد
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => handleIssueOrReject(req.id, 'reject', 'تم رفض الطلب')}
-                              >
-                                رفض
-                              </Button>
-                            </>
-                          ) : null}
-
-                          {isEmployee && req.status === 'PENDING' ? (
-                            <>
-                              <Button size="sm" onClick={() => openEditModal(req)}>
-                                تعديل
-                              </Button>
-                              <Button size="sm" variant="danger" onClick={() => handleEmployeeCancel(req.id)}>
-                                إلغاء
-                              </Button>
-                            </>
-                          ) : null}
-
-                          {isEmployee && req.status === 'ISSUED' ? (
-                            <Button size="sm" variant="secondary" onClick={() => openAdjustModal(req)}>
-                              إرجاع فائض
-                            </Button>
-                          ) : null}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      ) : null}
+
+                      <div>
+                        <div className="text-[11px] text-[#6f7b7a]">المواد المطلوبة</div>
+                        <div className="mt-2">
+                          <RequestItemsPreview items={req.items || []} requestCode={req.code} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-2">
+                      {canIssue && req.status === 'PENDING' ? (
+                        <>
+                          <Button size="sm" onClick={() => handleIssueOrReject(req.id, 'issue')} className="w-full">
+                            صرف المواد
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleIssueOrReject(req.id, 'reject', 'تم رفض الطلب')}
+                            className="w-full"
+                          >
+                            رفض
+                          </Button>
+                        </>
+                      ) : null}
+
+                      {isEmployee && req.status === 'PENDING' ? (
+                        <>
+                          <Button size="sm" onClick={() => openEditModal(req)} className="w-full">
+                            تعديل
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            onClick={() => handleEmployeeCancel(req.id)}
+                            className="w-full"
+                          >
+                            إلغاء
+                          </Button>
+                        </>
+                      ) : null}
+
+                      {isEmployee && req.status === 'ISSUED' ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openAdjustModal(req)}
+                          className="w-full"
+                        >
+                          إرجاع فائض
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden sm:block mobile-scroll-x">
+              <table className="w-full min-w-[980px] text-right">
+                <thead className="border-b bg-[#f8f9f9]">
+                  <tr className="text-sm text-[#016564]">
+                    <th className="p-4 font-bold">رقم الطلب</th>
+                    {!isEmployee ? <th className="p-4 font-bold">مقدم الطلب</th> : null}
+                    <th className="p-4 font-bold">الغرض</th>
+                    <th className="p-4 font-bold">المواد المطلوبة</th>
+                    <th className="p-4 font-bold">الحالة</th>
+                    <th className="p-4 font-bold">تاريخ الطلب</th>
+                    <th className="p-4 font-bold">الإجراءات</th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-[#eef1f1]">
+                  {displayedRequests.map((req) => {
+                    const statusMeta = STATUS_MAP[req.status] || {
+                      label: req.status,
+                      variant: 'neutral' as const,
+                    };
+
+                    return (
+                      <tr key={req.id} className="align-middle hover:bg-[#f8f9f9]">
+                        <td className="p-4 font-mono text-sm font-bold text-[#016564]">{req.code}</td>
+
+                        {!isEmployee ? (
+                          <td className="p-4 text-sm text-[#304342]">
+                            <div>{req.requester?.fullName || '—'}</div>
+                            <div className="mt-1 text-xs text-[#6f7b7a]">
+                              {req.requester?.department || ''}
+                            </div>
+                          </td>
+                        ) : null}
+
+                        <td className="p-4">
+                          <div className="max-w-[260px] text-sm font-semibold text-[#152625]">
+                            {req.purpose}
+                          </div>
+                          {req.notes ? (
+                            <div className="mt-1 text-xs text-[#61706f]">{req.notes}</div>
+                          ) : null}
+                          {req.rejectionReason ? (
+                            <div className="mt-1 text-xs text-[#7c1e3e]">
+                              سبب الإلغاء / الرفض: {req.rejectionReason}
+                            </div>
+                          ) : null}
+                        </td>
+
+                        <td className="p-4">
+                          <RequestItemsPreview items={req.items || []} requestCode={req.code} />
+                        </td>
+
+                        <td className="p-4">
+                          <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
+                        </td>
+
+                        <td className="p-4 text-sm text-[#61706f]">{formatDate(req.createdAt)}</td>
+
+                        <td className="p-4">
+                          <div className="flex flex-wrap gap-2">
+                            {canIssue && req.status === 'PENDING' ? (
+                              <>
+                                <Button size="sm" onClick={() => handleIssueOrReject(req.id, 'issue')}>
+                                  صرف المواد
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => handleIssueOrReject(req.id, 'reject', 'تم رفض الطلب')}
+                                >
+                                  رفض
+                                </Button>
+                              </>
+                            ) : null}
+
+                            {isEmployee && req.status === 'PENDING' ? (
+                              <>
+                                <Button size="sm" onClick={() => openEditModal(req)}>
+                                  تعديل
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="danger"
+                                  onClick={() => handleEmployeeCancel(req.id)}
+                                >
+                                  إلغاء
+                                </Button>
+                              </>
+                            ) : null}
+
+                            {isEmployee && req.status === 'ISSUED' ? (
+                              <Button size="sm" variant="secondary" onClick={() => openAdjustModal(req)}>
+                                إرجاع فائض
+                              </Button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
 
@@ -879,7 +1012,7 @@ export default function RequestsPage() {
                 </div>
               </section>
 
-              <section className="grid gap-5 lg:grid-cols-[1fr_1fr]">
+              <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
                 <div className="rounded-2xl border border-[#e7ebea] bg-white p-4 sm:p-5">
                   <div className="mb-4 text-sm font-bold text-[#016564]">استعراض المواد</div>
 
@@ -898,7 +1031,7 @@ export default function RequestsPage() {
                         <div>النوع</div>
                       </div>
 
-                      <div className="max-h-[360px] overflow-y-auto bg-white">
+                      <div className="max-h-[320px] overflow-y-auto bg-white sm:max-h-[360px]">
                         {inventoryLoading ? (
                           <div className="px-4 py-4 text-sm text-[#61706f]">جاري تحميل المواد...</div>
                         ) : filteredInventory.length === 0 ? (

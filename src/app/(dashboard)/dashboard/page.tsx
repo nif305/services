@@ -83,7 +83,7 @@ type FocusRow = {
   title: string;
   note: string;
   href: string;
-  level: 'critical' | 'warning' | 'normal';
+  level: 'critical' | 'warning' | 'normal' | 'primary' | 'secondary';
 };
 
 const RETURNS_STORAGE_KEY = 'inventory_returns';
@@ -127,13 +127,34 @@ function daysLate(dueDate?: string | null) {
   return diff > 0 ? Math.ceil(diff / (1000 * 60 * 60 * 24)) : 0;
 }
 
-function levelClasses(level: 'critical' | 'warning' | 'normal') {
+function levelClasses(level: 'critical' | 'warning' | 'normal' | 'primary' | 'secondary') {
+  if (level === 'primary') {
+    return {
+      dot: 'bg-[#016564]',
+      surface: 'bg-[#016564]/[0.05]',
+      border: 'border-[#016564]/30',
+      badge: 'bg-[#016564] text-white shadow-sm',
+      arrow: 'text-[#016564]',
+    };
+  }
+
+  if (level === 'secondary') {
+    return {
+      dot: 'bg-[#d0b284]',
+      surface: 'bg-[#d0b284]/[0.10]',
+      border: 'border-[#d0b284]/35',
+      badge: 'bg-[#d0b284] text-white shadow-sm',
+      arrow: 'text-[#b59667]',
+    };
+  }
+
   if (level === 'critical') {
     return {
       dot: 'bg-[#7c1e3e]',
       surface: 'bg-[#7c1e3e]/[0.04]',
       border: 'border-[#7c1e3e]/15',
       badge: 'bg-[#7c1e3e]/10 text-[#7c1e3e]',
+      arrow: 'text-[#7c1e3e]',
     };
   }
 
@@ -143,6 +164,7 @@ function levelClasses(level: 'critical' | 'warning' | 'normal') {
       surface: 'bg-[#d0b284]/[0.10]',
       border: 'border-[#d0b284]/30',
       badge: 'bg-[#d0b284]/15 text-[#7a6129]',
+      arrow: 'text-[#b59667]',
     };
   }
 
@@ -151,6 +173,7 @@ function levelClasses(level: 'critical' | 'warning' | 'normal') {
     surface: 'bg-[#016564]/[0.04]',
     border: 'border-[#016564]/15',
     badge: 'bg-[#016564]/10 text-[#016564]',
+    arrow: 'text-[#016564]',
   };
 }
 
@@ -1053,14 +1076,14 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
       note: 'لصرف مواد متوفرة من المخزون',
       href: '/requests?new=1',
       icon: 'requests' as const,
-      tone: 'normal' as const,
+      tone: 'primary' as const,
     },
     {
       title: 'طلب إرجاع مواد',
       note: 'لإرجاع المواد القابلة للإعادة من عهدتك',
       href: '/returns?new=1',
       icon: 'returns' as const,
-      tone: stats.activeCustody > 0 ? 'warning' as const : 'normal' as const,
+      tone: 'secondary' as const,
     },
     {
       title: 'طلب صيانة',
@@ -1235,7 +1258,10 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
                   <div className={`rounded-[18px] p-3 ${tone.badge}`}>
                     <Icon name={card.icon} className="h-6 w-6" />
                   </div>
-                  <Icon name="arrow" className="h-4 w-4 text-slate-400 transition group-hover:text-[#016564]" />
+                  <Icon
+                    name="arrow"
+                    className={`h-4 w-4 transition ${tone.arrow} group-hover:scale-110`}
+                  />
                 </div>
 
                 <div className="mt-4 text-[18px] text-slate-900">{card.title}</div>

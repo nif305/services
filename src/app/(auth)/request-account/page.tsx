@@ -2,9 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { User } from '@/features/auth/types/auth.types';
-
-const USERS_STORAGE_KEY = 'inventory_users';
 
 const projects = [
   'مشروع القيادة الأمنية',
@@ -13,35 +10,10 @@ const projects = [
   'لا ينطبق',
 ];
 
-function loadUsers(): User[] {
-  if (typeof window === 'undefined') return [];
-
-  const stored = localStorage.getItem(USERS_STORAGE_KEY);
-  if (!stored) return [];
-
-  try {
-    return JSON.parse(stored) as User[];
-  } catch {
-    return [];
-  }
-}
-
-function saveUsers(users: User[]) {
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-}
-
-function buildEmployeeId(users: User[]) {
-  const numericIds = users
-    .map((u) => Number(u.employeeId))
-    .filter((n) => Number.isFinite(n));
-
-  const nextId = numericIds.length ? Math.max(...numericIds) + 1 : 1005;
-  return String(nextId);
-}
-
 export default function RequestAccountPage() {
   const [submitted, setSubmitted] = useState(false);
   const [undertakingAccepted, setUndertakingAccepted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
     fullName: '',
@@ -53,7 +25,7 @@ export default function RequestAccountPage() {
     confirmPassword: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -67,44 +39,34 @@ export default function RequestAccountPage() {
       return;
     }
 
-    const users = loadUsers();
-    const normalizedEmail = form.email.trim().toLowerCase();
+    setLoading(true);
 
-    const existingUser = users.find(
-      (u) => u.email?.toLowerCase() === normalizedEmail
-    );
+    try {
+      const response = await fetch('/api/auth/request-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: form.fullName,
+          email: form.email,
+          mobile: form.mobile,
+          extension: form.extension,
+          operationalProject: form.operationalProject,
+          password: form.password,
+          undertakingAccepted,
+        }),
+      });
 
-    if (existingUser) {
-      setError('يوجد حساب أو طلب سابق بهذا البريد الإلكتروني.');
-      return;
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setError(data?.error || 'تعذر إرسال الطلب');
+        return;
+      }
+
+      setSubmitted(true);
+    } finally {
+      setLoading(false);
     }
-
-    const newUser: User = {
-      id: `usr_${Date.now()}`,
-      employeeId: buildEmployeeId(users),
-      fullName: form.fullName.trim(),
-      email: normalizedEmail,
-      mobile: form.mobile.trim(),
-      extension: form.extension.trim(),
-      department:
-        form.operationalProject && form.operationalProject !== 'لا ينطبق'
-          ? form.operationalProject
-          : 'وكالة التدريب',
-      jobTitle: 'موظف',
-      operationalProject: form.operationalProject,
-      role: 'user',
-      status: 'pending',
-      avatar: null,
-      undertaking: {
-        accepted: true,
-        acceptedAt: new Date().toISOString(),
-      },
-      createdAt: new Date().toISOString(),
-      lastLoginAt: null,
-    };
-
-    saveUsers([newUser, ...users]);
-    setSubmitted(true);
   };
 
   const inputClassName =
@@ -293,13 +255,14 @@ export default function RequestAccountPage() {
                   <button
                     type="submit"
                     disabled={
+                      loading ||
                       !undertakingAccepted ||
                       !form.password ||
                       form.password !== form.confirmPassword
                     }
                     className="h-[42px] w-full rounded-[14px] bg-[#0b8a88] text-[14px] font-normal text-white shadow-[0_10px_22px_rgba(11,138,136,0.16)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    إرسال الطلب
+                    {loading ? 'جارٍ الإرسال...' : 'إرسال الطلب'}
                   </button>
                 </form>
               )}

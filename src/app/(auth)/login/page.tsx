@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
+  const router = useRouter();
   const { login } = useAuth();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,6 +23,8 @@ export default function LoginPage() {
 
     try {
       await login(form.email, form.password);
+      router.replace('/dashboard');
+      router.refresh();
     } catch (err: any) {
       setError(err.message || 'تعذر تسجيل الدخول');
     } finally {

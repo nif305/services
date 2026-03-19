@@ -577,8 +577,9 @@ async function issueRequest(requestId: string, actorId: string, notes?: string) 
         throw new Error(`الكمية غير كافية للصنف ${item.name}`);
       }
 
+      const isReturnable = item.type === ItemType.RETURNABLE;
       const nextAvailable = item.availableQty - reqItem.quantity;
-      const nextQuantity = item.quantity - reqItem.quantity;
+      const nextQuantity = isReturnable ? item.quantity : item.quantity - reqItem.quantity;
 
       await tx.inventoryItem.update({
         where: { id: item.id },
@@ -589,18 +590,20 @@ async function issueRequest(requestId: string, actorId: string, notes?: string) 
         },
       });
 
-      await tx.custodyRecord.create({
-        data: {
-          userId: request.requesterId,
-          itemId: item.id,
-          requestId: request.id,
-          quantity: reqItem.quantity,
-          issueDate: new Date(),
-          expectedReturn: parseExpectedReturn(reqItem.notes),
-          status: CustodyStatus.ACTIVE,
-          notes: notes?.trim() || null,
-        },
-      });
+      if (isReturnable) {
+        await tx.custodyRecord.create({
+          data: {
+            userId: request.requesterId,
+            itemId: item.id,
+            requestId: request.id,
+            quantity: reqItem.quantity,
+            issueDate: new Date(),
+            expectedReturn: parseExpectedReturn(reqItem.notes),
+            status: CustodyStatus.ACTIVE,
+            notes: notes?.trim() || null,
+          },
+        });
+      }
     }
 
     return tx.request.update({
@@ -672,6 +675,16 @@ async function adjustAfterIssue(
 
   await prisma.$transaction(async (tx) => {
     for (const row of rows) {
+      const reqItem = request.items.find((item) => item.itemId === row.itemId);
+
+      if (!reqItem) {
+        throw new Error('الصنف المطلوب غير مرتبط بهذا الطلب');
+      }
+
+      if (reqItem.item?.type !== ItemType.RETURNABLE) {
+        throw new Error(`الصنف ${reqItem.item?.name || ''} ليس مادة مسترجعة`);
+      }
+
       const activeRecords = await tx.custodyRecord.findMany({
         where: {
           requestId,
@@ -684,9 +697,8 @@ async function adjustAfterIssue(
 
       const totalActive = activeRecords.reduce((sum, record) => sum + record.quantity, 0);
       if (totalActive < row.quantityToReturn) {
-        const reqItem = request.items.find((item) => item.itemId === row.itemId);
         throw new Error(
-          `الكمية المطلوب إرجاعها للصنف ${reqItem?.item?.name || ''} تتجاوز المصروف فعليًا`
+          `الكمية المطلوب إرجاعها للصنف ${reqItem.item?.name || ''} تتجاوز المصروف فعليًا`
         );
       }
 

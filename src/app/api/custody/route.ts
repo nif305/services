@@ -1,110 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Role, Status } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { CustodyService } from '@/services/custody.service';
-
-function mapRole(role: string): Role {
-  const normalized = String(role || '').trim().toLowerCase();
-
-  if (normalized === 'manager') return Role.MANAGER;
-  if (normalized === 'warehouse') return Role.WAREHOUSE;
-  return Role.USER;
-}
-
-async function resolveSessionUser(request: NextRequest) {
-  const cookieId = decodeURIComponent(request.cookies.get('user_id')?.value || '').trim();
-  const cookieEmail = decodeURIComponent(request.cookies.get('user_email')?.value || '').trim();
-  const cookieName = decodeURIComponent(request.cookies.get('user_name')?.value || 'مستخدم النظام').trim();
-  const cookieDepartment = decodeURIComponent(
-    request.cookies.get('user_department')?.value || 'إدارة عمليات التدريب'
-  ).trim();
-  const cookieEmployeeId = decodeURIComponent(
-    request.cookies.get('user_employee_id')?.value || ''
-  ).trim();
-  const cookieRole = decodeURIComponent(request.cookies.get('user_role')?.value || 'user').trim();
-
-  const role = mapRole(cookieRole);
-
-  let user = null;
-
-  if (cookieId) {
-    user = await prisma.user.findUnique({
-      where: { id: cookieId },
-      select: { id: true, role: true, department: true, email: true, employeeId: true },
-    });
-  }
-
-  if (!user && cookieEmail) {
-    user = await prisma.user.findFirst({
-      where: {
-        email: {
-          equals: cookieEmail,
-          mode: 'insensitive',
-        },
-      },
-      select: { id: true, role: true, department: true, email: true, employeeId: true },
-    });
-  }
-
-  if (!user && cookieEmployeeId) {
-    user = await prisma.user.findUnique({
-      where: { employeeId: cookieEmployeeId },
-      select: { id: true, role: true, department: true, email: true, employeeId: true },
-    });
-  }
-
-  if (!user) {
-    const safeEmployeeId = cookieEmployeeId || `EMP-${Date.now()}`;
-    const safeEmail = cookieEmail || `${safeEmployeeId.toLowerCase()}@agency.local`;
-
-    user = await prisma.user.upsert({
-      where: { employeeId: safeEmployeeId },
-      update: {
-        fullName: cookieName,
-        email: safeEmail,
-        department: cookieDepartment,
-        role,
-        status: Status.ACTIVE,
-      },
-      create: {
-        employeeId: safeEmployeeId,
-        fullName: cookieName,
-        email: safeEmail,
-        mobile: '0500000000',
-        department: cookieDepartment,
-        jobTitle: 'مستخدم',
-        passwordHash: 'local-auth',
-        role,
-        status: Status.ACTIVE,
-      },
-      select: { id: true, role: true, department: true, email: true, employeeId: true },
-    });
-  }
-
-  return {
-    id: user.id,
-    role: user.role,
-    department: user.department || cookieDepartment,
-  };
-}
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await resolveSessionUser(request);
-    const searchParams = request.nextUrl.searchParams;
+    const userId = request.cookies.get('user_id')?.value;
 
-    const result = await CustodyService.getAll({
-      userId: session.id,
-      role: session.role,
-      page: parseInt(searchParams.get('page') || '1', 10),
-      status: searchParams.get('status') || '',
+    if (!userId) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+      },
     });
 
-    return NextResponse.json(result);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'تعذر جلب بيانات العهد' },
-      { status: 500 }
-    );
+    if (!user) {
+      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 401 });
+    }
+
+    const custodyRecords = await prisma.custodyRecord.findMany({
+      where: {
+        userId,
+        status: {
+          in: ['ACTIVE', 'OVERDUE', 'RETURN_REQUESTED'],
+        },
+        item: {
+          type: 'RETURNABLE',
+        },
+      },
+      include: {
+        item: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            category: true,
+            type: true,
+          },
+        },
+        user: {
+          select: {
+            fullName: true,
+            department: true,
+          },
+        },
+        returnRequests: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            conditionNote: true,
+            rejectionReason: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: [
+        { dueDate: 'asc' },
+        { issueDate: 'desc' },
+      ],
+    });
+
+    return NextResponse.json({
+      data: custodyRecords.map((record) => ({
+        id: record.id,
+        issueDate: record.issueDate,
+        dueDate: record.dueDate,
+        notes: record.notes,
+        status: record.status,
+        userId,
+        user: record.user,
+        item: record.item,
+        returnRequests: record.returnRequests.map((request) => ({
+          ...request,
+          createdAt: request.createdAt.toISOString(),
+        })),
+      })),
+    });
+  } catch {
+    return NextResponse.json({ error: 'تعذر جلب العهد' }, { status: 500 });
   }
 }

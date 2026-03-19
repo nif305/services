@@ -164,10 +164,13 @@ export const ReturnService = {
           item: true,
           returnRequests: {
             where: {
-              status: ReturnStatus.PENDING,
+              status: {
+                in: [ReturnStatus.PENDING, ReturnStatus.APPROVED],
+              },
             },
             select: {
               quantity: true,
+              status: true,
             },
           },
         },
@@ -185,11 +188,18 @@ export const ReturnService = {
         throw new Error('لا يمكن إرجاع فائض لهذا الطلب في حالته الحالية');
       }
 
+      if (requestItem.item.type !== ItemType.CONSUMABLE) {
+        throw new Error('المواد المسترجعة تُعاد من خلال العهدة وليس كبند طلب فائض');
+      }
+
       const requestedQty = requestItem.quantity;
-      const pendingQty = requestItem.returnRequests.reduce((sum, row) => sum + row.quantity, 0);
+      const alreadyReturnedQty = requestItem.returnRequests.reduce(
+        (sum, row) => sum + row.quantity,
+        0
+      );
       const safeQty = Math.max(1, Math.floor(Number(quantity || 0)));
 
-      if (safeQty > requestedQty - pendingQty) {
+      if (safeQty > requestedQty - alreadyReturnedQty) {
         throw new Error('كمية الإرجاع تتجاوز المسموح');
       }
 
@@ -305,9 +315,9 @@ export const ReturnService = {
       }
 
       if (
-        ![CustodyStatus.ACTIVE, CustodyStatus.RETURN_REQUESTED, CustodyStatus.OVERDUE].includes(
-          ret.custody.status
-        )
+        ret.custody.status !== CustodyStatus.ACTIVE &&
+        ret.custody.status !== CustodyStatus.RETURN_REQUESTED &&
+        ret.custody.status !== CustodyStatus.OVERDUE
       ) {
         throw new Error('هذه العهدة ليست في حالة تسمح بالإغلاق');
       }
@@ -516,7 +526,8 @@ export const ReturnService = {
       if (
         ret.sourceType === ReturnSourceType.CUSTODY &&
         ret.custody &&
-        [CustodyStatus.RETURN_REQUESTED, CustodyStatus.OVERDUE].includes(ret.custody.status)
+        (ret.custody.status === CustodyStatus.RETURN_REQUESTED ||
+          ret.custody.status === CustodyStatus.OVERDUE)
       ) {
         await tx.custodyRecord.update({
           where: { id: ret.custodyId! },

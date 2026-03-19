@@ -1,5 +1,5 @@
 export type AppRole = 'manager' | 'warehouse' | 'user';
-export type AppStatus = 'active' | 'pending' | 'disabled' | 'rejected' | 'archived';
+export type AppStatus = 'active' | 'disabled';
 
 export interface UndertakingState {
   accepted: boolean;

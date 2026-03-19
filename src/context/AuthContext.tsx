@@ -35,6 +35,10 @@ type LoginResponse = {
   error?: string;
 };
 
+type MeResponse = {
+  user?: AppUser | null;
+};
+
 type AuthContextType = {
   user: AppUser | null;
   originalUser: AppUser | null;
@@ -138,21 +142,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const storedUser = loadStoredUser(AUTH_STORAGE_KEY);
-    const storedOriginalUser = loadStoredUser(AUTH_ORIGINAL_STORAGE_KEY);
+    let isMounted = true;
 
-    if (storedUser) {
-      setUser(storedUser);
-    }
+    const bootstrapAuth = async () => {
+      const storedUser = loadStoredUser(AUTH_STORAGE_KEY);
+      const storedOriginalUser = loadStoredUser(AUTH_ORIGINAL_STORAGE_KEY);
 
-    if (storedOriginalUser) {
-      setOriginalUser(storedOriginalUser);
-    } else if (storedUser) {
-      setOriginalUser(storedUser);
-      saveOriginalAuthUser(storedUser);
-    }
+      if (storedUser) {
+        if (!isMounted) return;
+        setUser(storedUser);
 
-    setLoading(false);
+        if (storedOriginalUser) {
+          setOriginalUser(storedOriginalUser);
+        } else {
+          setOriginalUser(storedUser);
+          saveOriginalAuthUser(storedUser);
+        }
+
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        });
+
+        const json: MeResponse = await res.json().catch(() => ({ user: null }));
+
+        if (!isMounted) return;
+
+        if (res.ok && json?.user) {
+          const normalized = normalizeUser(json.user);
+          setUser(normalized);
+          setOriginalUser(normalized);
+          saveAuthUser(normalized);
+          saveOriginalAuthUser(normalized);
+        } else {
+          setUser(null);
+          setOriginalUser(null);
+          saveAuthUser(null);
+          saveOriginalAuthUser(null);
+        }
+      } catch {
+        if (!isMounted) return;
+        setUser(null);
+        setOriginalUser(null);
+        saveAuthUser(null);
+        saveOriginalAuthUser(null);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    bootstrapAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -165,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
 
@@ -194,7 +246,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAllUsers([]);
     saveAuthUser(null);
     saveOriginalAuthUser(null);
-    window.location.href = '/login';
+
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).finally(() => {
+      window.location.href = '/login';
+    });
   }, []);
 
   const switchViewRole = useCallback(

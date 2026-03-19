@@ -28,7 +28,7 @@ export async function POST(
       return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
     }
 
-    if (action === 'approve') {
+    if (action === 'activate' || action === 'approve') {
       await prisma.user.update({
         where: { id },
         data: { status: 'ACTIVE' },
@@ -36,31 +36,7 @@ export async function POST(
       return NextResponse.json({ ok: true });
     }
 
-    if (action === 'reject') {
-      await prisma.user.update({
-        where: { id },
-        data: { status: 'REJECTED' },
-      });
-      return NextResponse.json({ ok: true });
-    }
-
-    if (action === 'activate') {
-      await prisma.user.update({
-        where: { id },
-        data: { status: 'ACTIVE' },
-      });
-      return NextResponse.json({ ok: true });
-    }
-
-    if (action === 'disable') {
-      await prisma.user.update({
-        where: { id },
-        data: { status: 'DISABLED' },
-      });
-      return NextResponse.json({ ok: true });
-    }
-
-    if (action === 'archive') {
+    if (action === 'disable' || action === 'archive' || action === 'reject') {
       await prisma.user.update({
         where: { id },
         data: { status: 'DISABLED' },
@@ -78,6 +54,7 @@ export async function POST(
 
     if (action === 'reset-password') {
       const password = normalizeText(body?.password);
+
       if (!password || password.length < 6) {
         return NextResponse.json({ error: 'كلمة المرور الجديدة غير صالحة' }, { status: 400 });
       }

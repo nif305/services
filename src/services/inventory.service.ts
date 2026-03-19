@@ -17,7 +17,7 @@ type InventoryFilters = {
 };
 
 type InventoryPayload = {
-  code: string;
+  code?: string;
   name: string;
   description?: string | null;
   category: string;
@@ -62,7 +62,60 @@ function toDecimal(value: number | null) {
   return new Prisma.Decimal(value);
 }
 
-function buildCreateData(data: InventoryPayload): Prisma.InventoryItemCreateInput {
+function normalizeCodePrefix(value: string) {
+  return value
+    .trim()
+    .normalize('NFKD')
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .slice(0, 3)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '') || 'GEN';
+}
+
+function getCategoryPrefix(category: string) {
+  const map: Record<string, string> = {
+    'معدات التدريب الأمني والدفاعي': 'SEC',
+    'الإسعافات الأولية والسلامة': 'MED',
+    'الواقع الافتراضي والتصوير والمحاكاة': 'VR',
+    'الأجهزة التقنية والحاسب': 'TEC',
+    'التجهيزات التدريبية والقاعة': 'TRN',
+    'الأدوات الرياضية والتدريب البدني': 'SPT',
+    'القرطاسية والمواد المكتبية': 'STA',
+    'الهويات والشهادات والمطبوعات': 'IDN',
+  };
+
+  return map[category.trim()] || normalizeCodePrefix(category);
+}
+
+async function generateInventoryCode(category: string, type: ItemType) {
+  const categoryPrefix = getCategoryPrefix(category);
+  const typePrefix = type === ItemType.RETURNABLE ? 'R' : 'C';
+  const prefix = `${categoryPrefix}-${typePrefix}-`;
+
+  const lastItem = await prisma.inventoryItem.findFirst({
+    where: {
+      code: {
+        startsWith: prefix,
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    select: {
+      code: true,
+    },
+  });
+
+  const lastNumber = lastItem?.code
+    ? Number(lastItem.code.split('-').pop() || '0')
+    : 0;
+
+  const nextNumber = String(lastNumber + 1).padStart(4, '0');
+  return `${prefix}${nextNumber}`;
+}
+
+async function buildCreateData(data: InventoryPayload): Promise<Prisma.InventoryItemCreateInput> {
   const quantity = normalizeNumber(data.quantity, 0);
   const minStock = normalizeNumber(data.minStock, 5);
   const unitPrice = normalizeNullableNumber(data.unitPrice);
@@ -70,14 +123,16 @@ function buildCreateData(data: InventoryPayload): Prisma.InventoryItemCreateInpu
     typeof data.financialTracking === 'boolean'
       ? data.financialTracking
       : unitPrice !== null;
+  const itemType = data.type || ItemType.RETURNABLE;
+  const generatedCode = await generateInventoryCode(data.category.trim(), itemType);
 
   return {
-    code: data.code.trim(),
+    code: generatedCode,
     name: data.name.trim(),
     description: data.description?.trim() || null,
     category: data.category.trim(),
     subcategory: data.subcategory?.trim() || null,
-    type: data.type || ItemType.RETURNABLE,
+    type: itemType,
     quantity,
     availableQty: quantity,
     reservedQty: 0,
@@ -94,15 +149,17 @@ function buildCreateData(data: InventoryPayload): Prisma.InventoryItemCreateInpu
   };
 }
 
-function buildUpdateData(
+async function buildUpdateData(
   current: {
     quantity: number;
     reservedQty: number;
     minStock: number;
     unitPrice: Prisma.Decimal | null;
+    category: string;
+    type: ItemType;
   },
   data: Partial<InventoryPayload>,
-): Prisma.InventoryItemUpdateInput {
+): Promise<Prisma.InventoryItemUpdateInput> {
   const quantity =
     data.quantity !== undefined
       ? normalizeNumber(data.quantity, current.quantity)
@@ -120,6 +177,9 @@ function buildUpdateData(
         ? Number(current.unitPrice)
         : null;
 
+  const nextCategory = data.category?.trim() || current.category;
+  const nextType = data.type || current.type;
+
   const availableQty = Math.max(quantity - current.reservedQty, 0);
   const totalPrice = calculateTotalPrice(quantity, incomingUnitPrice);
   const financialTracking =
@@ -127,8 +187,14 @@ function buildUpdateData(
       ? data.financialTracking
       : incomingUnitPrice !== null;
 
+  const shouldRegenerateCode =
+    (!!data.category && data.category.trim() !== current.category) ||
+    (!!data.type && data.type !== current.type);
+
   return {
-    code: data.code?.trim(),
+    code: shouldRegenerateCode
+      ? await generateInventoryCode(nextCategory, nextType)
+      : undefined,
     name: data.name?.trim(),
     description:
       data.description !== undefined ? data.description?.trim() || null : undefined,
@@ -157,7 +223,7 @@ function buildUpdateData(
 export const InventoryService = {
   create: async (data: InventoryPayload) => {
     const item = await prisma.inventoryItem.create({
-      data: buildCreateData(data),
+      data: await buildCreateData(data),
     });
 
     await prisma.auditLog.create({
@@ -169,6 +235,7 @@ export const InventoryService = {
           code: item.code,
           name: item.name,
           category: item.category,
+          type: item.type,
         }),
       },
     });
@@ -262,6 +329,8 @@ export const InventoryService = {
         reservedQty: true,
         minStock: true,
         unitPrice: true,
+        category: true,
+        type: true,
       },
     });
 
@@ -271,7 +340,7 @@ export const InventoryService = {
 
     const updated = await prisma.inventoryItem.update({
       where: { id },
-      data: buildUpdateData(current, data),
+      data: await buildUpdateData(current, data),
     });
 
     await prisma.auditLog.create({
@@ -285,12 +354,16 @@ export const InventoryService = {
             name: current.name,
             quantity: current.quantity,
             availableQty: current.availableQty,
+            category: current.category,
+            type: current.type,
           },
           after: {
             code: updated.code,
             name: updated.name,
             quantity: updated.quantity,
             availableQty: updated.availableQty,
+            category: updated.category,
+            type: updated.type,
           },
         }),
       },
@@ -364,30 +437,44 @@ export const InventoryService = {
   },
 
   getStats: async () => {
-    const [total, available, lowStock, outOfStock, financialItems, allItems] =
-      await Promise.all([
-        prisma.inventoryItem.count(),
-        prisma.inventoryItem.count({
-          where: { status: ItemStatus.AVAILABLE },
-        }),
-        prisma.inventoryItem.count({
-          where: { status: ItemStatus.LOW_STOCK },
-        }),
-        prisma.inventoryItem.count({
-          where: { status: ItemStatus.OUT_OF_STOCK },
-        }),
-        prisma.inventoryItem.count({
-          where: { financialTracking: true },
-        }),
-        prisma.inventoryItem.findMany({
-          select: {
-            quantity: true,
-            availableQty: true,
-            unitPrice: true,
-            totalPrice: true,
-          },
-        }),
-      ]);
+    const [
+      total,
+      available,
+      lowStock,
+      outOfStock,
+      financialItems,
+      allItems,
+      returnableCount,
+      consumableCount,
+    ] = await Promise.all([
+      prisma.inventoryItem.count(),
+      prisma.inventoryItem.count({
+        where: { status: ItemStatus.AVAILABLE },
+      }),
+      prisma.inventoryItem.count({
+        where: { status: ItemStatus.LOW_STOCK },
+      }),
+      prisma.inventoryItem.count({
+        where: { status: ItemStatus.OUT_OF_STOCK },
+      }),
+      prisma.inventoryItem.count({
+        where: { financialTracking: true },
+      }),
+      prisma.inventoryItem.findMany({
+        select: {
+          quantity: true,
+          availableQty: true,
+          unitPrice: true,
+          totalPrice: true,
+        },
+      }),
+      prisma.inventoryItem.count({
+        where: { type: ItemType.RETURNABLE },
+      }),
+      prisma.inventoryItem.count({
+        where: { type: ItemType.CONSUMABLE },
+      }),
+    ]);
 
     const totalQuantity = allItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -409,6 +496,8 @@ export const InventoryService = {
         0,
       ),
       totalValue: Number(totalValue.toFixed(2)),
+      returnableCount,
+      consumableCount,
     };
   },
 };

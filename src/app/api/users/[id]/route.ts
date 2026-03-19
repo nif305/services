@@ -16,7 +16,7 @@ function mapUser(user: any) {
     fullName: user.fullName,
     email: user.email,
     mobile: user.mobile,
-    extension: '',
+    extension: user.jobTitle || '',
     department: user.department,
     jobTitle: user.jobTitle,
     operationalProject: user.department,
@@ -42,10 +42,7 @@ function toPrismaRole(role?: string) {
 }
 
 function toPrismaStatus(status?: string) {
-  if (status === 'active') return 'ACTIVE';
   if (status === 'disabled') return 'DISABLED';
-  if (status === 'pending') return 'PENDING';
-  if (status === 'rejected') return 'REJECTED';
   return 'ACTIVE';
 }
 
@@ -60,12 +57,13 @@ async function updateUserHandler(
     const fullName = normalizeText(body?.fullName);
     const email = normalizeEmail(body?.email);
     const mobile = normalizeText(body?.mobile);
+    const extension = normalizeText(body?.extension);
     const department = normalizeText(body?.department);
     const jobTitle = normalizeText(body?.jobTitle);
     const operationalProject = normalizeText(body?.operationalProject);
     const password = normalizeText(body?.password);
-    const role = normalizeText(body?.role);
-    const status = normalizeText(body?.status);
+    const role = normalizeText(body?.role).toLowerCase();
+    const status = normalizeText(body?.status).toLowerCase();
 
     const currentUser = await prisma.user.findUnique({
       where: { id },
@@ -100,11 +98,8 @@ async function updateUserHandler(
         fullName: fullName || currentUser.fullName,
         email: email || currentUser.email,
         mobile: mobile || currentUser.mobile,
-        department:
-          operationalProject ||
-          department ||
-          currentUser.department,
-        jobTitle: jobTitle || currentUser.jobTitle,
+        department: operationalProject || department || currentUser.department,
+        jobTitle: extension || jobTitle || currentUser.jobTitle,
         passwordHash: password || currentUser.passwordHash,
         role: role ? toPrismaRole(role) : currentUser.role,
         status: status ? toPrismaStatus(status) : currentUser.status,

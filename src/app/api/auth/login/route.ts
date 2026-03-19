@@ -47,30 +47,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'بيانات الدخول غير صحيحة' }, { status: 401 });
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {},
-    });
+    const nowIso = new Date().toISOString();
 
     const response = NextResponse.json({
       ok: true,
-      user: {
+      data: {
         id: user.id,
         employeeId: user.employeeId,
         fullName: user.fullName,
         email: user.email,
         mobile: user.mobile,
+        extension: '',
         department: user.department,
         jobTitle: user.jobTitle,
+        operationalProject: user.department || '',
         role: user.role.toLowerCase(),
         status: user.status.toLowerCase(),
         avatar: user.avatar,
         createdAt: user.createdAt.toISOString(),
-        lastLoginAt: null,
-        undertaking: {
-          accepted: true,
-          acceptedAt: new Date().toISOString(),
-        },
+        lastLoginAt: nowIso,
+        mustChangePassword: false,
       },
     });
 

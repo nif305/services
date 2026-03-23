@@ -9,7 +9,36 @@ function normalizeEmail(value?: string | null) {
   return (value || '').trim().toLowerCase();
 }
 
+function hasManagerAccess(user: { role: string; roles?: string[] | null } | null) {
+  if (!user) return false;
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  return user.role === 'MANAGER' || roles.includes('MANAGER');
+}
+
+async function getCurrentManager(request: NextRequest) {
+  const userId = request.cookies.get('user_id')?.value;
+
+  if (!userId) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+      roles: true,
+      status: true,
+    },
+  });
+
+  if (!user || user.status === 'DISABLED') return null;
+  if (!hasManagerAccess(user)) return null;
+
+  return user;
+}
+
 function mapUser(user: any) {
+  const roles = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles : [user.role];
+
   return {
     id: user.id,
     employeeId: user.employeeId,
@@ -21,6 +50,7 @@ function mapUser(user: any) {
     jobTitle: user.jobTitle,
     operationalProject: user.department,
     role: user.role.toLowerCase(),
+    roles: roles.map((role: string) => role.toLowerCase()),
     status: user.status.toLowerCase(),
     avatar: user.avatar,
     undertaking: {
@@ -35,8 +65,14 @@ function mapUser(user: any) {
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const manager = await getCurrentManager(request);
+
+    if (!manager) {
+      return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
+    }
+
     const users = await prisma.user.findMany({
       include: {
         undertaking: true,
@@ -56,6 +92,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const manager = await getCurrentManager(request);
+
+    if (!manager) {
+      return NextResponse.json({ error: 'غير مصرح لك بإنشاء المستخدمين' }, { status: 403 });
+    }
+
     const body = await request.json();
 
     const fullName = normalizeText(body?.fullName);
@@ -88,6 +130,7 @@ export async function POST(request: NextRequest) {
         jobTitle: extension || '',
         passwordHash: password,
         role: 'USER',
+        roles: ['USER'],
         status: 'ACTIVE',
       },
       include: {

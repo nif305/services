@@ -1,10 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { navigationItems, type AppRole, type NavigationItem } from '@/config/navigation.config';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils/cn';
+
+type SidebarItem = NavigationItem & {
+  href: string;
+  label: string;
+  icon: NavigationItem['icon'];
+  group: NavigationItem['group'];
+  roles?: AppRole[];
+};
 
 function Icon({
   name,
@@ -138,13 +146,159 @@ const groupLabels: Record<NavigationItem['group'], string> = {
   management: 'الإدارة والتواصل',
 };
 
+const managerSidebarOverrides: SidebarItem[] = [
+  {
+    href: '/dashboard',
+    label: 'لوحة التحكم',
+    icon: 'dashboard',
+    roles: ['manager'],
+    group: 'main',
+  },
+  {
+    href: '/inventory',
+    label: 'المخزون',
+    icon: 'inventory',
+    roles: ['manager'],
+    group: 'operations',
+  },
+  {
+    href: '/requests',
+    label: 'طلبات المواد',
+    icon: 'requests',
+    roles: ['manager'],
+    group: 'operations',
+  },
+  {
+    href: '/returns',
+    label: 'طلبات الإرجاع',
+    icon: 'returns',
+    roles: ['manager'],
+    group: 'operations',
+  },
+  {
+    href: '/custody',
+    label: 'العهد',
+    icon: 'custody',
+    roles: ['manager'],
+    group: 'operations',
+  },
+  {
+    href: '/maintenance?category=MAINTENANCE',
+    label: 'الصيانة',
+    icon: 'maintenance',
+    roles: ['manager'],
+    group: 'management',
+  },
+  {
+    href: '/maintenance?category=CLEANING',
+    label: 'النظافة',
+    icon: 'maintenance',
+    roles: ['manager'],
+    group: 'management',
+  },
+  {
+    href: '/purchases',
+    label: 'الشراء المباشر',
+    icon: 'purchases',
+    roles: ['manager'],
+    group: 'management',
+  },
+  {
+    href: '/suggestions?category=OTHER',
+    label: 'الطلبات الأخرى',
+    icon: 'suggestions',
+    roles: ['manager'],
+    group: 'management',
+  },
+  {
+    href: '/messages',
+    label: 'المراسلات الداخلية',
+    icon: 'messages',
+    roles: ['manager'],
+    group: 'management',
+  },
+  {
+    href: '/email-drafts',
+    label: 'المراسلات الخارجية',
+    icon: 'email',
+    roles: ['manager'],
+    group: 'management',
+  },
+  {
+    href: '/notifications',
+    label: 'الإشعارات',
+    icon: 'notifications',
+    roles: ['manager'],
+    group: 'management',
+  },
+  {
+    href: '/reports',
+    label: 'التقارير',
+    icon: 'reports',
+    roles: ['manager'],
+    group: 'governance',
+  },
+  {
+    href: '/archive',
+    label: 'الأرشيف',
+    icon: 'archive',
+    roles: ['manager'],
+    group: 'governance',
+  },
+  {
+    href: '/audit-logs',
+    label: 'سجل التدقيق',
+    icon: 'audit',
+    roles: ['manager'],
+    group: 'governance',
+  },
+  {
+    href: '/users',
+    label: 'المستخدمون',
+    icon: 'users',
+    roles: ['manager'],
+    group: 'governance',
+  },
+];
+
+function isItemActive(href: string, pathname: string, currentCategory: string) {
+  const [basePath, queryString] = href.split('?');
+
+  if (basePath === '/dashboard') {
+    return pathname === '/dashboard';
+  }
+
+  if (pathname !== basePath && !pathname.startsWith(`${basePath}/`)) {
+    return false;
+  }
+
+  if (!queryString) {
+    return true;
+  }
+
+  const params = new URLSearchParams(queryString);
+  const requiredCategory = params.get('category') || '';
+
+  if (requiredCategory) {
+    return currentCategory === requiredCategory;
+  }
+
+  return true;
+}
+
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const role = ((user?.role || 'user') as AppRole);
+  const currentCategory = searchParams.get('category') || '';
 
-  const items = navigationItems.filter((item) => !item.roles || item.roles.includes(role));
-  const groups = ['main', 'operations', 'governance', 'management'] as const;
+  const items =
+    role === 'manager'
+      ? managerSidebarOverrides
+      : navigationItems.filter((item) => !item.roles || item.roles.includes(role));
+
+  const groups = ['main', 'operations', 'management', 'governance'] as const;
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-b border-[#dbe6e4] bg-white lg:min-h-screen lg:w-80 lg:border-b-0 lg:border-l">
@@ -178,10 +332,7 @@ export function Sidebar() {
 
                 <div className="space-y-1.5">
                   {groupItems.map((item) => {
-                    const active =
-                      item.href === '/dashboard'
-                        ? pathname === '/dashboard'
-                        : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    const active = isItemActive(item.href, pathname, currentCategory);
 
                     return (
                       <Link

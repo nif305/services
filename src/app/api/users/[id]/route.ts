@@ -11,17 +11,24 @@ function normalizeEmail(value?: string | null) {
   return (value || '').trim().toLowerCase();
 }
 
+function normalizeRole(value?: string | null): AppRole {
+  const role = (value || '').trim().toLowerCase();
+  if (role === 'manager') return 'manager';
+  if (role === 'warehouse') return 'warehouse';
+  return 'user';
+}
+
 function deriveRolesFromUser(user: { role?: string | null; roles?: string[] | null }): AppRole[] {
   const rawRoles = Array.isArray(user?.roles) ? user.roles : [];
   const normalized = rawRoles
-    .map((role) => (role || '').toLowerCase())
+    .map((role) => normalizeRole(role))
     .filter((role): role is AppRole => role === 'manager' || role === 'warehouse' || role === 'user');
 
   if (normalized.length > 0) {
     return Array.from(new Set(normalized.includes('user') ? normalized : ['user', ...normalized]));
   }
 
-  const fallbackRole = (user?.role || '').toLowerCase();
+  const fallbackRole = normalizeRole(user?.role);
   if (fallbackRole === 'manager') return ['user', 'manager'];
   if (fallbackRole === 'warehouse') return ['user', 'warehouse'];
   return ['user'];
@@ -40,9 +47,9 @@ function mapUser(user: any) {
     department: user.department,
     jobTitle: user.jobTitle,
     operationalProject: user.department,
-    role: user.role.toLowerCase(),
+    role: normalizeRole(user.role),
     roles,
-    status: user.status.toLowerCase(),
+    status: (user.status || '').toLowerCase(),
     avatar: user.avatar,
     undertaking: {
       accepted: !!user.undertaking?.accepted,
@@ -75,7 +82,7 @@ function normalizeIncomingRoles(body: any): AppRole[] {
       : ['user'];
 
   const normalized = incoming
-    .map((role) => normalizeText(role).toLowerCase())
+    .map((role: unknown) => normalizeRole(String(role || '')))
     .filter((role): role is AppRole => role === 'manager' || role === 'warehouse' || role === 'user');
 
   if (!normalized.includes('user')) {
@@ -91,33 +98,12 @@ function getPrimaryRole(roles: AppRole[]) {
   return 'user' as const;
 }
 
-async function ensureManager(request: NextRequest) {
-  const userId = request.cookies.get('user_id')?.value;
+function readSessionRole(request: NextRequest): AppRole {
+  return normalizeRole(decodeURIComponent(request.cookies.get('user_role')?.value || 'user'));
+}
 
-  if (!userId) {
-    return null;
-  }
-
-  const actor = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      role: true,
-      roles: true,
-      status: true,
-    },
-  });
-
-  if (!actor || actor.status !== 'ACTIVE') {
-    return null;
-  }
-
-  const actorRoles = deriveRolesFromUser({ role: actor.role, roles: actor.roles });
-  if (!actorRoles.includes('manager')) {
-    return null;
-  }
-
-  return actor;
+function isManagerRequest(request: NextRequest) {
+  return readSessionRole(request) === 'manager';
 }
 
 async function updateUserHandler(
@@ -125,9 +111,7 @@ async function updateUserHandler(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const actor = await ensureManager(request);
-
-    if (!actor) {
+    if (!isManagerRequest(request)) {
       return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
     }
 
@@ -202,9 +186,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const actor = await ensureManager(request);
-
-    if (!actor) {
+    if (!isManagerRequest(request)) {
       return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
     }
 

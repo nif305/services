@@ -6,14 +6,6 @@ import { navigationItems, type AppRole, type NavigationItem } from '@/config/nav
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils/cn';
 
-type SidebarItem = NavigationItem & {
-  href: string;
-  label: string;
-  icon: NavigationItem['icon'];
-  group: NavigationItem['group'];
-  roles?: AppRole[];
-};
-
 function Icon({
   name,
   className = 'h-5 w-5',
@@ -126,11 +118,23 @@ function Icon({
         </svg>
       );
 
-    case 'suggestions':
+    case 'cleaning':
       return (
         <svg viewBox="0 0 24 24" className={className}>
-          <path {...common} d="M12 3a7 7 0 0 0-4 12.8V18a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.2A7 7 0 0 0 12 3Z" />
-          <path {...common} d="M10 21h4" />
+          <path {...common} d="M7 21h10" />
+          <path {...common} d="M12 3v12" />
+          <path {...common} d="m8 7 4-4 4 4" />
+          <path {...common} d="M8 15h8" />
+        </svg>
+      );
+
+    case 'suggestions':
+    case 'other':
+      return (
+        <svg viewBox="0 0 24 24" className={className}>
+          <circle {...common} cx="12" cy="12" r="8" />
+          <path {...common} d="M9.5 9a2.5 2.5 0 1 1 4 2c-.8.6-1.5 1.1-1.5 2" />
+          <path {...common} d="M12 17h.01" />
         </svg>
       );
 
@@ -140,150 +144,27 @@ function Icon({
 }
 
 const groupLabels: Record<NavigationItem['group'], string> = {
-  main: 'الرئيسية',
-  operations: 'التشغيل اليومي',
-  governance: 'الحوكمة والرقابة',
-  management: 'الإدارة والتواصل',
+  main: 'التشغيل',
+  primary: 'القسم الرئيسي',
+  services: 'الخدمات',
+  messages: 'المراسلات',
+  governance: 'الحوكمة',
 };
 
-const managerSidebarOverrides: SidebarItem[] = [
-  {
-    href: '/dashboard',
-    label: 'لوحة التحكم',
-    icon: 'dashboard',
-    roles: ['manager'],
-    group: 'main',
-  },
-  {
-    href: '/inventory',
-    label: 'المخزون',
-    icon: 'inventory',
-    roles: ['manager'],
-    group: 'operations',
-  },
-  {
-    href: '/requests',
-    label: 'طلبات المواد',
-    icon: 'requests',
-    roles: ['manager'],
-    group: 'operations',
-  },
-  {
-    href: '/returns',
-    label: 'طلبات الإرجاع',
-    icon: 'returns',
-    roles: ['manager'],
-    group: 'operations',
-  },
-  {
-    href: '/custody',
-    label: 'العهد',
-    icon: 'custody',
-    roles: ['manager'],
-    group: 'operations',
-  },
-  {
-    href: '/maintenance?category=MAINTENANCE',
-    label: 'الصيانة',
-    icon: 'maintenance',
-    roles: ['manager'],
-    group: 'management',
-  },
-  {
-    href: '/maintenance?category=CLEANING',
-    label: 'النظافة',
-    icon: 'maintenance',
-    roles: ['manager'],
-    group: 'management',
-  },
-  {
-    href: '/purchases',
-    label: 'الشراء المباشر',
-    icon: 'purchases',
-    roles: ['manager'],
-    group: 'management',
-  },
-  {
-    href: '/suggestions?category=OTHER',
-    label: 'الطلبات الأخرى',
-    icon: 'suggestions',
-    roles: ['manager'],
-    group: 'management',
-  },
-  {
-    href: '/messages',
-    label: 'المراسلات الداخلية',
-    icon: 'messages',
-    roles: ['manager'],
-    group: 'management',
-  },
-  {
-    href: '/email-drafts',
-    label: 'المراسلات الخارجية',
-    icon: 'email',
-    roles: ['manager'],
-    group: 'management',
-  },
-  {
-    href: '/notifications',
-    label: 'الإشعارات',
-    icon: 'notifications',
-    roles: ['manager'],
-    group: 'management',
-  },
-  {
-    href: '/reports',
-    label: 'التقارير',
-    icon: 'reports',
-    roles: ['manager'],
-    group: 'governance',
-  },
-  {
-    href: '/archive',
-    label: 'الأرشيف',
-    icon: 'archive',
-    roles: ['manager'],
-    group: 'governance',
-  },
-  {
-    href: '/audit-logs',
-    label: 'سجل التدقيق',
-    icon: 'audit',
-    roles: ['manager'],
-    group: 'governance',
-  },
-  {
-    href: '/users',
-    label: 'المستخدمون',
-    icon: 'users',
-    roles: ['manager'],
-    group: 'governance',
-  },
-];
-
-function isItemActive(href: string, pathname: string, currentCategory: string) {
-  const [basePath, queryString] = href.split('?');
-
-  if (basePath === '/dashboard') {
+function isItemActive(
+  item: NavigationItem,
+  pathname: string,
+  searchParams: ReturnType<typeof useSearchParams>
+) {
+  if (item.href === '/dashboard') {
     return pathname === '/dashboard';
   }
 
-  if (pathname !== basePath && !pathname.startsWith(`${basePath}/`)) {
-    return false;
+  if (item.href.startsWith('/suggestions?category=OTHER')) {
+    return pathname === '/suggestions' && searchParams.get('category') === 'OTHER';
   }
 
-  if (!queryString) {
-    return true;
-  }
-
-  const params = new URLSearchParams(queryString);
-  const requiredCategory = params.get('category') || '';
-
-  if (requiredCategory) {
-    return currentCategory === requiredCategory;
-  }
-
-  return true;
+  return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
 export function Sidebar() {
@@ -291,14 +172,9 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const role = ((user?.role || 'user') as AppRole);
-  const currentCategory = searchParams.get('category') || '';
 
-  const items =
-    role === 'manager'
-      ? managerSidebarOverrides
-      : navigationItems.filter((item) => !item.roles || item.roles.includes(role));
-
-  const groups = ['main', 'operations', 'management', 'governance'] as const;
+  const items = navigationItems.filter((item) => !item.roles || item.roles.includes(role));
+  const groups = ['main', 'primary', 'services', 'messages', 'governance'] as const;
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-b border-[#dbe6e4] bg-white lg:min-h-screen lg:w-80 lg:border-b-0 lg:border-l">
@@ -332,7 +208,7 @@ export function Sidebar() {
 
                 <div className="space-y-1.5">
                   {groupItems.map((item) => {
-                    const active = isItemActive(item.href, pathname, currentCategory);
+                    const active = isItemActive(item, pathname, searchParams);
 
                     return (
                       <Link

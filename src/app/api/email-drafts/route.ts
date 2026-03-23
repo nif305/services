@@ -1,78 +1,119 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient, Role, Status } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-function sanitizeHeader(value?: string | null) {
-  return String(value || '').replace(/\r/g, ' ').replace(/\n/g, ' ').trim();
+function mapRole(role: string): Role {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'manager') return Role.MANAGER;
+  if (normalized === 'warehouse') return Role.WAREHOUSE;
+  return Role.USER;
 }
 
-function buildEmlContent(params: {
-  to: string;
-  subject: string;
-  html: string;
-}) {
-  const headers = [
-    `To: ${sanitizeHeader(params.to)}`,
-    `Subject: ${sanitizeHeader(params.subject)}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/html; charset=UTF-8',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-  ];
+async function resolveSessionUser(request: NextRequest) {
+  const cookieId = decodeURIComponent(request.cookies.get('user_id')?.value || '').trim();
+  const cookieEmail = decodeURIComponent(request.cookies.get('user_email')?.value || '').trim();
+  const cookieName = decodeURIComponent(request.cookies.get('user_name')?.value || 'مستخدم النظام').trim();
+  const cookieDepartment = decodeURIComponent(
+    request.cookies.get('user_department')?.value || 'إدارة عمليات التدريب'
+  ).trim();
+  const cookieEmployeeId = decodeURIComponent(
+    request.cookies.get('user_employee_id')?.value || ''
+  ).trim();
+  const cookieRole = decodeURIComponent(request.cookies.get('user_role')?.value || 'user').trim();
 
-  return `${headers.join('\r\n')}\r\n${params.html}`;
+  const role = mapRole(cookieRole);
+
+  let user: {
+    id: string;
+    role: Role;
+    fullName: string;
+    department: string;
+    email: string;
+    employeeId: string;
+  } | null = null;
+
+  if (cookieId) {
+    user = await prisma.user.findUnique({
+      where: { id: cookieId },
+      select: { id: true, role: true, fullName: true, department: true, email: true, employeeId: true },
+    });
+  }
+
+  if (!user && cookieEmail) {
+    user = await prisma.user.findFirst({
+      where: { email: { equals: cookieEmail, mode: 'insensitive' } },
+      select: { id: true, role: true, fullName: true, department: true, email: true, employeeId: true },
+    });
+  }
+
+  if (!user && cookieEmployeeId) {
+    user = await prisma.user.findUnique({
+      where: { employeeId: cookieEmployeeId },
+      select: { id: true, role: true, fullName: true, department: true, email: true, employeeId: true },
+    });
+  }
+
+  if (!user) {
+    const safeEmployeeId = cookieEmployeeId || `EMP-${Date.now()}`;
+    const safeEmail = cookieEmail || `${safeEmployeeId.toLowerCase()}@agency.local`;
+
+    user = await prisma.user.upsert({
+      where: { employeeId: safeEmployeeId },
+      update: {
+        fullName: cookieName,
+        email: safeEmail,
+        department: cookieDepartment,
+        role,
+        status: Status.ACTIVE,
+      },
+      create: {
+        employeeId: safeEmployeeId,
+        fullName: cookieName,
+        email: safeEmail,
+        mobile: '0500000000',
+        department: cookieDepartment,
+        jobTitle: 'مستخدم',
+        passwordHash: 'local-auth',
+        role,
+        status: Status.ACTIVE,
+      },
+      select: { id: true, role: true, fullName: true, department: true, email: true, employeeId: true },
+    });
+  }
+
+  return user;
 }
 
-function buildFileName(subject: string, id: string) {
-  const safe = sanitizeHeader(subject)
-    .replace(/[\\/:*?"<>|]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return `${safe || `email-draft-${id}`}.eml`;
-}
-
-export async function GET(
-  _request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest) {
   try {
-    const { id } = await context.params;
+    const sessionUser = await resolveSessionUser(request);
 
-    if (!id) {
-      return NextResponse.json({ error: 'Missing draft id' }, { status: 400 });
+    if (sessionUser.role !== Role.MANAGER) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 
-    const draft = await prisma.emailDraft.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        recipient: true,
-        subject: true,
-        body: true,
-      },
+    const drafts = await prisma.emailDraft.findMany({
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!draft) {
-      return NextResponse.json({ error: 'Draft not found' }, { status: 404 });
-    }
-
-    const emlContent = buildEmlContent({
-      to: draft.recipient,
-      subject: draft.subject,
-      html: draft.body,
-    });
-
-    return new NextResponse(emlContent, {
-      status: 200,
-      headers: {
-        'Content-Type': 'message/rfc822; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${buildFileName(draft.subject, draft.id)}"`,
-        'Cache-Control': 'no-store',
-      },
+    return NextResponse.json({
+      data: drafts.map((draft) => ({
+        id: draft.id,
+        subject: draft.subject,
+        to: draft.recipient,
+        cc: null,
+        body: draft.body,
+        status: draft.status === 'COPIED' ? 'READY' : draft.status,
+        createdAt: draft.createdAt,
+        updatedAt: draft.copiedAt || draft.createdAt,
+        createdBy: null,
+      })),
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'تعذر جلب مسودات البريد' },
+      { status: 500 }
+    );
   }
 }

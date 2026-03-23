@@ -321,7 +321,7 @@ async function createRequest(data: {
         type: 'NEW_REQUEST',
         title: 'طلب مواد جديد',
         message: `تم إنشاء طلب جديد برقم ${request.code}`,
-        link: '/requests',
+        link: `/requests?open=${request.id}`,
         entityId: request.id,
         entityType: 'REQUEST',
       })),

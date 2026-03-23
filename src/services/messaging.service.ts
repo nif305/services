@@ -35,7 +35,10 @@ export const MessagingService = {
         userId: data.receiverId,
         type: 'NEW_MESSAGE',
         title: 'رسالة داخلية جديدة',
-        message: `لديك رسالة داخلية بعنوان: ${data.subject}`,
+        message: `وردتك رسالة داخلية جديدة بعنوان: ${data.subject}`,
+        link: `/messages?open=${message.id}`,
+        entityId: message.id,
+        entityType: 'message',
       },
     });
 

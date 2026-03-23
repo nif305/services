@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -9,13 +10,16 @@ import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 
+type MaintenanceStatusUi = 'PENDING_MANAGER' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+type MaintenancePriorityUi = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
 type MaintenanceRow = {
   id: string;
   code: string;
   title: string;
   description?: string | null;
-  status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  status: MaintenanceStatusUi;
+  priority: MaintenancePriorityUi;
   createdAt?: string;
   requester?: {
     fullName?: string;
@@ -24,6 +28,48 @@ type MaintenanceRow = {
   assignedTo?: {
     fullName?: string;
   };
+  relatedItemName?: string | null;
+  location?: string | null;
+  sourcePurpose?: string | null;
+  rawStatus?: string | null;
+  sourceType: 'suggestion' | 'maintenance';
+};
+
+type SuggestionApiRow = {
+  id: string;
+  code?: string | null;
+  title?: string | null;
+  description?: string | null;
+  category?: string | null;
+  type?: string | null;
+  status?: string | null;
+  priority?: string | null;
+  createdAt?: string | null;
+  requester?: {
+    fullName?: string | null;
+    department?: string | null;
+  } | null;
+  justification?: string | null;
+  adminNotes?: string | null;
+  location?: string | null;
+  relatedItemName?: string | null;
+};
+
+type MaintenanceApiRow = {
+  id: string;
+  code?: string | null;
+  title?: string | null;
+  description?: string | null;
+  status?: string | null;
+  priority?: string | null;
+  createdAt?: string | null;
+  requester?: {
+    fullName?: string | null;
+    department?: string | null;
+  } | null;
+  assignedTo?: {
+    fullName?: string | null;
+  } | null;
   relatedItemName?: string | null;
   location?: string | null;
 };
@@ -54,18 +100,121 @@ function normalizeArabic(value: string) {
     .replace(/\s+/g, ' ');
 }
 
-function statusMeta(status: MaintenanceRow['status']) {
+function statusMeta(status: MaintenanceStatusUi) {
+  if (status === 'PENDING_MANAGER') return { label: 'بانتظار المدير', variant: 'warning' as const };
   if (status === 'OPEN') return { label: 'مفتوح', variant: 'warning' as const };
   if (status === 'IN_PROGRESS') return { label: 'قيد المعالجة', variant: 'info' as const };
   if (status === 'COMPLETED') return { label: 'مغلق', variant: 'success' as const };
   return { label: 'ملغي', variant: 'danger' as const };
 }
 
-function priorityMeta(priority: MaintenanceRow['priority']) {
+function priorityMeta(priority: MaintenancePriorityUi) {
   if (priority === 'CRITICAL') return { label: 'حرج', variant: 'danger' as const };
   if (priority === 'HIGH') return { label: 'عالٍ', variant: 'warning' as const };
   if (priority === 'MEDIUM') return { label: 'متوسط', variant: 'info' as const };
   return { label: 'منخفض', variant: 'neutral' as const };
+}
+
+function mapPriority(value?: string | null): MaintenancePriorityUi {
+  const raw = String(value || '').trim().toUpperCase();
+  if (raw === 'CRITICAL' || raw === 'URGENT') return 'CRITICAL';
+  if (raw === 'HIGH') return 'HIGH';
+  if (raw === 'MEDIUM' || raw === 'NORMAL') return 'MEDIUM';
+  return 'LOW';
+}
+
+function parseJson(value?: string | null) {
+  try {
+    return JSON.parse(String(value || '{}'));
+  } catch {
+    return {};
+  }
+}
+
+function buildFallbackCode(prefix: string, createdAt?: string | null, index = 0) {
+  const year = (() => {
+    try {
+      return new Date(createdAt || Date.now()).getFullYear();
+    } catch {
+      return new Date().getFullYear();
+    }
+  })();
+
+  return `${prefix}-${year}-${String(index + 1).padStart(4, '0')}`;
+}
+
+function mapSuggestionRow(item: SuggestionApiRow, index: number): MaintenanceRow {
+  const justification = parseJson(item.justification);
+  const statusRaw = String(item.status || '').trim().toUpperCase();
+
+  return {
+    id: item.id,
+    code: String(item.code || '').trim() || buildFallbackCode('MNT', item.createdAt, index),
+    title: String(item.title || 'طلب صيانة').trim(),
+    description: item.description || null,
+    status:
+      statusRaw === 'PENDING'
+        ? 'PENDING_MANAGER'
+        : statusRaw === 'IMPLEMENTED'
+        ? 'IN_PROGRESS'
+        : statusRaw === 'REJECTED'
+        ? 'CANCELLED'
+        : 'OPEN',
+    priority: mapPriority(item.priority),
+    createdAt: item.createdAt || undefined,
+    requester: {
+      fullName: item.requester?.fullName || undefined,
+      department: item.requester?.department || undefined,
+    },
+    assignedTo: undefined,
+    relatedItemName:
+      String(
+        justification.areaLabel ||
+          justification.itemName ||
+          item.relatedItemName ||
+          ''
+      ).trim() || null,
+    location:
+      String(justification.location || item.location || '').trim() || null,
+    sourcePurpose: String(justification.sourcePurpose || '').trim() || null,
+    rawStatus: statusRaw || null,
+    sourceType: 'suggestion',
+  };
+}
+
+function mapMaintenanceRow(item: MaintenanceApiRow, index: number): MaintenanceRow {
+  const statusRaw = String(item.status || '').trim().toUpperCase();
+
+  return {
+    id: item.id,
+    code: String(item.code || '').trim() || buildFallbackCode('MNT', item.createdAt, index),
+    title: String(item.title || 'طلب صيانة').trim(),
+    description: item.description || null,
+    status:
+      statusRaw === 'PENDING'
+        ? 'OPEN'
+        : statusRaw === 'IN_PROGRESS'
+        ? 'IN_PROGRESS'
+        : statusRaw === 'COMPLETED'
+        ? 'COMPLETED'
+        : statusRaw === 'CANCELLED'
+        ? 'CANCELLED'
+        : 'OPEN',
+    priority: mapPriority(item.priority),
+    createdAt: item.createdAt || undefined,
+    requester: {
+      fullName: item.requester?.fullName || undefined,
+      department: item.requester?.department || undefined,
+    },
+    assignedTo: {
+      fullName: item.assignedTo?.fullName || undefined,
+    },
+    relatedItemName: item.relatedItemName || null,
+    location: item.location || null,
+    sourcePurpose: null,
+    rawStatus: statusRaw || null,
+    sourceType: 'maintenance',
+  };
 }
 
 export default function MaintenancePage() {
@@ -73,7 +222,7 @@ export default function MaintenancePage() {
   const [rows, setRows] = useState<MaintenanceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | MaintenanceRow['status']>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | MaintenanceStatusUi>('ALL');
   const [selected, setSelected] = useState<MaintenanceRow | null>(null);
 
   const canViewAll = user?.role === 'manager' || user?.role === 'warehouse';
@@ -83,12 +232,47 @@ export default function MaintenancePage() {
 
     async function fetchRows() {
       setLoading(true);
+
       try {
-        const res = await fetch('/api/maintenance', { cache: 'no-store' });
-        const data = await res.json();
+        const [suggestionsRes, maintenanceRes] = await Promise.allSettled([
+          fetch('/api/suggestions?category=MAINTENANCE', { cache: 'no-store' }),
+          fetch('/api/maintenance', { cache: 'no-store' }),
+        ]);
+
+        const suggestionRows: MaintenanceRow[] = [];
+        const maintenanceRows: MaintenanceRow[] = [];
+
+        if (suggestionsRes.status === 'fulfilled' && suggestionsRes.value.ok) {
+          const data = await suggestionsRes.value.json();
+          const items = Array.isArray(data?.data) ? data.data : [];
+
+          items
+            .filter((item: SuggestionApiRow) => {
+              const status = String(item.status || '').trim().toUpperCase();
+              return status === 'PENDING' || status === 'REJECTED';
+            })
+            .forEach((item: SuggestionApiRow, index: number) => {
+              suggestionRows.push(mapSuggestionRow(item, index));
+            });
+        }
+
+        if (maintenanceRes.status === 'fulfilled' && maintenanceRes.value.ok) {
+          const data = await maintenanceRes.value.json();
+          const items = Array.isArray(data?.data) ? data.data : [];
+
+          items.forEach((item: MaintenanceApiRow, index: number) => {
+            maintenanceRows.push(mapMaintenanceRow(item, index));
+          });
+        }
+
+        const merged = [...suggestionRows, ...maintenanceRows].sort((a, b) => {
+          const aTime = new Date(a.createdAt || 0).getTime();
+          const bTime = new Date(b.createdAt || 0).getTime();
+          return bTime - aTime;
+        });
 
         if (mounted) {
-          setRows(Array.isArray(data?.data) ? data.data : []);
+          setRows(merged);
         }
       } catch {
         if (mounted) setRows([]);
@@ -106,7 +290,7 @@ export default function MaintenancePage() {
   const stats = useMemo(() => {
     return {
       total: rows.length,
-      open: rows.filter((row) => row.status === 'OPEN').length,
+      open: rows.filter((row) => row.status === 'OPEN' || row.status === 'PENDING_MANAGER').length,
       progress: rows.filter((row) => row.status === 'IN_PROGRESS').length,
       closed: rows.filter((row) => row.status === 'COMPLETED').length,
     };
@@ -125,9 +309,11 @@ export default function MaintenancePage() {
           row.description,
           row.relatedItemName,
           row.location,
+          row.sourcePurpose,
           row.requester?.fullName,
           row.requester?.department,
           row.assignedTo?.fullName,
+          statusMeta(row.status).label,
         ]
           .filter(Boolean)
           .join(' ')
@@ -146,7 +332,7 @@ export default function MaintenancePage() {
             الصيانة
           </h1>
           <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">
-            متابعة طلبات الصيانة والأعطال المرتبطة بالمخزون أو البيئة التشغيلية.
+            متابعة طلبات الصيانة الواردة للمدير وما تم تحويله لاحقًا للمعالجة التشغيلية.
           </p>
         </div>
 
@@ -187,7 +373,7 @@ export default function MaintenancePage() {
             label="بحث"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="الرمز، العنوان، المادة، الموقع، أو اسم مقدم الطلب"
+            placeholder="الرمز، العنوان، الجزء المطلوب، الموقع، أو اسم مقدم الطلب"
           />
 
           <div className="space-y-2">
@@ -195,11 +381,12 @@ export default function MaintenancePage() {
             <select
               value={statusFilter}
               onChange={(e) =>
-                setStatusFilter(e.target.value as 'ALL' | MaintenanceRow['status'])
+                setStatusFilter(e.target.value as 'ALL' | MaintenanceStatusUi)
               }
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
             >
               <option value="ALL">الكل</option>
+              <option value="PENDING_MANAGER">بانتظار المدير</option>
               <option value="OPEN">مفتوح</option>
               <option value="IN_PROGRESS">قيد المعالجة</option>
               <option value="COMPLETED">مغلق</option>
@@ -227,7 +414,7 @@ export default function MaintenancePage() {
 
             return (
               <Card
-                key={row.id}
+                key={`${row.sourceType}-${row.id}`}
                 className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -238,6 +425,9 @@ export default function MaintenancePage() {
                       </div>
                       <Badge variant={status.variant}>{status.label}</Badge>
                       <Badge variant={priority.variant}>{priority.label}</Badge>
+                      <Badge variant={row.sourceType === 'suggestion' ? 'neutral' : 'info'}>
+                        {row.sourceType === 'suggestion' ? 'طلب مرفوع' : 'قيد التنفيذ'}
+                      </Badge>
                     </div>
 
                     <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">
@@ -253,7 +443,8 @@ export default function MaintenancePage() {
                     <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
                       <div>التاريخ: {formatDate(row.createdAt)}</div>
                       <div className="break-words">الموقع: {row.location || '—'}</div>
-                      <div className="break-words">المادة: {row.relatedItemName || '—'}</div>
+                      <div className="break-words">الجزء المطلوب: {row.relatedItemName || '—'}</div>
+                      <div className="break-words">مصدر الحاجة: {row.sourcePurpose || '—'}</div>
                       {canViewAll ? (
                         <div className="break-words">مقدم الطلب: {row.requester?.fullName || '—'}</div>
                       ) : null}
@@ -322,8 +513,13 @@ export default function MaintenancePage() {
               </div>
 
               <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">المادة المرتبطة</div>
+                <div className="text-xs font-bold text-[#016564]">الجزء المطلوب</div>
                 <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.relatedItemName || '—'}</div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">مصدر الحاجة</div>
+                <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.sourcePurpose || '—'}</div>
               </div>
 
               {canViewAll ? (
@@ -335,10 +531,26 @@ export default function MaintenancePage() {
                 </div>
               ) : null}
 
+              {canViewAll ? (
+                <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                  <div className="text-xs font-bold text-[#016564]">الإدارة</div>
+                  <div className="mt-1 break-words text-sm leading-7 text-[#304342]">
+                    {selected.requester?.department || '—'}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
                 <div className="text-xs font-bold text-[#016564]">المسند إليه</div>
                 <div className="mt-1 break-words text-sm leading-7 text-[#304342]">
                   {selected.assignedTo?.fullName || '—'}
+                </div>
+              </div>
+
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">نوع السجل</div>
+                <div className="mt-1 break-words text-sm leading-7 text-[#304342]">
+                  {selected.sourceType === 'suggestion' ? 'طلب مرفوع بانتظار الاعتماد' : 'طلب تم تحويله للتنفيذ'}
                 </div>
               </div>
             </div>

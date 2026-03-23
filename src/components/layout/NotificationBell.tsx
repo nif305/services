@@ -71,6 +71,7 @@ export function NotificationBell({ userId }: { userId: string }) {
     const handleToast = (event: Event) => {
       const detail = (event as CustomEvent<InventoryNotification>).detail;
       if (!detail || detail.userId !== userId) return;
+      if (detail.severity === 'critical' || detail.kind === 'alert') return;
 
       setToasts((prev) => [detail, ...prev].slice(0, 3));
 

@@ -96,7 +96,7 @@ const managerWarehouseGroups: NavGroup[] = [
         ),
       },
       {
-        href: '/suggestions?category=CLEANING',
+        href: '/cleaning',
         label: 'النظافة',
         roles: ['manager'],
         icon: (
@@ -122,7 +122,7 @@ const managerWarehouseGroups: NavGroup[] = [
         ),
       },
       {
-        href: '/suggestions?category=OTHER',
+        href: '/other',
         label: 'الطلبات الأخرى',
         roles: ['manager'],
         icon: (
@@ -310,20 +310,8 @@ function canAccess(item: NavItem, role?: string) {
   return item.roles.includes((role as AppRole) || 'user');
 }
 
-function getCurrentCategory() {
-  if (typeof window === 'undefined') return null;
-  const params = new URLSearchParams(window.location.search);
-  return params.get('category');
-}
-
-function isActive(pathname: string, href: string, searchCategory: string | null) {
+function isActive(pathname: string, href: string) {
   if (href === '/dashboard') return pathname === '/dashboard';
-
-  if (href.startsWith('/suggestions?category=')) {
-    const targetCategory = href.split('category=')[1] || '';
-    return pathname === '/suggestions' && searchCategory === targetCategory;
-  }
-
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -370,10 +358,8 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const { user, logout, switchViewRole, originalUser, canUseRoleSwitch } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchCategory, setSearchCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    setSearchCategory(getCurrentCategory());
     setMobileOpen(false);
   }, [pathname]);
 
@@ -435,7 +421,7 @@ export default function DashboardLayout({
 
               <div className="space-y-2">
                 {group.items.map((item) => {
-                  const active = isActive(pathname, item.href, searchCategory);
+                  const active = isActive(pathname, item.href);
 
                   return (
                     <Link

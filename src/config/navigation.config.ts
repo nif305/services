@@ -1,5 +1,7 @@
 export type AppRole = 'manager' | 'warehouse' | 'user';
 
+export type NavigationGroup = 'dashboard' | 'core' | 'services' | 'messages' | 'governance';
+
 export type NavigationItem = {
   href: string;
   label: string;
@@ -9,7 +11,6 @@ export type NavigationItem = {
     | 'returns'
     | 'custody'
     | 'inventory'
-    | 'approvals'
     | 'notifications'
     | 'audit'
     | 'messages'
@@ -19,11 +20,10 @@ export type NavigationItem = {
     | 'cleaning'
     | 'purchases'
     | 'reports'
-    | 'suggestions'
     | 'other'
     | 'email';
   roles?: AppRole[];
-  group: 'main' | 'primary' | 'services' | 'messages' | 'governance';
+  group: NavigationGroup;
 };
 
 export const navigationItems: NavigationItem[] = [
@@ -32,7 +32,7 @@ export const navigationItems: NavigationItem[] = [
     label: 'لوحة التحكم',
     icon: 'dashboard',
     roles: ['manager', 'warehouse', 'user'],
-    group: 'main',
+    group: 'dashboard',
   },
 
   {
@@ -40,49 +40,77 @@ export const navigationItems: NavigationItem[] = [
     label: 'المخزون',
     icon: 'inventory',
     roles: ['manager', 'warehouse'],
-    group: 'primary',
+    group: 'core',
   },
   {
     href: '/requests',
     label: 'الطلبات التشغيلية',
     icon: 'requests',
-    roles: ['manager', 'warehouse', 'user'],
-    group: 'primary',
+    roles: ['manager', 'warehouse'],
+    group: 'core',
   },
   {
     href: '/returns',
     label: 'الإرجاعات التشغيلية',
     icon: 'returns',
-    roles: ['manager', 'warehouse', 'user'],
-    group: 'primary',
+    roles: ['manager', 'warehouse'],
+    group: 'core',
+  },
+  {
+    href: '/requests',
+    label: 'طلب مواد',
+    icon: 'requests',
+    roles: ['user'],
+    group: 'core',
+  },
+  {
+    href: '/custody',
+    label: 'عهدتي',
+    icon: 'custody',
+    roles: ['user'],
+    group: 'core',
+  },
+  {
+    href: '/returns',
+    label: 'طلبات الإرجاع',
+    icon: 'returns',
+    roles: ['user'],
+    group: 'core',
   },
 
   {
     href: '/maintenance',
     label: 'الصيانة',
     icon: 'maintenance',
-    roles: ['manager', 'warehouse'],
+    roles: ['manager'],
     group: 'services',
   },
   {
-    href: '/cleaning',
+    href: '/suggestions?category=CLEANING',
     label: 'النظافة',
     icon: 'cleaning',
-    roles: ['manager', 'warehouse'],
+    roles: ['manager'],
     group: 'services',
   },
   {
     href: '/purchases',
     label: 'الشراء المباشر',
     icon: 'purchases',
-    roles: ['manager', 'warehouse'],
+    roles: ['manager'],
     group: 'services',
   },
   {
     href: '/suggestions?category=OTHER',
     label: 'الطلبات الأخرى',
     icon: 'other',
-    roles: ['manager', 'warehouse'],
+    roles: ['manager'],
+    group: 'services',
+  },
+  {
+    href: '/suggestions',
+    label: 'الطلبات الخدمية',
+    icon: 'other',
+    roles: ['user'],
     group: 'services',
   },
 
@@ -98,6 +126,13 @@ export const navigationItems: NavigationItem[] = [
     label: 'المراسلات الخارجية',
     icon: 'email',
     roles: ['manager'],
+    group: 'messages',
+  },
+  {
+    href: '/notifications',
+    label: 'الإشعارات',
+    icon: 'notifications',
+    roles: ['warehouse', 'user'],
     group: 'messages',
   },
 
@@ -127,21 +162,6 @@ export const navigationItems: NavigationItem[] = [
     label: 'المستخدمون',
     icon: 'users',
     roles: ['manager'],
-    group: 'governance',
-  },
-  {
-    href: '/notifications',
-    label: 'الإشعارات',
-    icon: 'notifications',
-    roles: ['manager', 'warehouse', 'user'],
-    group: 'governance',
-  },
-
-  {
-    href: '/custody',
-    label: 'العهد',
-    icon: 'custody',
-    roles: ['manager', 'warehouse'],
     group: 'governance',
   },
 ];

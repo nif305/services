@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { navigationItems, type AppRole, type NavigationItem } from '@/config/navigation.config';
+import { navigationItems, type AppRole, type NavigationItem, type NavigationGroup } from '@/config/navigation.config';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils/cn';
 
@@ -59,19 +59,10 @@ function Icon({
 
     case 'inventory':
     case 'archive':
-    case 'purchases':
       return (
         <svg viewBox="0 0 24 24" className={className}>
           <path {...common} d="m12 3 8 4.5v9L12 21 4 16.5v-9L12 3Z" />
           <path {...common} d="M12 12 4 7.5M12 12l8-4.5M12 12v9" />
-        </svg>
-      );
-
-    case 'approvals':
-      return (
-        <svg viewBox="0 0 24 24" className={className}>
-          <path {...common} d="M7 12.5 10 15l7-7" />
-          <rect {...common} x="4" y="4" width="16" height="16" rx="2" />
         </svg>
       );
 
@@ -128,7 +119,15 @@ function Icon({
         </svg>
       );
 
-    case 'suggestions':
+    case 'purchases':
+      return (
+        <svg viewBox="0 0 24 24" className={className}>
+          <circle {...common} cx="9" cy="20" r="1.5" />
+          <circle {...common} cx="17" cy="20" r="1.5" />
+          <path {...common} d="M3 4h2l2.4 10.2a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H7" />
+        </svg>
+      );
+
     case 'other':
       return (
         <svg viewBox="0 0 24 24" className={className}>
@@ -143,25 +142,20 @@ function Icon({
   }
 }
 
-const groupLabels: Record<NavigationItem['group'], string> = {
-  main: 'التشغيل',
-  primary: 'القسم الرئيسي',
+const groupLabels: Record<NavigationGroup, string> = {
+  dashboard: 'لوحة التحكم',
+  core: 'القسم الرئيسي',
   services: 'الخدمات',
   messages: 'المراسلات',
   governance: 'الحوكمة',
 };
 
-function isItemActive(
-  item: NavigationItem,
-  pathname: string,
-  searchParams: ReturnType<typeof useSearchParams>
-) {
-  if (item.href === '/dashboard') {
-    return pathname === '/dashboard';
-  }
+function isItemActive(item: NavigationItem, pathname: string, category: string | null) {
+  if (item.href === '/dashboard') return pathname === '/dashboard';
 
-  if (item.href.startsWith('/suggestions?category=OTHER')) {
-    return pathname === '/suggestions' && searchParams.get('category') === 'OTHER';
+  if (item.href.startsWith('/suggestions?category=')) {
+    const targetCategory = item.href.split('category=')[1] || '';
+    return pathname === '/suggestions' && category === targetCategory;
   }
 
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -170,11 +164,12 @@ function isItemActive(
 export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const category = searchParams.get('category');
   const { user } = useAuth();
   const role = ((user?.role || 'user') as AppRole);
 
   const items = navigationItems.filter((item) => !item.roles || item.roles.includes(role));
-  const groups = ['main', 'primary', 'services', 'messages', 'governance'] as const;
+  const groups: NavigationGroup[] = ['dashboard', 'core', 'services', 'messages', 'governance'];
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-b border-[#dbe6e4] bg-white lg:min-h-screen lg:w-80 lg:border-b-0 lg:border-l">
@@ -208,7 +203,7 @@ export function Sidebar() {
 
                 <div className="space-y-1.5">
                   {groupItems.map((item) => {
-                    const active = isItemActive(item, pathname, searchParams);
+                    const active = isItemActive(item, pathname, category);
 
                     return (
                       <Link

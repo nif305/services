@@ -11,6 +11,16 @@ import {
 
 const prisma = new PrismaClient();
 
+type AttachmentLike = {
+  filename?: string;
+  name?: string;
+  contentType?: string;
+  type?: string;
+  base64Content?: string;
+  base64?: string;
+  data?: string;
+};
+
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
   if (normalized === 'manager') return Role.MANAGER;
@@ -108,28 +118,33 @@ function normalizeTargetDepartment(value?: string) {
   return raw;
 }
 
-function formatArabicDate(value: Date) {
-  try {
-    return new Intl.DateTimeFormat('ar-SA', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(value);
-  } catch {
-    return value.toISOString().slice(0, 10);
-  }
+function formatDateTime(value: Date | string) {
+  const dateValue = typeof value === 'string' ? new Date(value) : value;
+
+  const date = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'Asia/Riyadh',
+  }).format(dateValue);
+
+  const time = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Riyadh',
+  }).format(dateValue);
+
+  return { date, time };
 }
 
-function formatArabicTime(value: Date) {
-  try {
-    return new Intl.DateTimeFormat('ar-SA', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(value);
-  } catch {
-    return value.toISOString().slice(11, 16);
-  }
+function escapeHtml(value?: string | null) {
+  return String(value || '—')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function parseJsonObject(value?: string | null) {
@@ -141,18 +156,167 @@ function parseJsonObject(value?: string | null) {
   }
 }
 
+function normalizeAttachments(value: any): AttachmentLike[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === 'string') {
+        return { filename: item };
+      }
+      return item || {};
+    })
+    .filter(Boolean);
+}
+
+function buildMemoTable(rows: Array<Array<[string, string]>>) {
+  return `
+<table dir="rtl" style="width:100%;border-collapse:collapse;font-family:Tahoma,Arial,sans-serif;font-size:14px;table-layout:fixed">
+  <tbody>
+    ${rows
+      .map(
+        (row) => `
+      <tr>
+        ${row
+          .map(
+            ([label, value]) => `
+          <td style="width:${row.length === 1 ? '20%' : row.length === 2 ? '20%' : '12%'};border:1px solid #d6d7d4;background:#f8f9f9;padding:10px;font-weight:bold;color:#1f3d3c;vertical-align:top">${escapeHtml(label)}</td>
+          <td style="width:${row.length === 1 ? '80%' : row.length === 2 ? '30%' : '21.3%'};border:1px solid #d6d7d4;padding:10px;color:#304342;vertical-align:top;word-break:break-word">${escapeHtml(value)}</td>
+          `
+          )
+          .join('')}
+      </tr>`
+      )
+      .join('')}
+  </tbody>
+</table>
+  `.trim();
+}
+
+function supportIntro() {
+  return `
+<p style="margin:0 0 12px 0">الأخوة في إدارة الخدمات المساندة سلّمهم الله</p>
+<p style="margin:0 0 12px 0">السلام عليكم ورحمة الله وبركاته،،</p>
+<p style="margin:0 0 16px 0">تهديكم إدارة عمليات التدريب أطيب التحايا، وبالإشارة إلى بعض الملاحظات الفنية التي وردتنا، والتي تستلزم التدخل والمعالجة، نفيدكم بها حسب البيان التالي:</p>
+  `.trim();
+}
+
+function purchaseIntro() {
+  return `
+<p style="margin:0 0 12px 0">الأخ / نواف المحارب سلّمه الله</p>
+<p style="margin:0 0 12px 0">السلام عليكم ورحمة الله وبركاته،،</p>
+<p style="margin:0 0 16px 0">آمل منكم التكرم برفع طلب المشتريات المذكورة أدناه في نظام ERP، وإحالته إلى إدارة المشتريات لتوفير المواد المطلوبة، وذلك حسب البيان التالي:</p>
+  `.trim();
+}
+
+function otherIntro() {
+  return `
+<p style="margin:0 0 12px 0">السلام عليكم ورحمة الله وبركاته،،</p>
+<p style="margin:0 0 16px 0">نفيدكم بالملاحظة/الطلب الموضح أدناه، ونأمل الاطلاع واتخاذ ما يلزم حسب البيان التالي:</p>
+  `.trim();
+}
+
+function supportClosing() {
+  return `
+<p style="margin:16px 0 8px 0">نأمل منكم التكرم بمعالجة المشكلة في أقرب وقت ممكن، أو التوجيه لمن يلزم باتخاذ الإجراء المناسب.</p>
+<p style="margin:0">فريق إدارة عمليات التدريب</p>
+<p style="margin:0">وكالة التدريب</p>
+  `.trim();
+}
+
+function purchaseClosing() {
+  return `
+<p style="margin:16px 0 8px 0">شاكرين لكم تعاونكم، وآمل التكرم باتخاذ ما يلزم حيال ذلك.</p>
+<p style="margin:0">فريق إدارة عمليات التدريب</p>
+<p style="margin:0">وكالة التدريب</p>
+  `.trim();
+}
+
+function otherClosing() {
+  return `
+<p style="margin:16px 0 8px 0">نأمل التكرم باتخاذ الإجراء المناسب، والتوجيه لمن يلزم حيال ذلك.</p>
+<p style="margin:0">فريق إدارة عمليات التدريب</p>
+<p style="margin:0">وكالة التدريب</p>
+  `.trim();
+}
+
+function buildMemoBody(params: {
+  category: string;
+  requestCode: string;
+  createdAt: Date | string;
+  requesterName: string;
+  requesterDepartment: string;
+  requesterEmail: string;
+  location: string;
+  notesCount: string;
+  description: string;
+  sourcePurpose: string;
+  justification: string;
+  adminNotes: string;
+}) {
+  const { date, time } = formatDateTime(params.createdAt);
+  const requestTypeLabel =
+    params.category === 'MAINTENANCE'
+      ? 'طلب صيانة'
+      : params.category === 'CLEANING'
+      ? 'طلب نظافة'
+      : params.category === 'PURCHASE'
+      ? 'طلب شراء مباشر'
+      : 'طلب آخر';
+
+  const table = buildMemoTable([
+    [
+      ['رقم الطلب', params.requestCode],
+      ['تاريخ الطلب', date],
+      ['وقت الطلب', time],
+    ],
+    [['نوع الطلب', requestTypeLabel]],
+    [
+      ['مقدم الطلب', params.requesterName],
+      ['الإدارة', params.requesterDepartment],
+      ['البريد الإلكتروني', params.requesterEmail],
+    ],
+    [
+      ['الموقع', params.location],
+      ['عدد الملاحظات', params.notesCount],
+    ],
+    [['التفاصيل', params.description]],
+    [['حيثيات الطلب', params.sourcePurpose]],
+    [['السبب/ الملاحظة', params.justification]],
+    [['ملاحظة المدير', params.adminNotes]],
+  ]);
+
+  const intro =
+    params.category === 'PURCHASE'
+      ? purchaseIntro()
+      : params.category === 'OTHER'
+      ? otherIntro()
+      : supportIntro();
+
+  const closing =
+    params.category === 'PURCHASE'
+      ? purchaseClosing()
+      : params.category === 'OTHER'
+      ? otherClosing()
+      : supportClosing();
+
+  return `
+<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;line-height:1.95;color:#152625">
+  ${intro}
+  <div style="margin:0 0 18px 0">${table}</div>
+  ${closing}
+</div>
+  `.trim();
+}
+
 function resolveRecipients(category: string, requesterEmail?: string | null, externalRecipient?: string) {
+  if (category === 'PURCHASE') {
+    return 'NMuharib@nauss.edu.sa';
+  }
+
   const recipients: string[] = [];
 
   if (category === 'MAINTENANCE' || category === 'CLEANING') {
     recipients.push('ssd@nauss.edu.sa', 'AAlosaimi@nauss.edu.sa');
-  } else if (category === 'PURCHASE') {
-    recipients.push(
-      'finance@nauss.edu.sa',
-      'aalaraj@nauss.edu.sa',
-      'YAlqaoud@nauss.edu.sa',
-      'Procurement@nauss.edu.sa'
-    );
   } else if (externalRecipient) {
     externalRecipient
       .split(',')
@@ -166,56 +330,6 @@ function resolveRecipients(category: string, requesterEmail?: string | null, ext
   }
 
   return Array.from(new Set(recipients.map((item) => item.trim()).filter(Boolean))).join(', ');
-}
-
-function buildFormalBody(params: {
-  category: string;
-  requestCode: string;
-  createdAt: Date;
-  title: string;
-  description: string;
-  requesterName: string;
-  requesterDepartment: string;
-  requesterEmail: string;
-  itemName: string;
-  quantity: number;
-  location: string;
-  justification: string;
-  adminNotes: string;
-}) {
-  const categoryLabel =
-    params.category === 'MAINTENANCE'
-      ? 'صيانة'
-      : params.category === 'CLEANING'
-      ? 'نظافة'
-      : params.category === 'PURCHASE'
-      ? 'شراء مباشر'
-      : 'طلب آخر';
-
-  return `سعادة الجهة المختصة سلّمها الله،
-
-السلام عليكم ورحمة الله وبركاته،
-
-نفيدكم بورود ${categoryLabel} عبر منصة مواد التدريب، ونأمل التكرم بالاطلاع واتخاذ ما يلزم حيال الطلب الموضح أدناه:
-
-رقم الطلب: ${params.requestCode}
-تاريخ الطلب: ${formatArabicDate(params.createdAt)}
-وقت الطلب: ${formatArabicTime(params.createdAt)}
-نوع الطلب: ${params.title}
-مقدم الطلب: ${params.requesterName}
-الإدارة: ${params.requesterDepartment}
-البريد الإلكتروني: ${params.requesterEmail || '—'}
-الموقع: ${params.location || '—'}
-العنصر/الجزء: ${params.itemName || '—'}
-الكمية: ${params.quantity || 1}
-التفاصيل: ${params.description || '—'}
-حيثيات الطلب: ${params.justification || '—'}
-ملاحظة المدير: ${params.adminNotes || '—'}
-
-نأمل التكرم بمعالجة الطلب حسب المتاح، ولكم خالص التقدير.
-
-إدارة عمليات التدريب
-وكالة التدريب`;
 }
 
 async function generateMaintenanceCode() {
@@ -361,7 +475,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function handleModeration(request: NextRequest) {
   try {
     const body = await request.json();
     const sessionUser = await resolveSessionUser(request);
@@ -426,10 +540,15 @@ export async function PUT(request: NextRequest) {
     const quantity = Math.max(1, Number(justificationData.quantity || 1));
     const location = String(justificationData.location || '').trim();
     const externalRecipient = String(justificationData.externalRecipient || '').trim();
+    const sourcePurpose = String(justificationData.requestSource || justificationData.programName || justificationData.area || '').trim();
+    const rawJustification = String(justificationData.rawJustification || '').trim();
+    const attachments = normalizeAttachments(justificationData.attachments);
+    const notesCount = String(Math.max(attachments.length, 1));
 
     let linkedEntityType = '';
     let linkedEntityId = '';
     let linkedCode = '';
+    let emailDraftId = '';
 
     if (category === 'MAINTENANCE' || category === 'CLEANING') {
       const code = await generateMaintenanceCode();
@@ -444,9 +563,8 @@ export async function PUT(request: NextRequest) {
           status: MaintenanceStatus.APPROVED,
           notes: [
             itemName ? `العنصر: ${itemName}` : '',
-            quantity ? `الكمية: ${quantity}` : '',
             location ? `الموقع: ${location}` : '',
-            justificationData.rawJustification ? `الحيثيات: ${justificationData.rawJustification}` : '',
+            rawJustification ? `الملاحظة: ${rawJustification}` : '',
             adminNotes ? `ملاحظة المدير: ${adminNotes}` : '',
           ]
             .filter(Boolean)
@@ -461,20 +579,19 @@ export async function PUT(request: NextRequest) {
           sourceId: maintenance.id,
           recipient,
           subject: `${category === 'CLEANING' ? 'طلب نظافة' : 'طلب صيانة'} - ${maintenance.code}`,
-          body: buildFormalBody({
+          body: buildMemoBody({
             category,
             requestCode: maintenance.code,
             createdAt: suggestion.createdAt,
-            title: suggestion.title,
-            description: suggestion.description,
             requesterName: requester?.fullName || '—',
             requesterDepartment: requester?.department || '—',
             requesterEmail: requester?.email || '',
-            itemName,
-            quantity,
-            location,
-            justification: String(justificationData.rawJustification || '').trim(),
-            adminNotes,
+            location: location || '—',
+            notesCount,
+            description: suggestion.description || '—',
+            sourcePurpose: sourcePurpose || '—',
+            justification: rawJustification || '—',
+            adminNotes: adminNotes || '—',
           }),
           status: 'DRAFT',
         },
@@ -483,16 +600,7 @@ export async function PUT(request: NextRequest) {
       linkedEntityType = 'MaintenanceRequest';
       linkedEntityId = maintenance.id;
       linkedCode = maintenance.code;
-
-      await prisma.auditLog.create({
-        data: {
-          userId: sessionUser.id,
-          action: 'CREATE_EMAIL_DRAFT',
-          entity: 'EmailDraft',
-          entityId: draft.id,
-          details: JSON.stringify({ recipient, sourceType: draft.sourceType, sourceId: draft.sourceId }),
-        },
-      });
+      emailDraftId = draft.id;
     } else if (category === 'PURCHASE') {
       const code = await generatePurchaseCode();
 
@@ -503,7 +611,7 @@ export async function PUT(request: NextRequest) {
           items: itemName ? `${itemName} × ${quantity}` : suggestion.title,
           reason: suggestion.description,
           budgetNote: [
-            justificationData.rawJustification ? `الحيثيات: ${justificationData.rawJustification}` : '',
+            rawJustification ? `الحيثيات: ${rawJustification}` : '',
             location ? `الموقع: ${location}` : '',
             adminNotes ? `ملاحظة المدير: ${adminNotes}` : '',
           ]
@@ -522,20 +630,19 @@ export async function PUT(request: NextRequest) {
           sourceId: purchase.id,
           recipient,
           subject: `طلب شراء مباشر - ${purchase.code}`,
-          body: buildFormalBody({
+          body: buildMemoBody({
             category,
             requestCode: purchase.code,
             createdAt: suggestion.createdAt,
-            title: suggestion.title,
-            description: suggestion.description,
             requesterName: requester?.fullName || '—',
             requesterDepartment: requester?.department || '—',
             requesterEmail: requester?.email || '',
-            itemName,
-            quantity,
-            location,
-            justification: String(justificationData.rawJustification || '').trim(),
-            adminNotes,
+            location: location || '—',
+            notesCount,
+            description: suggestion.description || '—',
+            sourcePurpose: sourcePurpose || '—',
+            justification: rawJustification || '—',
+            adminNotes: adminNotes || '—',
           }),
           status: 'DRAFT',
         },
@@ -544,16 +651,7 @@ export async function PUT(request: NextRequest) {
       linkedEntityType = 'PurchaseRequest';
       linkedEntityId = purchase.id;
       linkedCode = purchase.code;
-
-      await prisma.auditLog.create({
-        data: {
-          userId: sessionUser.id,
-          action: 'CREATE_EMAIL_DRAFT',
-          entity: 'EmailDraft',
-          entityId: draft.id,
-          details: JSON.stringify({ recipient, sourceType: draft.sourceType, sourceId: draft.sourceId }),
-        },
-      });
+      emailDraftId = draft.id;
     } else {
       const code = await generateOtherCode();
       const recipient = resolveRecipients(category, requester?.email, managerRecipient || externalRecipient);
@@ -564,20 +662,19 @@ export async function PUT(request: NextRequest) {
           sourceId: suggestion.id,
           recipient,
           subject: `${suggestion.title} - ${code}`,
-          body: buildFormalBody({
+          body: buildMemoBody({
             category,
             requestCode: code,
             createdAt: suggestion.createdAt,
-            title: suggestion.title,
-            description: suggestion.description,
             requesterName: requester?.fullName || '—',
             requesterDepartment: requester?.department || '—',
             requesterEmail: requester?.email || '',
-            itemName,
-            quantity,
-            location,
-            justification: String(justificationData.rawJustification || '').trim(),
-            adminNotes,
+            location: location || '—',
+            notesCount,
+            description: suggestion.description || '—',
+            sourcePurpose: sourcePurpose || '—',
+            justification: rawJustification || '—',
+            adminNotes: adminNotes || '—',
           }),
           status: 'DRAFT',
         },
@@ -586,16 +683,7 @@ export async function PUT(request: NextRequest) {
       linkedEntityType = 'EmailDraft';
       linkedEntityId = draft.id;
       linkedCode = code;
-
-      await prisma.auditLog.create({
-        data: {
-          userId: sessionUser.id,
-          action: 'CREATE_EMAIL_DRAFT',
-          entity: 'EmailDraft',
-          entityId: draft.id,
-          details: JSON.stringify({ recipient, sourceType: draft.sourceType, sourceId: draft.sourceId }),
-        },
-      });
+      emailDraftId = draft.id;
     }
 
     const updated = await prisma.suggestion.update({
@@ -608,6 +696,7 @@ export async function PUT(request: NextRequest) {
           linkedEntityType,
           linkedEntityId,
           linkedCode,
+          emailDraftId,
         }),
       },
     });
@@ -623,6 +712,7 @@ export async function PUT(request: NextRequest) {
           linkedEntityType,
           linkedEntityId,
           linkedCode,
+          emailDraftId,
         }),
       },
     });
@@ -632,8 +722,17 @@ export async function PUT(request: NextRequest) {
       linkedEntityType,
       linkedEntityId,
       linkedCode,
+      emailDraftId,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'تعذر معالجة الطلب' }, { status: 400 });
   }
+}
+
+export async function PUT(request: NextRequest) {
+  return handleModeration(request);
+}
+
+export async function PATCH(request: NextRequest) {
+  return handleModeration(request);
 }

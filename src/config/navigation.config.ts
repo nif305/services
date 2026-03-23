@@ -35,14 +35,14 @@ export const navigationItems: NavigationItem[] = [
 
   {
     href: '/requests',
-    label: 'الطلبات',
+    label: 'طلبات المواد',
     icon: 'requests',
     roles: ['manager', 'warehouse', 'user'],
     group: 'operations',
   },
   {
     href: '/returns',
-    label: 'الإرجاعات',
+    label: 'إرجاع المواد',
     icon: 'returns',
     roles: ['manager', 'warehouse', 'user'],
     group: 'operations',
@@ -63,15 +63,29 @@ export const navigationItems: NavigationItem[] = [
   },
   {
     href: '/maintenance',
-    label: 'الصيانة',
+    label: 'طلبات الصيانة',
     icon: 'maintenance',
     roles: ['manager', 'warehouse'],
     group: 'operations',
   },
   {
+    href: '/suggestions?category=CLEANING',
+    label: 'طلبات النظافة',
+    icon: 'suggestions',
+    roles: ['manager', 'warehouse'],
+    group: 'operations',
+  },
+  {
     href: '/purchases',
-    label: 'الشراء المباشر',
+    label: 'طلبات الشراء المباشر',
     icon: 'purchases',
+    roles: ['manager', 'warehouse'],
+    group: 'operations',
+  },
+  {
+    href: '/suggestions?category=OTHER',
+    label: 'الطلبات الأخرى',
+    icon: 'email',
     roles: ['manager', 'warehouse'],
     group: 'operations',
   },
@@ -128,9 +142,9 @@ export const navigationItems: NavigationItem[] = [
   },
   {
     href: '/suggestions',
-    label: 'المقترحات',
+    label: 'الطلبات التشغيلية',
     icon: 'suggestions',
-    roles: ['manager', 'warehouse', 'user'],
+    roles: ['user'],
     group: 'management',
   },
 ];

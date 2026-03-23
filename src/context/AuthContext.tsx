@@ -23,6 +23,7 @@ export type AppUser = {
   jobTitle?: string;
   operationalProject?: string;
   role: Role;
+  roles: Role[];
   status: Status;
   avatar?: string | null;
   createdAt?: string | null;
@@ -70,7 +71,30 @@ function normalizeStatus(status?: string | null): Status {
   return 'active';
 }
 
+function deriveRoles(user: any): Role[] {
+  const incoming = Array.isArray(user?.roles) ? user.roles : [];
+  const normalized = incoming
+    .map((role: unknown) => normalizeRole(String(role || '')))
+    .filter(Boolean);
+
+  if (normalized.length > 0) {
+    return Array.from(new Set(normalized.includes('user') ? normalized : ['user', ...normalized]));
+  }
+
+  const fallbackRole = normalizeRole(user?.role);
+  if (fallbackRole === 'manager') return ['user', 'manager'];
+  if (fallbackRole === 'warehouse') return ['user', 'warehouse'];
+  return ['user'];
+}
+
 function normalizeUser(user: any): AppUser {
+  const roles = deriveRoles(user);
+  const role = roles.includes('manager')
+    ? 'manager'
+    : roles.includes('warehouse')
+      ? 'warehouse'
+      : normalizeRole(user?.role);
+
   return {
     id: user?.id || '',
     employeeId: user?.employeeId || '',
@@ -81,7 +105,8 @@ function normalizeUser(user: any): AppUser {
     department: user?.department || '',
     jobTitle: user?.jobTitle || '',
     operationalProject: user?.operationalProject || user?.department || '',
-    role: normalizeRole(user?.role),
+    role,
+    roles,
     status: normalizeStatus(user?.status),
     avatar: user?.avatar || null,
     createdAt: user?.createdAt || null,
@@ -256,12 +281,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const switchViewRole = useCallback(
     (role: Role) => {
       if (!originalUser) return;
-
-      const allowed =
-        (originalUser.role === 'manager' && (role === 'manager' || role === 'user')) ||
-        (originalUser.role === 'warehouse' && (role === 'warehouse' || role === 'user'));
-
-      if (!allowed) return;
+      if (!originalUser.roles.includes(role)) return;
 
       const nextUser = { ...originalUser, role };
       setUser(nextUser);
@@ -277,8 +297,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       allUsers,
       loading,
       isAuthenticated: !!user,
-      canUseRoleSwitch:
-        originalUser?.role === 'manager' || originalUser?.role === 'warehouse',
+      canUseRoleSwitch: (originalUser?.roles?.length || 0) > 1,
       login,
       logout,
       refreshUsers,

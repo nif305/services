@@ -1,6 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+type AppRole = 'manager' | 'warehouse' | 'user';
+
+function deriveRolesFromUser(user: { role?: string | null; roles?: string[] | null }): AppRole[] {
+  const rawRoles = Array.isArray(user?.roles) ? user.roles : [];
+  const normalized = rawRoles
+    .map((role) => (role || '').toLowerCase())
+    .filter((role): role is AppRole => role === 'manager' || role === 'warehouse' || role === 'user');
+
+  if (normalized.length > 0) {
+    return Array.from(new Set(normalized.includes('user') ? normalized : ['user', ...normalized]));
+  }
+
+  const fallbackRole = (user?.role || '').toLowerCase();
+  if (fallbackRole === 'manager') return ['user', 'manager'];
+  if (fallbackRole === 'warehouse') return ['user', 'warehouse'];
+  return ['user'];
+}
+
+function getPrimaryRole(roles: AppRole[], fallbackRole?: string | null): AppRole {
+  if (roles.includes('manager')) return 'manager';
+  if (roles.includes('warehouse')) return 'warehouse';
+
+  const fallback = (fallbackRole || '').toLowerCase();
+  if (fallback === 'manager') return 'manager';
+  if (fallback === 'warehouse') return 'warehouse';
+  return 'user';
+}
+
 function clearSessionResponse() {
   const response = NextResponse.json({ user: null }, { status: 401 });
 
@@ -47,6 +75,9 @@ export async function GET(request: NextRequest) {
       return clearSessionResponse();
     }
 
+    const roles = deriveRolesFromUser({ role: user.role, roles: user.roles });
+    const primaryRole = getPrimaryRole(roles, user.role);
+
     const response = NextResponse.json({
       user: {
         id: user.id,
@@ -58,7 +89,8 @@ export async function GET(request: NextRequest) {
         department: user.department,
         jobTitle: user.jobTitle,
         operationalProject: user.department || '',
-        role: user.role.toLowerCase(),
+        role: primaryRole,
+        roles,
         status: user.status.toLowerCase(),
         avatar: user.avatar,
         createdAt: user.createdAt.toISOString(),
@@ -89,7 +121,7 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
     });
 
-    response.cookies.set('user_role', user.role.toLowerCase(), {
+    response.cookies.set('user_role', primaryRole, {
       httpOnly: true,
       sameSite: 'lax',
       secure: true,

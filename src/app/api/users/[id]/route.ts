@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+type AppRole = 'manager' | 'warehouse' | 'user';
+
 function normalizeText(value?: string | null) {
   return (value || '').trim();
 }
@@ -9,7 +11,25 @@ function normalizeEmail(value?: string | null) {
   return (value || '').trim().toLowerCase();
 }
 
+function deriveRolesFromUser(user: { role?: string | null; roles?: string[] | null }): AppRole[] {
+  const rawRoles = Array.isArray(user?.roles) ? user.roles : [];
+  const normalized = rawRoles
+    .map((role) => (role || '').toLowerCase())
+    .filter((role): role is AppRole => role === 'manager' || role === 'warehouse' || role === 'user');
+
+  if (normalized.length > 0) {
+    return Array.from(new Set(normalized.includes('user') ? normalized : ['user', ...normalized]));
+  }
+
+  const fallbackRole = (user?.role || '').toLowerCase();
+  if (fallbackRole === 'manager') return ['user', 'manager'];
+  if (fallbackRole === 'warehouse') return ['user', 'warehouse'];
+  return ['user'];
+}
+
 function mapUser(user: any) {
+  const roles = deriveRolesFromUser({ role: user.role, roles: user.roles });
+
   return {
     id: user.id,
     employeeId: user.employeeId,
@@ -21,6 +41,7 @@ function mapUser(user: any) {
     jobTitle: user.jobTitle,
     operationalProject: user.department,
     role: user.role.toLowerCase(),
+    roles,
     status: user.status.toLowerCase(),
     avatar: user.avatar,
     undertaking: {
@@ -35,7 +56,7 @@ function mapUser(user: any) {
   };
 }
 
-function toPrismaRole(role?: string) {
+function toPrismaRole(role: AppRole) {
   if (role === 'manager') return 'MANAGER';
   if (role === 'warehouse') return 'WAREHOUSE';
   return 'USER';
@@ -46,11 +67,70 @@ function toPrismaStatus(status?: string) {
   return 'ACTIVE';
 }
 
+function normalizeIncomingRoles(body: any): AppRole[] {
+  const incoming = Array.isArray(body?.roles)
+    ? body.roles
+    : body?.role
+      ? [body.role]
+      : ['user'];
+
+  const normalized = incoming
+    .map((role) => normalizeText(role).toLowerCase())
+    .filter((role): role is AppRole => role === 'manager' || role === 'warehouse' || role === 'user');
+
+  if (!normalized.includes('user')) {
+    normalized.unshift('user');
+  }
+
+  return Array.from(new Set(normalized));
+}
+
+function getPrimaryRole(roles: AppRole[]) {
+  if (roles.includes('manager')) return 'manager' as const;
+  if (roles.includes('warehouse')) return 'warehouse' as const;
+  return 'user' as const;
+}
+
+async function ensureManager(request: NextRequest) {
+  const userId = request.cookies.get('user_id')?.value;
+
+  if (!userId) {
+    return null;
+  }
+
+  const actor = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+      roles: true,
+      status: true,
+    },
+  });
+
+  if (!actor || actor.status !== 'ACTIVE') {
+    return null;
+  }
+
+  const actorRoles = deriveRolesFromUser({ role: actor.role, roles: actor.roles });
+  if (!actorRoles.includes('manager')) {
+    return null;
+  }
+
+  return actor;
+}
+
 async function updateUserHandler(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const actor = await ensureManager(request);
+
+    if (!actor) {
+      return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
+    }
+
     const { id } = await context.params;
     const body = await request.json();
 
@@ -62,8 +142,9 @@ async function updateUserHandler(
     const jobTitle = normalizeText(body?.jobTitle);
     const operationalProject = normalizeText(body?.operationalProject);
     const password = normalizeText(body?.password);
-    const role = normalizeText(body?.role).toLowerCase();
     const status = normalizeText(body?.status).toLowerCase();
+    const roles = normalizeIncomingRoles(body);
+    const primaryRole = getPrimaryRole(roles);
 
     const currentUser = await prisma.user.findUnique({
       where: { id },
@@ -101,7 +182,8 @@ async function updateUserHandler(
         department: operationalProject || department || currentUser.department,
         jobTitle: extension || jobTitle || currentUser.jobTitle,
         passwordHash: password || currentUser.passwordHash,
-        role: role ? toPrismaRole(role) : currentUser.role,
+        role: toPrismaRole(primaryRole),
+        roles: roles.map(toPrismaRole),
         status: status ? toPrismaStatus(status) : currentUser.status,
       },
       include: {
@@ -116,10 +198,16 @@ async function updateUserHandler(
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const actor = await ensureManager(request);
+
+    if (!actor) {
+      return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
+    }
+
     const { id } = await context.params;
 
     const user = await prisma.user.findUnique({

@@ -10,6 +10,11 @@ import {
   markNotificationRead,
 } from '@/lib/notifications';
 
+function isUrgentCenterItem(item: InventoryNotification) {
+  const entityType = String(item.entityType || '').toLowerCase();
+  return item.severity === 'critical' || item.kind === 'alert' || entityType === 'message';
+}
+
 function resolveItemLink(item: InventoryNotification): string | null {
   const entityType = (item.entityType || '').toLowerCase();
 
@@ -27,35 +32,46 @@ function resolveItemLink(item: InventoryNotification): string | null {
   return '/notifications';
 }
 
+function getUrgentLabel(item: InventoryNotification) {
+  const entityType = String(item.entityType || '').toLowerCase();
+  if (entityType === 'message') return 'رسالة داخلية مهمة';
+  if (item.severity === 'critical') return 'تنبيه مهم وعاجل';
+  return 'تنبيه يحتاج انتباهًا مباشرًا';
+}
+
+function getUrgentNote(item: InventoryNotification) {
+  const entityType = String(item.entityType || '').toLowerCase();
+  if (entityType === 'message') {
+    return 'هذه الرسالة الداخلية عُدّت ذات أولوية عالية، لذلك تظهر مباشرة عند فتح النظام حتى لا تفوتك.';
+  }
+  return 'سيبقى هذا التنبيه ظاهرًا حتى تطّلع عليه أو تفتح العنصر المرتبط به.';
+}
+
 export function CriticalAlertCenter({ userId }: { userId: string }) {
   const router = useRouter();
   const [active, setActive] = useState<InventoryNotification | null>(null);
 
-  const unreadCritical = useMemo(() => {
-    return loadNotifications(userId).find(
-      (item) => !item.isRead && (item.severity === 'critical' || item.kind === 'alert')
-    ) || null;
+  const unreadUrgent = useMemo(() => {
+    return loadNotifications(userId).find((item) => !item.isRead && isUrgentCenterItem(item)) || null;
   }, [userId]);
 
   useEffect(() => {
-    if (unreadCritical && !active) {
-      setActive(unreadCritical);
+    if (unreadUrgent && !active) {
+      setActive(unreadUrgent);
     }
-  }, [unreadCritical, active]);
+  }, [unreadUrgent, active]);
 
   useEffect(() => {
     const handleUpdated = () => {
-      const nextCritical =
-        loadNotifications(userId).find(
-          (item) => !item.isRead && (item.severity === 'critical' || item.kind === 'alert')
-        ) || null;
-      setActive((current) => current || nextCritical);
+      const nextUrgent =
+        loadNotifications(userId).find((item) => !item.isRead && isUrgentCenterItem(item)) || null;
+      setActive((current) => current || nextUrgent);
     };
 
     const handleToast = (event: Event) => {
       const detail = (event as CustomEvent<InventoryNotification>).detail;
       if (!detail || detail.userId !== userId) return;
-      if (detail.severity === 'critical' || detail.kind === 'alert') {
+      if (isUrgentCenterItem(detail)) {
         setActive(detail);
       }
     };
@@ -98,7 +114,7 @@ export function CriticalAlertCenter({ userId }: { userId: string }) {
         <div className="border-b border-[#ead7dd] bg-[#7c1e3e]/[0.05] px-5 py-4 sm:px-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-bold text-[#7c1e3e]">تنبيه مهم وعاجل</div>
+              <div className="text-xs font-bold text-[#7c1e3e]">{getUrgentLabel(active)}</div>
               <div className="mt-1 text-lg font-extrabold text-slate-900">{active.title}</div>
             </div>
             <span className="rounded-full bg-[#7c1e3e]/10 px-3 py-1 text-xs text-[#7c1e3e]">يتطلب انتباهًا مباشرًا</span>
@@ -109,7 +125,7 @@ export function CriticalAlertCenter({ userId }: { userId: string }) {
           <p className="text-sm leading-8 text-slate-700">{active.message}</p>
 
           <div className="rounded-[20px] border border-[#efe7e9] bg-[#faf7f8] px-4 py-3 text-xs leading-7 text-slate-500">
-            سيبقى هذا التنبيه ظاهرًا حتى تطّلع عليه أو تفتح العنصر المرتبط به.
+            {getUrgentNote(active)}
           </div>
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

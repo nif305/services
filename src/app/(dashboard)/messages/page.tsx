@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { useAuth } from '@/context/AuthContext';
-import { createNotification } from '@/lib/notifications';
+import { createNotification, NOTIFICATION_TOAST_EVENT, type InventoryNotification } from '@/lib/notifications';
 
 type MessageBox = 'inbox' | 'sent';
 
@@ -106,7 +106,7 @@ function pushMessageNotification(
   threadId: string,
   dedupeKey: string,
 ) {
-  createNotification({
+  const notification = createNotification({
     userId,
     kind: 'alert',
     severity: 'critical',
@@ -117,6 +117,14 @@ function pushMessageNotification(
     entityId: threadId,
     dedupeKey,
   });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent<InventoryNotification>(NOTIFICATION_TOAST_EVENT, {
+        detail: notification,
+      }),
+    );
+  }
 }
 
 export default function MessagesPage() {

@@ -253,30 +253,30 @@ export default function SuggestionsPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function fileToAttachmentPayload(file: File) {
-    const base64Content = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        const commaIndex = result.indexOf(',');
-        resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
-      };
-      reader.onerror = () => reject(new Error(`تعذر قراءة الملف: ${file.name}`));
-      reader.readAsDataURL(file);
-    });
-
-    return {
-      filename: file.name,
-      contentType: file.type || 'application/octet-stream',
-      base64Content,
-    };
-  }
-
-
   function resetCreateState() {
     setForm(DEFAULT_FORM);
     setAttachments([]);
   }
+
+  async function fileToAttachmentPayload(file: File) {
+    const buffer = await file.arrayBuffer();
+
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+
+    return {
+      filename: file.name,
+      contentType: file.type || 'application/octet-stream',
+      base64Content: btoa(binary),
+    };
+  }
+
 
   function closeCreateMode() {
     resetCreateState();
@@ -289,9 +289,9 @@ export default function SuggestionsPage() {
     const areaName = form.area === 'أخرى' ? form.customArea.trim() : form.area.trim();
     const quantityValue = Math.max(1, Number(form.quantity || 1));
     const uploadedNames = attachments.map((file) => file.name).join(' | ');
-    const scopeText = form.scope === 'PROGRAM'
-      ? `مصدر الحاجة: مرتبط ببرنامج تدريبي وتحسين تجربة المتدربين${form.programName ? ` | اسم البرنامج: ${form.programName}` : ''}`
-      : 'مصدر الحاجة: مرتبط بملاحظة عامة في المبنى وقد تؤثر على تجربة جميع المستفيدين';
+    const requestSource = form.scope === 'PROGRAM'
+      ? `مرتبط ببرنامج تدريبي وتحسين تجربة المتدربين${form.programName ? ` | اسم البرنامج: ${form.programName}` : ''}`
+      : 'مرتبط بملاحظة عامة في المبنى وقد تؤثر على تجربة جميع المستفيدين';
 
     let title = buildPageTitle(activeType);
     let description = form.issueSummary.trim();
@@ -308,7 +308,7 @@ export default function SuggestionsPage() {
       }
 
       justification = [
-        scopeText,
+        `مصدر الحاجة: ${requestSource}`,
         `السبب/الملاحظة: ${justification}`,
         uploadedNames ? `المرفقات: ${uploadedNames}` : '',
       ]
@@ -324,7 +324,7 @@ export default function SuggestionsPage() {
       }
 
       justification = [
-        scopeText,
+        `مصدر الحاجة: ${requestSource}`,
         `الملاحظة: ${justification}`,
         uploadedNames ? `المرفقات: ${uploadedNames}` : '',
       ]
@@ -342,7 +342,7 @@ export default function SuggestionsPage() {
       }
 
       justification = [
-        scopeText,
+        `مصدر الحاجة: ${requestSource}`,
         `مبرر الطلب: ${justification}`,
         uploadedNames ? `المرفقات: ${uploadedNames}` : '',
       ]
@@ -359,7 +359,7 @@ export default function SuggestionsPage() {
 
       externalRecipient = form.otherRecipient.trim();
       justification = [
-        scopeText,
+        `مصدر الحاجة: ${requestSource}`,
         `تفاصيل إضافية: ${justification}`,
         uploadedNames ? `المرفقات: ${uploadedNames}` : '',
       ]
@@ -367,12 +367,10 @@ export default function SuggestionsPage() {
         .join(' | ');
     }
 
+    const attachmentPayload = await Promise.all(attachments.map((file) => fileToAttachmentPayload(file)));
+
     setSubmitting(true);
     try {
-      const attachmentPayload = await Promise.all(
-        attachments.map((file) => fileToAttachmentPayload(file))
-      );
-
       const res = await fetch('/api/suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -385,7 +383,7 @@ export default function SuggestionsPage() {
           quantity: quantityValue,
           location,
           externalRecipient,
-          requestSource: form.scope,
+          requestSource,
           programName: form.programName.trim(),
           area: areaName,
           attachments: attachmentPayload,
@@ -420,7 +418,7 @@ export default function SuggestionsPage() {
           : 'OTHER';
 
       const res = await fetch('/api/suggestions', {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           suggestionId: selected.id,

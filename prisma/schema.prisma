@@ -17,7 +17,6 @@ model User {
   jobTitle         String
   passwordHash     String
   role             Role               @default(USER)
-  roles            Role[]             @default([USER])
   status           Status             @default(PENDING)
   avatar           String?
   createdAt        DateTime           @default(now())

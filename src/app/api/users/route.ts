@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-type AppRole = 'manager' | 'warehouse' | 'user';
-
 function normalizeText(value?: string | null) {
   return (value || '').trim();
 }
@@ -11,35 +9,7 @@ function normalizeEmail(value?: string | null) {
   return (value || '').trim().toLowerCase();
 }
 
-function mapPrismaRole(role?: string | null): AppRole {
-  const value = (role || '').toLowerCase();
-  if (value === 'manager') return 'manager';
-  if (value === 'warehouse') return 'warehouse';
-  return 'user';
-}
-
-function getUserRoles(user: any): AppRole[] {
-  const rawRoles = Array.isArray(user?.roles) && user.roles.length > 0 ? user.roles : [user?.role || 'USER'];
-  const normalized = Array.from(new Set(rawRoles.map((role: string) => mapPrismaRole(role))));
-
-  if (!normalized.includes('user')) {
-    normalized.push('user');
-  }
-
-  if (normalized.includes('manager')) {
-    return ['manager', ...normalized.filter((role) => role !== 'manager')];
-  }
-
-  if (normalized.includes('warehouse')) {
-    return ['warehouse', ...normalized.filter((role) => role !== 'warehouse')];
-  }
-
-  return normalized;
-}
-
 function mapUser(user: any) {
-  const roles = getUserRoles(user);
-
   return {
     id: user.id,
     employeeId: user.employeeId,
@@ -50,8 +20,7 @@ function mapUser(user: any) {
     department: user.department,
     jobTitle: user.jobTitle,
     operationalProject: user.department,
-    role: mapPrismaRole(user.role),
-    roles,
+    role: user.role.toLowerCase(),
     status: user.status.toLowerCase(),
     avatar: user.avatar,
     undertaking: {
@@ -66,15 +35,7 @@ function mapUser(user: any) {
   };
 }
 
-function isManagerRequest(request: NextRequest) {
-  return request.cookies.get('user_role')?.value === 'manager';
-}
-
-export async function GET(request: NextRequest) {
-  if (!isManagerRequest(request)) {
-    return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
-  }
-
+export async function GET() {
   try {
     const users = await prisma.user.findMany({
       include: {
@@ -94,10 +55,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isManagerRequest(request)) {
-    return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
-  }
-
   try {
     const body = await request.json();
 
@@ -131,7 +88,6 @@ export async function POST(request: NextRequest) {
         jobTitle: extension || '',
         passwordHash: password,
         role: 'USER',
-        roles: ['USER'],
         status: 'ACTIVE',
       },
       include: {

@@ -9,8 +9,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 
-type Role = 'manager' | 'warehouse' | 'user';
-
 type UserRow = {
   id: string;
   employeeId?: string;
@@ -21,8 +19,7 @@ type UserRow = {
   department?: string | null;
   jobTitle?: string | null;
   operationalProject?: string | null;
-  role: Role;
-  roles: Role[];
+  role: 'manager' | 'warehouse' | 'user';
   status: 'active' | 'disabled';
   createdAt?: string | null;
 };
@@ -33,8 +30,7 @@ type FormState = {
   mobile: string;
   extension: string;
   operationalProject: string;
-  role: Role;
-  roles: Role[];
+  role: 'manager' | 'warehouse' | 'user';
   status: 'active' | 'disabled';
   password: string;
   confirmPassword: string;
@@ -47,7 +43,6 @@ const emptyForm: FormState = {
   extension: '',
   operationalProject: '',
   role: 'user',
-  roles: ['user'],
   status: 'active',
   password: '',
   confirmPassword: '',
@@ -79,33 +74,10 @@ function normalizeArabic(value: string) {
     .replace(/\s+/g, ' ');
 }
 
-function normalizeRoles(roles?: Role[] | null, primaryRole?: Role): Role[] {
-  const raw = Array.isArray(roles) && roles.length > 0 ? roles : [primaryRole || 'user'];
-  const normalized = Array.from(new Set(raw));
-
-  if (!normalized.includes('user')) {
-    normalized.push('user');
-  }
-
-  if (normalized.includes('manager')) {
-    return ['manager', ...normalized.filter((role) => role !== 'manager')];
-  }
-
-  if (normalized.includes('warehouse')) {
-    return ['warehouse', ...normalized.filter((role) => role !== 'warehouse')];
-  }
-
-  return normalized;
-}
-
-function roleLabel(role: Role) {
+function roleLabel(role: UserRow['role']) {
   if (role === 'manager') return 'مدير';
   if (role === 'warehouse') return 'مسؤول مخزن';
   return 'موظف';
-}
-
-function rolesLabel(roles: Role[]) {
-  return normalizeRoles(roles).map((role) => roleLabel(role)).join(' + ');
 }
 
 function statusLabel(status: UserRow['status']) {
@@ -118,7 +90,7 @@ function statusVariant(status: UserRow['status']): 'success' | 'danger' {
 }
 
 export default function UsersPage() {
-  const { user, refreshUsers, loading: authLoading } = useAuth();
+  const { user, refreshUsers } = useAuth();
   const isManager = user?.role === 'manager';
 
   const [rows, setRows] = useState<UserRow[]>([]);
@@ -135,7 +107,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/users', { cache: 'no-store', credentials: 'include' });
+      const res = await fetch('/api/users', { cache: 'no-store' });
       const data = await res.json().catch(() => null);
       setRows(Array.isArray(data?.data) ? data.data : []);
     } catch {
@@ -146,21 +118,15 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!isManager) {
-      setLoading(false);
-      setRows([]);
-      return;
-    }
-    void fetchUsers();
-  }, [authLoading, isManager]);
+    fetchUsers();
+  }, []);
 
   const stats = useMemo(() => {
     return {
       total: rows.length,
       active: rows.filter((row) => row.status === 'active').length,
       disabled: rows.filter((row) => row.status === 'disabled').length,
-      managers: rows.filter((row) => normalizeRoles(row.roles, row.role).includes('manager')).length,
+      managers: rows.filter((row) => row.role === 'manager').length,
     };
   }, [rows]);
 
@@ -168,8 +134,7 @@ export default function UsersPage() {
     const q = normalizeArabic(search);
 
     return rows.filter((row) => {
-      const rowRoles = normalizeRoles(row.roles, row.role);
-      const matchesRole = roleFilter === 'ALL' ? true : rowRoles.includes(roleFilter);
+      const matchesRole = roleFilter === 'ALL' ? true : row.role === roleFilter;
       const matchesStatus = statusFilter === 'ALL' ? true : row.status === statusFilter;
 
       const haystack = normalizeArabic(
@@ -179,7 +144,7 @@ export default function UsersPage() {
           row.mobile,
           row.extension,
           row.operationalProject,
-          rolesLabel(rowRoles),
+          roleLabel(row.role),
           statusLabel(row.status),
         ]
           .filter(Boolean)
@@ -192,7 +157,6 @@ export default function UsersPage() {
   }, [rows, search, roleFilter, statusFilter]);
 
   const openEdit = (row: UserRow) => {
-    const roles = normalizeRoles(row.roles, row.role);
     setEditing(row);
     setForm({
       fullName: row.fullName || '',
@@ -200,8 +164,7 @@ export default function UsersPage() {
       mobile: row.mobile || '',
       extension: row.extension || '',
       operationalProject: row.operationalProject || row.department || '',
-      role: roles.includes(row.role) ? row.role : roles[0],
-      roles,
+      role: row.role,
       status: row.status,
       password: '',
       confirmPassword: '',
@@ -211,32 +174,6 @@ export default function UsersPage() {
   const closeEdit = () => {
     setEditing(null);
     setForm(emptyForm);
-  };
-
-  const toggleRole = (role: Role) => {
-    if (role === 'user') return;
-
-    setForm((prev) => {
-      const exists = prev.roles.includes(role);
-      const nextRoles = normalizeRoles(
-        exists ? prev.roles.filter((item) => item !== role) : [...prev.roles, role],
-        prev.role
-      );
-
-      const nextRole = nextRoles.includes(prev.role)
-        ? prev.role
-        : nextRoles.includes('manager')
-          ? 'manager'
-          : nextRoles.includes('warehouse')
-            ? 'warehouse'
-            : 'user';
-
-      return {
-        ...prev,
-        roles: nextRoles,
-        role: nextRole,
-      };
-    });
   };
 
   const handleSave = async () => {
@@ -255,16 +192,13 @@ export default function UsersPage() {
     setSaving(true);
 
     try {
-      const normalizedRoles = normalizeRoles(form.roles, form.role);
-
-      const payload: Record<string, any> = {
+      const payload: Record<string, string> = {
         fullName: form.fullName.trim(),
         email: form.email.trim(),
         mobile: form.mobile.trim(),
         extension: form.extension.trim(),
         operationalProject: form.operationalProject.trim(),
-        role: normalizedRoles.includes(form.role) ? form.role : normalizedRoles[0],
-        roles: normalizedRoles,
+        role: form.role,
         status: form.status,
       };
 
@@ -323,16 +257,6 @@ export default function UsersPage() {
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((item) => (
-          <Skeleton key={item} className="h-32 w-full rounded-[24px] sm:rounded-3xl" />
-        ))}
-      </div>
-    );
-  }
-
   if (!isManager) {
     return (
       <div className="rounded-[22px] border border-red-200 bg-red-50 p-6 text-center text-red-700 sm:rounded-[26px]">
@@ -349,7 +273,7 @@ export default function UsersPage() {
             المستخدمون
           </h1>
           <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">
-            المدير وحده يتحكم في بيانات وصلاحيات المستخدمين. الموظف يبقى أساسًا في كل الحسابات، ويمكن إضافة مدير أو مسؤول مخزن فوقه.
+            الحسابات تعمل مباشرة بعد التسجيل. دور المدير هنا هو إدارة الدور وإيقاف الحساب أو تنشيطه عند الحاجة.
           </p>
         </div>
 
@@ -394,7 +318,7 @@ export default function UsersPage() {
           />
 
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">الصلاحية</label>
+            <label className="block text-sm font-semibold text-slate-700">الدور</label>
             <select
               value={roleFilter}
               onChange={(e) =>
@@ -427,58 +351,61 @@ export default function UsersPage() {
       </section>
 
       <section className="space-y-3">
-        {filteredRows.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((item) => (
+              <Skeleton key={item} className="h-32 w-full rounded-[24px] sm:rounded-3xl" />
+            ))}
+          </div>
+        ) : filteredRows.length === 0 ? (
           <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">
             لا توجد نتائج مطابقة
           </Card>
         ) : (
-          filteredRows.map((row) => {
-            const rowRoles = normalizeRoles(row.roles, row.role);
-            return (
-              <Card
-                key={row.id}
-                className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0 space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="break-words text-[16px] font-bold leading-7 text-[#152625] sm:text-[18px]">
-                        {row.fullName}
-                      </div>
-                      <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
-                      <Badge variant="info">{rolesLabel(rowRoles)}</Badge>
+          filteredRows.map((row) => (
+            <Card
+              key={row.id}
+              className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"
+            >
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="break-words text-[16px] font-bold leading-7 text-[#152625] sm:text-[18px]">
+                      {row.fullName}
                     </div>
-
-                    <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
-                      <div className="break-all">البريد: {row.email}</div>
-                      <div>الجوال: {row.mobile || '—'}</div>
-                      <div>التحويلة: {row.extension || '—'}</div>
-                      <div className="break-words">المشروع: {row.operationalProject || row.department || '—'}</div>
-                      <div className="sm:col-span-2">تاريخ الإنشاء: {formatDate(row.createdAt)}</div>
-                    </div>
+                    <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
+                    <Badge variant="info">{roleLabel(row.role)}</Badge>
                   </div>
 
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
-                    <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setSelected(row)}>
-                      عرض
-                    </Button>
-
-                    <Button className="w-full sm:w-auto" onClick={() => openEdit(row)}>
-                      تعديل
-                    </Button>
-
-                    <Button
-                      variant={row.status === 'active' ? 'danger' : 'secondary'}
-                      className="w-full sm:w-auto"
-                      onClick={() => quickToggleStatus(row)}
-                    >
-                      {row.status === 'active' ? 'إيقاف الحساب' : 'تنشيط الحساب'}
-                    </Button>
+                  <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
+                    <div className="break-all">البريد: {row.email}</div>
+                    <div>الجوال: {row.mobile || '—'}</div>
+                    <div>التحويلة: {row.extension || '—'}</div>
+                    <div className="break-words">المشروع: {row.operationalProject || row.department || '—'}</div>
+                    <div className="sm:col-span-2">تاريخ الإنشاء: {formatDate(row.createdAt)}</div>
                   </div>
                 </div>
-              </Card>
-            );
-          })
+
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                  <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setSelected(row)}>
+                    عرض
+                  </Button>
+
+                  <Button className="w-full sm:w-auto" onClick={() => openEdit(row)}>
+                    تعديل
+                  </Button>
+
+                  <Button
+                    variant={row.status === 'active' ? 'danger' : 'secondary'}
+                    className="w-full sm:w-auto"
+                    onClick={() => quickToggleStatus(row)}
+                  >
+                    {row.status === 'active' ? 'إيقاف الحساب' : 'تنشيط الحساب'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))
         )}
       </section>
 
@@ -505,12 +432,7 @@ export default function UsersPage() {
               </div>
 
               <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">الصلاحيات</div>
-                <div className="mt-1 text-sm leading-7 text-[#304342]">{rolesLabel(selected.roles)}</div>
-              </div>
-
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">الدور النشط الحالي</div>
+                <div className="text-xs font-bold text-[#016564]">الدور</div>
                 <div className="mt-1 text-sm leading-7 text-[#304342]">{roleLabel(selected.role)}</div>
               </div>
 
@@ -589,56 +511,21 @@ export default function UsersPage() {
                 onChange={(e) => setForm((prev) => ({ ...prev, extension: e.target.value }))}
               />
 
-              <div className="space-y-2 sm:col-span-2">
-                <label className="block text-sm font-semibold text-slate-700">الصلاحيات</label>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">
-                    <input type="checkbox" checked disabled className="h-4 w-4" />
-                    موظف
-                  </label>
-
-                  <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">
-                    <input
-                      type="checkbox"
-                      checked={form.roles.includes('manager')}
-                      onChange={() => toggleRole('manager')}
-                      className="h-4 w-4"
-                    />
-                    مدير
-                  </label>
-
-                  <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800">
-                    <input
-                      type="checkbox"
-                      checked={form.roles.includes('warehouse')}
-                      onChange={() => toggleRole('warehouse')}
-                      className="h-4 w-4"
-                    />
-                    مسؤول مخزن
-                  </label>
-                </div>
-                <p className="text-xs text-[#61706f]">
-                  الموظف يبقى دائمًا. يمكنك إضافة مدير أو مسؤول مخزن معه، وسيظهر مبدّل الأدوار في الهيدر تلقائيًا.
-                </p>
-              </div>
-
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">الدور الافتراضي عند الدخول</label>
+                <label className="block text-sm font-semibold text-slate-700">الدور</label>
                 <select
                   value={form.role}
                   onChange={(e) =>
                     setForm((prev) => ({
                       ...prev,
-                      role: e.target.value as Role,
+                      role: e.target.value as 'manager' | 'warehouse' | 'user',
                     }))
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
                 >
-                  {normalizeRoles(form.roles, form.role).map((role) => (
-                    <option key={role} value={role}>
-                      {roleLabel(role)}
-                    </option>
-                  ))}
+                  <option value="manager">مدير</option>
+                  <option value="warehouse">مسؤول مخزن</option>
+                  <option value="user">موظف</option>
                 </select>
               </div>
 

@@ -47,10 +47,11 @@ type AuthContextType = {
   loading: boolean;
   isAuthenticated: boolean;
   canUseRoleSwitch: boolean;
+  availableRoles: Role[];
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUsers: () => Promise<void>;
-  switchViewRole: (role: Role) => void;
+  switchViewRole: (role: Role) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,35 +66,34 @@ function normalizeRole(role?: string | null): Role {
   return 'user';
 }
 
+function normalizeRoles(roles?: unknown, fallbackRole?: string | null): Role[] {
+  const raw = Array.isArray(roles) && roles.length > 0 ? roles : [fallbackRole || 'user'];
+  const normalized = Array.from(new Set(raw.map((role) => normalizeRole(String(role)))));
+
+  if (!normalized.includes('user')) {
+    normalized.push('user');
+  }
+
+  if (normalized.includes('manager')) {
+    return ['manager', ...normalized.filter((role) => role !== 'manager')];
+  }
+
+  if (normalized.includes('warehouse')) {
+    return ['warehouse', ...normalized.filter((role) => role !== 'warehouse')];
+  }
+
+  return normalized;
+}
+
 function normalizeStatus(status?: string | null): Status {
   const value = (status || '').toLowerCase();
   if (value === 'disabled') return 'disabled';
   return 'active';
 }
 
-function deriveRoles(user: any): Role[] {
-  const incoming = Array.isArray(user?.roles) ? user.roles : [];
-  const normalized = incoming
-    .map((role: unknown) => normalizeRole(String(role || '')))
-    .filter(Boolean);
-
-  if (normalized.length > 0) {
-    return Array.from(new Set(normalized.includes('user') ? normalized : ['user', ...normalized]));
-  }
-
-  const fallbackRole = normalizeRole(user?.role);
-  if (fallbackRole === 'manager') return ['user', 'manager'];
-  if (fallbackRole === 'warehouse') return ['user', 'warehouse'];
-  return ['user'];
-}
-
 function normalizeUser(user: any): AppUser {
-  const roles = deriveRoles(user);
-  const role = roles.includes('manager')
-    ? 'manager'
-    : roles.includes('warehouse')
-      ? 'warehouse'
-      : normalizeRole(user?.role);
+  const roles = normalizeRoles(user?.roles, user?.role);
+  const role = roles.includes(normalizeRole(user?.role)) ? normalizeRole(user?.role) : roles[0] || 'user';
 
   return {
     id: user?.id || '',
@@ -137,18 +137,6 @@ function saveOriginalAuthUser(user: AppUser | null) {
   localStorage.setItem(AUTH_ORIGINAL_STORAGE_KEY, JSON.stringify(user));
 }
 
-function loadStoredUser(key: string): AppUser | null {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return normalizeUser(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [originalUser, setOriginalUser] = useState<AppUser | null>(null);
@@ -157,7 +145,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/users', { cache: 'no-store' });
+      const res = await fetch('/api/users', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        setAllUsers([]);
+        return;
+      }
+
       const json = await res.json().catch(() => null);
       const rows = Array.isArray(json?.data) ? json.data.map(normalizeUser) : [];
       setAllUsers(rows);
@@ -166,68 +163,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
+  const hydrateFromServer = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      });
 
-    const bootstrapAuth = async () => {
-      try {
-        const res = await fetch('/api/auth/me', {
-          method: 'GET',
-          credentials: 'include',
-          cache: 'no-store',
-        });
+      const json: MeResponse = await res.json().catch(() => ({ user: null }));
 
-        const json: MeResponse = await res.json().catch(() => ({ user: null }));
-
-        if (!isMounted) return;
-
-        if (res.ok && json?.user) {
-          const normalized = normalizeUser(json.user);
-          setUser(normalized);
-          setOriginalUser(normalized);
-          saveAuthUser(normalized);
-          saveOriginalAuthUser(normalized);
-        } else {
-          setUser(null);
-          setOriginalUser(null);
-          saveAuthUser(null);
-          saveOriginalAuthUser(null);
-        }
-      } catch {
-        if (!isMounted) return;
-
-        const storedUser = loadStoredUser(AUTH_STORAGE_KEY);
-        const storedOriginalUser = loadStoredUser(AUTH_ORIGINAL_STORAGE_KEY);
-
-        if (storedUser) {
-          setUser(storedUser);
-          setOriginalUser(storedOriginalUser || storedUser);
-          saveOriginalAuthUser(storedOriginalUser || storedUser);
-        } else {
-          setUser(null);
-          setOriginalUser(null);
-          saveAuthUser(null);
-          saveOriginalAuthUser(null);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+      if (res.ok && json?.user) {
+        const normalized = normalizeUser(json.user);
+        setUser(normalized);
+        setOriginalUser(normalized);
+        saveAuthUser(normalized);
+        saveOriginalAuthUser(normalized);
+      } else {
+        setUser(null);
+        setOriginalUser(null);
+        setAllUsers([]);
+        saveAuthUser(null);
+        saveOriginalAuthUser(null);
       }
-    };
-
-    bootstrapAuth();
-
-    return () => {
-      isMounted = false;
-    };
+    } catch {
+      setUser(null);
+      setOriginalUser(null);
+      setAllUsers([]);
+      saveAuthUser(null);
+      saveOriginalAuthUser(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (user) {
+    hydrateFromServer();
+  }, [hydrateFromServer]);
+
+  useEffect(() => {
+    if (user?.role === 'manager') {
       refreshUsers();
+    } else {
+      setAllUsers([]);
     }
-  }, [user, refreshUsers]);
+  }, [user?.role, refreshUsers]);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetch('/api/auth/login', {
@@ -265,22 +245,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }).finally(() => {
       saveAuthUser(null);
       saveOriginalAuthUser(null);
+      setUser(null);
+      setOriginalUser(null);
       setAllUsers([]);
       window.location.replace('/login');
     });
   }, []);
 
   const switchViewRole = useCallback(
-    (role: Role) => {
-      if (!originalUser) return;
-      if (!originalUser.roles.includes(role)) return;
+    async (role: Role) => {
+      if (!originalUser || !originalUser.roles.includes(role) || role === user?.role) {
+        return;
+      }
 
-      const nextUser = { ...originalUser, role };
+      const res = await fetch('/api/auth/switch-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ role }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(json?.error || 'تعذر تبديل الدور');
+      }
+
+      const nextUser = normalizeUser({ ...originalUser, role, roles: originalUser.roles });
       setUser(nextUser);
       saveAuthUser(nextUser);
+
+      if (role === 'manager') {
+        await refreshUsers();
+      } else {
+        setAllUsers([]);
+      }
     },
-    [originalUser]
+    [originalUser, refreshUsers, user?.role]
   );
+
+  const availableRoles = useMemo(() => originalUser?.roles || [], [originalUser]);
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -289,13 +293,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       allUsers,
       loading,
       isAuthenticated: !!user,
-      canUseRoleSwitch: (originalUser?.roles?.length || 0) > 1,
+      canUseRoleSwitch: availableRoles.length > 1,
+      availableRoles,
       login,
       logout,
       refreshUsers,
       switchViewRole,
     }),
-    [user, originalUser, allUsers, loading, login, logout, refreshUsers, switchViewRole]
+    [user, originalUser, allUsers, loading, availableRoles, login, logout, refreshUsers, switchViewRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

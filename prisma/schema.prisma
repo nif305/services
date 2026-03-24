@@ -381,4 +381,4 @@ model InternalMessage {
 
   @@index([receiverId, isRead])
   @@map("internal_messages")
-} 
+}

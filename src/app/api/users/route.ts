@@ -11,31 +11,34 @@ function normalizeEmail(value?: string | null) {
   return (value || '').trim().toLowerCase();
 }
 
-function normalizeRole(value?: string | null): AppRole {
-  const role = (value || '').trim().toLowerCase();
-  if (role === 'manager') return 'manager';
-  if (role === 'warehouse') return 'warehouse';
+function mapPrismaRole(role?: string | null): AppRole {
+  const value = (role || '').toLowerCase();
+  if (value === 'manager') return 'manager';
+  if (value === 'warehouse') return 'warehouse';
   return 'user';
 }
 
-function deriveRolesFromUser(user: { role?: string | null; roles?: string[] | null }): AppRole[] {
-  const rawRoles = Array.isArray(user?.roles) ? user.roles : [];
-  const normalized = rawRoles
-    .map((role) => normalizeRole(role))
-    .filter((role): role is AppRole => role === 'manager' || role === 'warehouse' || role === 'user');
+function getUserRoles(user: any): AppRole[] {
+  const rawRoles = Array.isArray(user?.roles) && user.roles.length > 0 ? user.roles : [user?.role || 'USER'];
+  const normalized = Array.from(new Set(rawRoles.map((role: string) => mapPrismaRole(role))));
 
-  if (normalized.length > 0) {
-    return Array.from(new Set(normalized.includes('user') ? normalized : ['user', ...normalized]));
+  if (!normalized.includes('user')) {
+    normalized.push('user');
   }
 
-  const fallbackRole = normalizeRole(user?.role);
-  if (fallbackRole === 'manager') return ['user', 'manager'];
-  if (fallbackRole === 'warehouse') return ['user', 'warehouse'];
-  return ['user'];
+  if (normalized.includes('manager')) {
+    return ['manager', ...normalized.filter((role) => role !== 'manager')];
+  }
+
+  if (normalized.includes('warehouse')) {
+    return ['warehouse', ...normalized.filter((role) => role !== 'warehouse')];
+  }
+
+  return normalized;
 }
 
 function mapUser(user: any) {
-  const roles = deriveRolesFromUser({ role: user.role, roles: user.roles });
+  const roles = getUserRoles(user);
 
   return {
     id: user.id,
@@ -47,9 +50,9 @@ function mapUser(user: any) {
     department: user.department,
     jobTitle: user.jobTitle,
     operationalProject: user.department,
-    role: normalizeRole(user.role),
+    role: mapPrismaRole(user.role),
     roles,
-    status: (user.status || '').toLowerCase(),
+    status: user.status.toLowerCase(),
     avatar: user.avatar,
     undertaking: {
       accepted: !!user.undertaking?.accepted,
@@ -63,20 +66,16 @@ function mapUser(user: any) {
   };
 }
 
-function readSessionRole(request: NextRequest): AppRole {
-  return normalizeRole(decodeURIComponent(request.cookies.get('user_role')?.value || 'user'));
-}
-
 function isManagerRequest(request: NextRequest) {
-  return readSessionRole(request) === 'manager';
+  return request.cookies.get('user_role')?.value === 'manager';
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    if (!isManagerRequest(request)) {
-      return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
-    }
+  if (!isManagerRequest(request)) {
+    return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
+  }
 
+  try {
     const users = await prisma.user.findMany({
       include: {
         undertaking: true,
@@ -95,11 +94,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    if (!isManagerRequest(request)) {
-      return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
-    }
+  if (!isManagerRequest(request)) {
+    return NextResponse.json({ error: 'غير مصرح لك بالوصول' }, { status: 403 });
+  }
 
+  try {
     const body = await request.json();
 
     const fullName = normalizeText(body?.fullName);

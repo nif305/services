@@ -11,30 +11,59 @@ function normalizeText(value?: string | null) {
   return (value || '').trim();
 }
 
-function deriveRolesFromUser(user: { role?: string | null; roles?: string[] | null }): AppRole[] {
-  const rawRoles = Array.isArray(user?.roles) ? user.roles : [];
-  const normalized = rawRoles
-    .map((role) => (role || '').toLowerCase())
-    .filter((role): role is AppRole => role === 'manager' || role === 'warehouse' || role === 'user');
-
-  if (normalized.length > 0) {
-    return Array.from(new Set(normalized.includes('user') ? normalized : ['user', ...normalized]));
-  }
-
-  const fallbackRole = (user?.role || '').toLowerCase();
-  if (fallbackRole === 'manager') return ['user', 'manager'];
-  if (fallbackRole === 'warehouse') return ['user', 'warehouse'];
-  return ['user'];
+function mapPrismaRole(role?: string | null): AppRole {
+  const value = (role || '').toLowerCase();
+  if (value === 'manager') return 'manager';
+  if (value === 'warehouse') return 'warehouse';
+  return 'user';
 }
 
-function getPrimaryRole(roles: AppRole[], fallbackRole?: string | null): AppRole {
+function normalizeRoles(roles: unknown, fallbackRole?: string | null): AppRole[] {
+  const raw = Array.isArray(roles) && roles.length > 0 ? roles : [fallbackRole || 'USER'];
+  const normalized = Array.from(new Set(raw.map((role) => mapPrismaRole(String(role)))));
+
+  if (!normalized.includes('user')) {
+    normalized.push('user');
+  }
+
+  if (normalized.includes('manager')) {
+    return ['manager', ...normalized.filter((role) => role !== 'manager')];
+  }
+
+  if (normalized.includes('warehouse')) {
+    return ['warehouse', ...normalized.filter((role) => role !== 'warehouse')];
+  }
+
+  return normalized;
+}
+
+function resolvePrimaryRole(roles: AppRole[], role?: string | null): AppRole {
+  const current = mapPrismaRole(role || '');
+  if (roles.includes(current)) return current;
   if (roles.includes('manager')) return 'manager';
   if (roles.includes('warehouse')) return 'warehouse';
-
-  const fallback = (fallbackRole || '').toLowerCase();
-  if (fallback === 'manager') return 'manager';
-  if (fallback === 'warehouse') return 'warehouse';
   return 'user';
+}
+
+function setSessionCookies(response: NextResponse, user: any, activeRole: AppRole, roles: AppRole[]) {
+  const maxAge = 60 * 60 * 24 * 7;
+  const cookieOptions = {
+    httpOnly: true as const,
+    sameSite: 'lax' as const,
+    secure: true,
+    path: '/',
+    maxAge,
+  };
+
+  response.cookies.set('inventory_platform_session', 'active', cookieOptions);
+  response.cookies.set('user_id', user.id, cookieOptions);
+  response.cookies.set('user_role', activeRole, cookieOptions);
+  response.cookies.set('user_roles', roles.join(','), cookieOptions);
+  response.cookies.set('user_status', user.status.toLowerCase(), cookieOptions);
+  response.cookies.set('user_email', user.email, cookieOptions);
+  response.cookies.set('user_name', user.fullName, cookieOptions);
+  response.cookies.set('user_department', user.department || '', cookieOptions);
+  response.cookies.set('user_employee_id', user.employeeId || '', cookieOptions);
 }
 
 export async function POST(request: NextRequest) {
@@ -70,9 +99,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'بيانات الدخول غير صحيحة' }, { status: 401 });
     }
 
+    const roles = normalizeRoles(user.roles, user.role);
+    const activeRole = resolvePrimaryRole(roles, user.role);
     const nowIso = new Date().toISOString();
-    const roles = deriveRolesFromUser({ role: user.role, roles: user.roles });
-    const primaryRole = getPrimaryRole(roles, user.role);
 
     const response = NextResponse.json({
       ok: true,
@@ -86,7 +115,7 @@ export async function POST(request: NextRequest) {
         department: user.department,
         jobTitle: user.jobTitle,
         operationalProject: user.department || '',
-        role: primaryRole,
+        role: activeRole,
         roles,
         status: user.status.toLowerCase(),
         avatar: user.avatar,
@@ -102,70 +131,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    response.cookies.set('inventory_platform_session', 'active', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_id', user.id, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_role', primaryRole, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_status', user.status.toLowerCase(), {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_email', user.email, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_name', user.fullName, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_department', user.department || '', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_employee_id', user.employeeId || '', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
+    setSessionCookies(response, user, activeRole, roles);
     return response;
   } catch {
     return NextResponse.json({ error: 'تعذر تسجيل الدخول' }, { status: 500 });

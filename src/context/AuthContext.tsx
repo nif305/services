@@ -71,40 +71,39 @@ function normalizeStatus(status?: string | null): Status {
   return 'active';
 }
 
-function normalizeRoles(input: unknown, fallbackRole?: string | null): Role[] {
-  const raw = Array.isArray(input) ? input : [];
-  const normalized = raw
-    .map((entry) => normalizeRole(typeof entry === 'string' ? entry : String(entry || '')))
-    .filter(Boolean);
+function normalizeRoles(input: unknown): Role[] {
+  if (!Array.isArray(input)) return ['user'];
 
-  const unique = Array.from(new Set<Role>(['user', ...normalized]));
+  const roles = Array.from(
+    new Set(
+      input
+        .map((role) => normalizeRole(typeof role === 'string' ? role : 'user'))
+        .filter(Boolean)
+    )
+  ) as Role[];
 
-  if (unique.length > 0) {
-    if (unique.includes('manager')) {
-      return ['user', 'warehouse', 'manager'].filter((role) => unique.includes(role as Role)) as Role[];
-    }
-
-    if (unique.includes('warehouse')) {
-      return ['user', 'warehouse'].filter((role) => unique.includes(role as Role)) as Role[];
-    }
-
-    return ['user'];
+  if (!roles.includes('user')) {
+    roles.unshift('user');
   }
 
-  const single = normalizeRole(fallbackRole);
-  if (single === 'manager') return ['user', 'manager'];
-  if (single === 'warehouse') return ['user', 'warehouse'];
-  return ['user'];
+  return roles;
 }
 
-function getPrimaryRole(roles: Role[], fallbackRole?: string | null): Role {
+function pickPrimaryRole(roles: Role[], fallback?: string | null): Role {
+  const normalizedFallback = normalizeRole(fallback);
+
+  if (roles.includes(normalizedFallback)) {
+    return normalizedFallback;
+  }
+
   if (roles.includes('manager')) return 'manager';
   if (roles.includes('warehouse')) return 'warehouse';
-  return normalizeRole(fallbackRole);
+  return 'user';
 }
 
 function normalizeUser(user: any): AppUser {
-  const roles = normalizeRoles(user?.roles, user?.role);
+  const roles = normalizeRoles(user?.roles ?? [user?.role]);
+  const role = pickPrimaryRole(roles, user?.role);
 
   return {
     id: user?.id || '',
@@ -116,7 +115,7 @@ function normalizeUser(user: any): AppUser {
     department: user?.department || '',
     jobTitle: user?.jobTitle || '',
     operationalProject: user?.operationalProject || user?.department || '',
-    role: getPrimaryRole(roles, user?.role),
+    role,
     roles,
     status: normalizeStatus(user?.status),
     avatar: user?.avatar || null,
@@ -158,6 +157,11 @@ function loadStoredUser(key: string): AppUser | null {
   } catch {
     return null;
   }
+}
+
+function canSwitchToRole(originalUser: AppUser | null, role: Role): boolean {
+  if (!originalUser) return false;
+  return originalUser.roles.includes(role);
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -284,6 +288,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }).finally(() => {
       saveAuthUser(null);
       saveOriginalAuthUser(null);
+      setUser(null);
+      setOriginalUser(null);
       setAllUsers([]);
       window.location.replace('/login');
     });
@@ -292,7 +298,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const switchViewRole = useCallback(
     (role: Role) => {
       if (!originalUser) return;
-      if (!originalUser.roles.includes(role)) return;
+      if (!canSwitchToRole(originalUser, role)) return;
 
       const nextUser = { ...originalUser, role };
       setUser(nextUser);

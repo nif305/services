@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+type PrismaRole = 'MANAGER' | 'WAREHOUSE' | 'USER';
+
 function normalizeText(value?: string | null) {
   return (value || '').trim();
 }
@@ -9,36 +11,34 @@ function normalizeEmail(value?: string | null) {
   return (value || '').trim().toLowerCase();
 }
 
-function normalizeRoles(value: unknown): string[] {
-  if (!Array.isArray(value)) return ['user'];
+function normalizeRoles(input: unknown): PrismaRole[] {
+  const raw = Array.isArray(input)
+    ? input
+    : typeof input === 'string'
+      ? [input]
+      : [];
 
-  const allowed = new Set(['user', 'warehouse', 'manager']);
-  const roles = value
-    .map((item) => normalizeText(String(item)).toLowerCase())
-    .filter((item) => allowed.has(item));
+  const mapped = raw
+    .map((value) => String(value || '').trim().toLowerCase())
+    .map((value) => {
+      if (value === 'manager') return 'MANAGER';
+      if (value === 'warehouse') return 'WAREHOUSE';
+      return 'USER';
+    });
 
-  const uniqueRoles = Array.from(new Set(roles));
-  return uniqueRoles.length ? uniqueRoles : ['user'];
+  const withUser = mapped.includes('USER') ? mapped : [...mapped, 'USER'];
+
+  return Array.from(new Set(withUser));
 }
 
-function toPrismaRoles(roles: string[]) {
-  return roles.map((role) => {
-    if (role === 'manager') return 'MANAGER';
-    if (role === 'warehouse') return 'WAREHOUSE';
-    return 'USER';
-  });
-}
-
-function toPrimaryRole(roles: string[]) {
-  if (roles.includes('manager')) return 'manager';
-  if (roles.includes('warehouse')) return 'warehouse';
+function getPrimaryRole(roles: PrismaRole[]): 'manager' | 'warehouse' | 'user' {
+  if (roles.includes('MANAGER')) return 'manager';
+  if (roles.includes('WAREHOUSE')) return 'warehouse';
   return 'user';
 }
 
 function mapUser(user: any) {
-  const roles = Array.isArray(user.roles)
-    ? user.roles.map((role: string) => role.toLowerCase())
-    : [String(user.role || 'USER').toLowerCase()];
+  const roles = Array.isArray(user.roles) && user.roles.length > 0 ? user.roles : ['USER'];
 
   return {
     id: user.id,
@@ -50,8 +50,8 @@ function mapUser(user: any) {
     department: user.department,
     jobTitle: user.jobTitle,
     operationalProject: user.department,
-    role: toPrimaryRole(roles),
-    roles,
+    role: getPrimaryRole(roles),
+    roles: roles.map((role: PrismaRole) => role.toLowerCase()),
     status: user.status.toLowerCase(),
     avatar: user.avatar,
     undertaking: {
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     const extension = normalizeText(body?.extension);
     const operationalProject = normalizeText(body?.operationalProject);
     const password = normalizeText(body?.password);
-    const roles = normalizeRoles(body?.roles);
+    const roles = normalizeRoles(body?.roles ?? body?.role ?? 'user');
 
     if (!fullName || !email || !mobile || !password) {
       return NextResponse.json({ error: 'البيانات المطلوبة غير مكتملة' }, { status: 400 });
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         department: operationalProject || 'لا ينطبق',
         jobTitle: extension || '',
         passwordHash: password,
-        roles: toPrismaRoles(roles),
+        roles,
         status: 'ACTIVE',
       },
       include: {

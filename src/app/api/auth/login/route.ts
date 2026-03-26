@@ -9,6 +9,22 @@ function normalizeText(value?: string | null) {
   return (value || '').trim();
 }
 
+type NormalizedRole = 'manager' | 'warehouse' | 'user';
+
+function normalizeRole(value?: string | null): NormalizedRole {
+  const role = (value || '').trim().toUpperCase();
+  if (role === 'MANAGER') return 'manager';
+  if (role === 'WAREHOUSE') return 'warehouse';
+  return 'user';
+}
+
+function pickPrimaryRole(roles: string[]): NormalizedRole {
+  const normalized = roles.map(normalizeRole);
+  if (normalized.includes('manager')) return 'manager';
+  if (normalized.includes('warehouse')) return 'warehouse';
+  return 'user';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -42,6 +58,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'بيانات الدخول غير صحيحة' }, { status: 401 });
     }
 
+    const rolesSource = Array.isArray((user as any).roles)
+      ? ((user as any).roles as string[])
+      : [String((user as any).role || 'USER')];
+
+    const normalizedRoles = Array.from(
+      new Set(
+        rolesSource
+          .map((role) => normalizeRole(role))
+          .filter((role): role is NormalizedRole => !!role),
+      ),
+    );
+
+    const roles = normalizedRoles.length > 0 ? normalizedRoles : ['user'];
+    const primaryRole = pickPrimaryRole(roles);
     const nowIso = new Date().toISOString();
 
     const response = NextResponse.json({
@@ -56,7 +86,8 @@ export async function POST(request: NextRequest) {
         department: user.department,
         jobTitle: user.jobTitle,
         operationalProject: user.department || '',
-        role: user.role.toLowerCase(),
+        role: primaryRole,
+        roles,
         status: user.status.toLowerCase(),
         avatar: user.avatar,
         createdAt: user.createdAt.toISOString(),
@@ -87,7 +118,15 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7,
     });
 
-    response.cookies.set('user_role', user.role.toLowerCase(), {
+    response.cookies.set('user_role', primaryRole, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    response.cookies.set('user_roles', JSON.stringify(roles), {
       httpOnly: true,
       sameSite: 'lax',
       secure: true,

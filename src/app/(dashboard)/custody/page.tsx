@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 
-type CustodyStatus = 'ACTIVE' | 'OVERDUE' | 'RETURN_REQUESTED' | 'RETURNED';
+type CustodyStatus = 'ACTIVE' | 'RETURN_REQUESTED' | 'RETURNED';
 
 type ReturnRequestSummary = {
   id: string;
@@ -72,14 +72,12 @@ function formatDate(date?: string | null) {
 
 function statusLabel(status: CustodyStatus) {
   if (status === 'ACTIVE') return 'نشطة';
-  if (status === 'OVERDUE') return 'متأخرة';
-  if (status === 'RETURN_REQUESTED') return 'قيد الإرجاع';
-  return 'تمت الإعادة';
+  if (status === 'RETURN_REQUESTED') return 'طُلب إرجاعها';
+  return 'أُعيدت';
 }
 
-function statusVariant(status: CustodyStatus): 'success' | 'warning' | 'danger' | 'neutral' {
+function statusVariant(status: CustodyStatus): 'success' | 'warning' | 'neutral' {
   if (status === 'ACTIVE') return 'success';
-  if (status === 'OVERDUE') return 'danger';
   if (status === 'RETURN_REQUESTED') return 'warning';
   return 'neutral';
 }
@@ -121,7 +119,7 @@ export default function CustodyPage() {
 
       const data: CustodyApiResponse = await response.json().catch(() => ({ data: [] }));
       const mapped = Array.isArray(data?.data)
-        ? data.data.map(mapCustodyRow).filter(Boolean) as CustodyItem[]
+        ? (data.data.map(mapCustodyRow).filter(Boolean) as CustodyItem[])
         : [];
 
       setItems(mapped);
@@ -139,7 +137,7 @@ export default function CustodyPage() {
   const stats = useMemo(() => {
     return {
       total: items.filter((i) => i.status !== 'RETURNED').length,
-      active: items.filter((i) => i.status === 'ACTIVE' || i.status === 'OVERDUE').length,
+      active: items.filter((i) => i.status === 'ACTIVE').length,
       returnRequested: items.filter((i) => i.status === 'RETURN_REQUESTED').length,
     };
   }, [items]);
@@ -192,7 +190,7 @@ export default function CustodyPage() {
           <div className="min-w-0">
             <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">عهدتي</h1>
             <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
-              تظهر هنا المواد المسترجعة فقط، وهي المواد التي استلمتها ولم يتم إرجاعها بعد.
+              تظهر هنا المواد العهدية المصروفة لك التي لم تُقفل بعد، ويمكنك من خلالها متابعة حالتها ورفع طلب الإرجاع.
             </p>
           </div>
 
@@ -203,7 +201,7 @@ export default function CustodyPage() {
           </Link>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-3 sm:mt-5 sm:gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5 sm:gap-4 xl:grid-cols-3">
           <div className="rounded-[20px] border border-surface-border bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
             <div className="text-[12px] text-surface-subtle sm:text-[13px]">إجمالي العهد الحالية</div>
             <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
@@ -230,8 +228,7 @@ export default function CustodyPage() {
           {[
             { key: 'ALL', label: 'الكل' },
             { key: 'ACTIVE', label: 'نشطة' },
-            { key: 'OVERDUE', label: 'متأخرة' },
-            { key: 'RETURN_REQUESTED', label: 'قيد الإرجاع' },
+            { key: 'RETURN_REQUESTED', label: 'طُلب إرجاعها' },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -248,14 +245,14 @@ export default function CustodyPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-2 sm:gap-4">
+      <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
         {loading ? (
           <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
             جارٍ تحميل العهد...
           </Card>
         ) : filteredItems.length === 0 ? (
           <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
-            لا توجد مواد مسترجعة مسجلة عليك حاليًا
+            لا توجد عهد مسجلة عليك حاليًا
           </Card>
         ) : (
           filteredItems.map((item) => {
@@ -270,7 +267,7 @@ export default function CustodyPage() {
                   <div className="min-w-0 flex-1">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <Badge variant={statusVariant(item.status)}>{statusLabel(item.status)}</Badge>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700 break-all">
+                      <span className="break-all rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700">
                         {item.code}
                       </span>
                     </div>
@@ -300,7 +297,7 @@ export default function CustodyPage() {
                     </div>
 
                     {item.notes ? (
-                      <div className="mt-4 rounded-[18px] border border-surface-border bg-white p-4 text-[13px] leading-7 text-slate-700 whitespace-pre-wrap break-words">
+                      <div className="mt-4 break-words whitespace-pre-wrap rounded-[18px] border border-surface-border bg-white p-4 text-[13px] leading-7 text-slate-700">
                         {item.notes}
                       </div>
                     ) : null}
@@ -342,7 +339,7 @@ export default function CustodyPage() {
         title="تفاصيل العهدة"
       >
         <div className="space-y-4">
-          <div className="rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-8 text-slate-700 sm:rounded-[20px] break-words">
+          <div className="break-words rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-8 text-slate-700 sm:rounded-[20px]">
             <div>
               المادة: <span className="text-slate-900">{selectedItem?.itemName || '-'}</span>
             </div>

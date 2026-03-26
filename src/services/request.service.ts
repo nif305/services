@@ -43,7 +43,7 @@ function isPreIssueStatus(status: RequestStatus) {
 }
 
 function normalizeRequestStatusForClient(status: RequestStatus) {
-  return status === RequestStatus.APPROVED ? RequestStatus.PENDING : status;
+  return status;
 }
 
 async function ensureCoreUsers() {
@@ -351,14 +351,7 @@ async function getAllRequests({
 
   const where: Prisma.RequestWhereInput = {
     ...(normalizedRole === 'USER' ? { requesterId: userId } : {}),
-    ...(status
-      ? {
-          status:
-            status === RequestStatus.PENDING
-              ? { in: [RequestStatus.PENDING, RequestStatus.APPROVED] }
-              : status,
-        }
-      : {}),
+    ...(status ? { status } : {}),
   };
 
   const [requests, total] = await Promise.all([
@@ -510,6 +503,45 @@ async function cancelBeforeIssue(requestId: string, userId: string, notes?: stri
   return updated;
 }
 
+async function approveRequest(requestId: string, actorId: string, notes?: string) {
+  await ensureCoreUsers();
+
+  const request = await prisma.request.findUnique({
+    where: { id: requestId },
+    select: { id: true, code: true, requesterId: true, status: true, notes: true },
+  });
+
+  if (!request) throw new Error('الطلب غير موجود');
+  if (request.status !== RequestStatus.PENDING) {
+    throw new Error('لا يمكن اعتماد الطلب في حالته الحالية');
+  }
+
+  const updated = await prisma.request.update({
+    where: { id: requestId },
+    data: {
+      status: RequestStatus.APPROVED,
+      rejectionReason: null,
+      processedAt: new Date(),
+      processedById: actorId,
+      notes: [request.notes, notes?.trim()].filter(Boolean).join(' | ') || request.notes,
+    },
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: request.requesterId,
+      type: 'REQUEST_APPROVED',
+      title: 'تم اعتماد الطلب',
+      message: `تم اعتماد الطلب ${request.code} وهو بانتظار الصرف.`,
+      link: `/requests?open=${request.id}`,
+      entityId: request.id,
+      entityType: 'REQUEST',
+    },
+  });
+
+  return updated;
+}
+
 async function rejectRequest(requestId: string, actorId: string, reason: string) {
   await ensureCoreUsers();
 
@@ -647,7 +679,19 @@ async function adjustAfterIssue(
     where: { id: requestId },
     include: {
       items: {
-        include: { item: true },
+        include: {
+          item: true,
+          returnRequests: {
+            where: {
+              status: {
+                in: [ReturnStatus.PENDING, ReturnStatus.APPROVED],
+              },
+            },
+            select: {
+              quantity: true,
+            },
+          },
+        },
       },
     },
   });
@@ -681,92 +725,40 @@ async function adjustAfterIssue(
         throw new Error('الصنف المطلوب غير مرتبط بهذا الطلب');
       }
 
-      if (reqItem.item?.type !== ItemType.RETURNABLE) {
-        throw new Error(`الصنف ${reqItem.item?.name || ''} ليس مادة مسترجعة`);
+      if (reqItem.item?.type !== ItemType.CONSUMABLE) {
+        throw new Error(`الصنف ${reqItem.item?.name || ''} يُعاد من خلال العهدة وليس من فائض الطلب`);
       }
 
-      const activeRecords = await tx.custodyRecord.findMany({
-        where: {
-          requestId,
-          userId,
-          itemId: row.itemId,
-          status: CustodyStatus.ACTIVE,
-        },
-        orderBy: { issueDate: 'asc' },
-      });
+      const alreadyReturnedQty = reqItem.returnRequests.reduce(
+        (sum, record) => sum + record.quantity,
+        0
+      );
+      const remainingAllowed = reqItem.quantity - alreadyReturnedQty;
 
-      const totalActive = activeRecords.reduce((sum, record) => sum + record.quantity, 0);
-      if (totalActive < row.quantityToReturn) {
+      if (remainingAllowed <= 0) {
+        throw new Error(`لا توجد كمية متبقية قابلة للإرجاع للصنف ${reqItem.item?.name || ''}`);
+      }
+
+      if (row.quantityToReturn > remainingAllowed) {
         throw new Error(
-          `الكمية المطلوب إرجاعها للصنف ${reqItem.item?.name || ''} تتجاوز المصروف فعليًا`
+          `الكمية المطلوب إرجاعها للصنف ${reqItem.item?.name || ''} تتجاوز المسموح (${remainingAllowed})`
         );
       }
 
-      let remaining = row.quantityToReturn;
-
-      for (const record of activeRecords) {
-        if (remaining <= 0) break;
-
-        const splitQty = Math.min(record.quantity, remaining);
-
-        if (splitQty === record.quantity) {
-          await tx.custodyRecord.update({
-            where: { id: record.id },
-            data: {
-              status: CustodyStatus.RETURN_REQUESTED,
-              notes: data.notes?.trim() || record.notes,
-            },
-          });
-
-          runningCount += 1;
-          await tx.returnRequest.create({
-            data: {
-              code: `RET-${new Date().getFullYear()}-${String(runningCount).padStart(4, '0')}`,
-              custodyId: record.id,
-              requesterId: userId,
-              conditionNote: data.notes?.trim() || null,
-              status: ReturnStatus.PENDING,
-              returnType: ReturnItemCondition.GOOD,
-              declarationAck: true,
-            },
-          });
-        } else {
-          await tx.custodyRecord.update({
-            where: { id: record.id },
-            data: {
-              quantity: record.quantity - splitQty,
-            },
-          });
-
-          const splitRecord = await tx.custodyRecord.create({
-            data: {
-              userId: record.userId,
-              itemId: record.itemId,
-              requestId: record.requestId,
-              quantity: splitQty,
-              issueDate: record.issueDate,
-              expectedReturn: record.expectedReturn,
-              status: CustodyStatus.RETURN_REQUESTED,
-              notes: data.notes?.trim() || record.notes,
-            },
-          });
-
-          runningCount += 1;
-          await tx.returnRequest.create({
-            data: {
-              code: `RET-${new Date().getFullYear()}-${String(runningCount).padStart(4, '0')}`,
-              custodyId: splitRecord.id,
-              requesterId: userId,
-              conditionNote: data.notes?.trim() || null,
-              status: ReturnStatus.PENDING,
-              returnType: ReturnItemCondition.GOOD,
-              declarationAck: true,
-            },
-          });
-        }
-
-        remaining -= splitQty;
-      }
+      runningCount += 1;
+      await tx.returnRequest.create({
+        data: {
+          code: `RET-${new Date().getFullYear()}-${String(runningCount).padStart(4, '0')}`,
+          requestItemId: reqItem.id,
+          requesterId: userId,
+          sourceType: 'REQUEST_ITEM',
+          quantity: row.quantityToReturn,
+          conditionNote: data.notes?.trim() || null,
+          status: ReturnStatus.PENDING,
+          returnType: ReturnItemCondition.GOOD,
+          declarationAck: true,
+        },
+      });
     }
   });
 
@@ -779,8 +771,8 @@ export const RequestService = {
   getById: getRequestById,
   updateBeforeIssue,
   cancelBeforeIssue,
+  approve: approveRequest,
   reject: rejectRequest,
   issue: issueRequest,
   adjustAfterIssue,
-  approve: issueRequest,
 };

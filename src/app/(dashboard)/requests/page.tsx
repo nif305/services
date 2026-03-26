@@ -46,7 +46,7 @@ type RequestRow = {
   code: string;
   purpose: string;
   notes?: string | null;
-  status: 'PENDING' | 'REJECTED' | 'ISSUED' | 'RETURNED' | 'DRAFT';
+  status: 'PENDING' | 'REJECTED' | 'ISSUED';
   createdAt: string;
   rejectionReason?: string | null;
   requester?: {
@@ -65,7 +65,7 @@ type SelectedItem = {
 };
 
 type FormMode = 'create' | 'edit' | 'adjust';
-type WarehouseViewMode = 'new' | 'finished' | 'returns';
+type WarehouseViewMode = 'new' | 'finished';
 
 const STATUS_MAP: Record<
   string,
@@ -74,8 +74,6 @@ const STATUS_MAP: Record<
   PENDING: { label: 'جديد', variant: 'warning' },
   REJECTED: { label: 'ملغي / مرفوض', variant: 'danger' },
   ISSUED: { label: 'تم الصرف', variant: 'success' },
-  RETURNED: { label: 'تمت الإعادة', variant: 'neutral' },
-  DRAFT: { label: 'مسودة', variant: 'neutral' },
 };
 
 function formatDate(date?: string | null) {
@@ -388,12 +386,10 @@ export default function RequestsPage() {
       pending: requests.filter((r) => r.status === 'PENDING').length,
       rejected: requests.filter((r) => r.status === 'REJECTED').length,
       issued: requests.filter((r) => r.status === 'ISSUED').length,
-      returned: requests.filter((r) => r.status === 'RETURNED').length,
       warehouseNew: requests.filter((r) => r.status === 'PENDING').length,
       warehouseFinished: requests.filter(
-        (r) => r.status === 'ISSUED' || r.status === 'RETURNED' || r.status === 'REJECTED'
+        (r) => r.status === 'ISSUED' || r.status === 'REJECTED'
       ).length,
-      warehouseReturns: requests.filter((r) => r.status === 'RETURNED').length,
     };
   }, [requests]);
 
@@ -404,13 +400,7 @@ export default function RequestsPage() {
       return requests.filter((r) => r.status === 'PENDING');
     }
 
-    if (warehouseViewMode === 'finished') {
-      return requests.filter(
-        (r) => r.status === 'ISSUED' || r.status === 'RETURNED' || r.status === 'REJECTED'
-      );
-    }
-
-    return requests.filter((r) => r.status === 'RETURNED');
+    return requests.filter((r) => r.status === 'ISSUED' || r.status === 'REJECTED');
   }, [requests, canUseWarehouseTabs, warehouseViewMode]);
 
   const filteredInventory = useMemo(() => {
@@ -692,16 +682,11 @@ export default function RequestsPage() {
 
           <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
             <div className="text-xs leading-5 text-[#6f7b7a]">
-              {canUseWarehouseTabs ? 'طلبات أُعيدت' : 'تمت الإعادة'}
+              {canUseWarehouseTabs ? 'تم الصرف' : 'تم الصرف'}
             </div>
             <div className="mt-1 text-xl font-extrabold text-[#498983]">
-              {canUseWarehouseTabs ? stats.warehouseReturns : stats.returned}
+              {stats.issued}
             </div>
-          </Card>
-
-          <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
-            <div className="text-xs leading-5 text-[#6f7b7a]">تم الصرف</div>
-            <div className="mt-1 text-xl font-extrabold text-[#016564]">{stats.issued}</div>
           </Card>
 
           <Card className="rounded-2xl border border-[#d6d7d4] p-3 shadow-none">
@@ -712,7 +697,7 @@ export default function RequestsPage() {
       </section>
 
       {canUseWarehouseTabs ? (
-        <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <section className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Button
             variant={warehouseViewMode === 'new' ? 'primary' : 'secondary'}
             onClick={() => setWarehouseViewMode('new')}
@@ -726,13 +711,6 @@ export default function RequestsPage() {
             className="w-full"
           >
             الطلبات المنتهية
-          </Button>
-          <Button
-            variant={warehouseViewMode === 'returns' ? 'primary' : 'secondary'}
-            onClick={() => setWarehouseViewMode('returns')}
-            className="w-full"
-          >
-            الطلبات المعادة
           </Button>
         </section>
       ) : null}

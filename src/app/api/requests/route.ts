@@ -16,7 +16,6 @@ function normalizeRequestStatus(status: string | null): RequestStatus | undefine
   if (normalized === RequestStatus.PENDING) return RequestStatus.PENDING;
   if (normalized === RequestStatus.REJECTED) return RequestStatus.REJECTED;
   if (normalized === RequestStatus.ISSUED) return RequestStatus.ISSUED;
-  if (normalized === RequestStatus.RETURNED) return RequestStatus.RETURNED;
   return undefined;
 }
 

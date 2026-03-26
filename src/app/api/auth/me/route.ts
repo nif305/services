@@ -1,18 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-type AppRole = 'manager' | 'warehouse' | 'user';
+type SessionRole = 'user' | 'warehouse' | 'manager';
 
-function clearSessionResponse() {
-  const response = NextResponse.json({ user: null }, { status: 401 });
+function normalizeRole(role: string): SessionRole {
+  const value = role.toLowerCase();
 
-  const cookieOptions = {
+  if (value === 'manager') return 'manager';
+  if (value === 'warehouse') return 'warehouse';
+  return 'user';
+}
+
+function normalizeRoles(roles: string[] | null | undefined): SessionRole[] {
+  const normalized = Array.from(
+    new Set((roles ?? []).map((role) => normalizeRole(role)))
+  );
+
+  if (!normalized.includes('user')) {
+    normalized.unshift('user');
+  }
+
+  return normalized;
+}
+
+function getPrimaryRole(roles: SessionRole[]): SessionRole {
+  if (roles.includes('manager')) return 'manager';
+  if (roles.includes('warehouse')) return 'warehouse';
+  return 'user';
+}
+
+function buildExpiredCookieOptions() {
+  return {
     httpOnly: true as const,
     sameSite: 'lax' as const,
     secure: true,
     path: '/',
     expires: new Date(0),
   };
+}
+
+function buildActiveCookieOptions() {
+  return {
+    httpOnly: true as const,
+    sameSite: 'lax' as const,
+    secure: true,
+    path: '/',
+    maxAge: 60 * 60 * 24 * 7,
+  };
+}
+
+function clearSessionResponse() {
+  const response = NextResponse.json({ user: null }, { status: 401 });
+  const cookieOptions = buildExpiredCookieOptions();
 
   response.cookies.set('inventory_platform_session', '', cookieOptions);
   response.cookies.set('user_id', '', cookieOptions);
@@ -25,33 +64,6 @@ function clearSessionResponse() {
   response.cookies.set('user_employee_id', '', cookieOptions);
 
   return response;
-}
-
-function normalizeRole(value?: string | null): AppRole {
-  const role = (value || '').toLowerCase();
-  if (role === 'manager') return 'manager';
-  if (role === 'warehouse') return 'warehouse';
-  return 'user';
-}
-
-function resolveRoles(user: any): AppRole[] {
-  const rawRoles = Array.isArray(user?.roles) ? user.roles : [];
-  const normalized = rawRoles
-    .map((role: unknown) => normalizeRole(String(role)))
-    .filter((role: AppRole, index: number, array: AppRole[]) => array.indexOf(role) === index);
-
-  if (normalized.length > 0) {
-    if (!normalized.includes('user')) normalized.unshift('user');
-    return normalized;
-  }
-
-  return [normalizeRole(user?.role)];
-}
-
-function resolvePrimaryRole(roles: AppRole[]): AppRole {
-  if (roles.includes('manager')) return 'manager';
-  if (roles.includes('warehouse')) return 'warehouse';
-  return 'user';
 }
 
 export async function GET(request: NextRequest) {
@@ -69,16 +81,18 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    if (!user) {
+    if (!user || user.status === 'DISABLED') {
       return clearSessionResponse();
     }
 
-    if (user.status === 'DISABLED') {
-      return clearSessionResponse();
-    }
+    const roles = normalizeRoles(
+      Array.isArray((user as any).roles)
+        ? (user as any).roles
+        : [String((user as any).role ?? 'USER')]
+    );
 
-    const roles = resolveRoles(user as any);
-    const role = resolvePrimaryRole(roles);
+    const primaryRole = getPrimaryRole(roles);
+    const cookieOptions = buildActiveCookieOptions();
 
     const response = NextResponse.json({
       user: {
@@ -91,7 +105,7 @@ export async function GET(request: NextRequest) {
         department: user.department,
         jobTitle: user.jobTitle,
         operationalProject: user.department || '',
-        role,
+        role: primaryRole,
         roles,
         status: user.status.toLowerCase(),
         avatar: user.avatar,
@@ -107,77 +121,15 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    response.cookies.set('inventory_platform_session', 'active', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_id', user.id, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_role', role, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_roles', JSON.stringify(roles), {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_status', user.status.toLowerCase(), {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_email', user.email, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_name', user.fullName, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_department', user.department || '', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
-    response.cookies.set('user_employee_id', user.employeeId || '', {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    response.cookies.set('inventory_platform_session', 'active', cookieOptions);
+    response.cookies.set('user_id', user.id, cookieOptions);
+    response.cookies.set('user_role', primaryRole, cookieOptions);
+    response.cookies.set('user_roles', JSON.stringify(roles), cookieOptions);
+    response.cookies.set('user_status', user.status.toLowerCase(), cookieOptions);
+    response.cookies.set('user_email', user.email, cookieOptions);
+    response.cookies.set('user_name', user.fullName, cookieOptions);
+    response.cookies.set('user_department', user.department || '', cookieOptions);
+    response.cookies.set('user_employee_id', user.employeeId || '', cookieOptions);
 
     return response;
   } catch {

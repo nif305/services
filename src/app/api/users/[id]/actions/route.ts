@@ -5,10 +5,24 @@ function normalizeText(value?: string | null) {
   return (value || '').trim();
 }
 
-function toPrismaRole(role?: string) {
-  if (role === 'manager') return 'MANAGER';
-  if (role === 'warehouse') return 'WAREHOUSE';
-  return 'USER';
+function normalizeRoles(input: unknown): Array<'USER' | 'WAREHOUSE' | 'MANAGER'> {
+  const values = Array.isArray(input) ? input : input ? [input] : [];
+
+  const mapped = values
+    .map((value) => String(value || '').trim().toLowerCase())
+    .map((value) => {
+      if (value === 'manager' || value === 'مدير') return 'MANAGER' as const;
+      if (value === 'warehouse' || value === 'مسؤول مخزن') return 'WAREHOUSE' as const;
+      return 'USER' as const;
+    });
+
+  const unique = Array.from(new Set(mapped));
+
+  if (!unique.includes('USER')) {
+    unique.unshift('USER');
+  }
+
+  return unique;
 }
 
 export async function POST(
@@ -45,11 +59,14 @@ export async function POST(
     }
 
     if (action === 'change-role') {
+      const roles = normalizeRoles(body?.roles ?? body?.role);
+
       await prisma.user.update({
         where: { id },
-        data: { role: toPrismaRole(body?.role) },
+        data: { roles },
       });
-      return NextResponse.json({ ok: true });
+
+      return NextResponse.json({ ok: true, roles });
     }
 
     if (action === 'reset-password') {

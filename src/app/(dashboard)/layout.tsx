@@ -526,31 +526,46 @@ export default function DashboardLayout({
                 <div className="flex flex-col gap-3 xl:mr-auto xl:flex-row xl:items-center">
                   {canUseRoleSwitch ? (
                     <div className="flex w-full flex-wrap items-center rounded-[20px] border border-slate-200 bg-[#f7f9f9] p-1 shadow-inner sm:w-auto sm:rounded-full">
-                      {originalUser?.role === 'manager' ? (
-                        <>
-                          <button
-                            onClick={() => switchViewRole('manager')}
-                            className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
-                              user?.role === 'manager'
-                                ? 'bg-[#016564] text-white shadow-sm'
-                                : 'text-slate-600 hover:bg-white'
-                            }`}
-                          >
-                            مدير
-                          </button>
-
-                          <button
-                            onClick={() => switchViewRole('user')}
-                            className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
-                              user?.role === 'user'
-                                ? 'bg-[#016564] text-white shadow-sm'
-                                : 'text-slate-600 hover:bg-white'
-                            }`}
-                          >
-                            موظف
-                          </button>
-                        </>
+                      {Array.isArray(originalUser?.roles) && originalUser.roles.includes('manager') ? (
+                        <button
+                          onClick={() => switchViewRole('manager')}
+                          className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
+                            user?.role === 'manager'
+                              ? 'bg-[#016564] text-white shadow-sm'
+                              : 'text-slate-600 hover:bg-white'
+                          }`}
+                        >
+                          مدير
+                        </button>
                       ) : null}
+
+                      {Array.isArray(originalUser?.roles) && originalUser.roles.includes('warehouse') ? (
+                        <button
+                          onClick={() => switchViewRole('warehouse')}
+                          className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
+                            user?.role === 'warehouse'
+                              ? 'bg-[#016564] text-white shadow-sm'
+                              : 'text-slate-600 hover:bg-white'
+                          }`}
+                        >
+                          مسؤول مخزن
+                        </button>
+                      ) : null}
+
+                      {Array.isArray(originalUser?.roles) && originalUser.roles.includes('user') ? (
+                        <button
+                          onClick={() => switchViewRole('user')}
+                          className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
+                            user?.role === 'user'
+                              ? 'bg-[#016564] text-white shadow-sm'
+                              : 'text-slate-600 hover:bg-white'
+                          }`}
+                        >
+                          موظف
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
 
                       {originalUser?.role === 'warehouse' ? (
                         <>

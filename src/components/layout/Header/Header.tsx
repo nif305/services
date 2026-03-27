@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { ChangeEvent, useMemo } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 
@@ -12,17 +13,40 @@ const ROLE_LABELS: Record<Role, string> = {
   user: 'موظف',
 };
 
+function getDefaultRouteForRole(role: Role) {
+  if (role === 'manager') return '/users';
+  if (role === 'warehouse') return '/inventory';
+  return '/requests';
+}
+
 export function Header() {
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const availableRoles = useMemo<Role[]>(() => {
     const roles = Array.isArray(originalUser?.roles) ? originalUser.roles : [];
-
     return roles.filter(
       (role): role is Role =>
         role === 'manager' || role === 'warehouse' || role === 'user'
     );
   }, [originalUser?.roles]);
+
+  const handleRoleChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const role = event.target.value as Role;
+
+    if (!role) return;
+
+    switchViewRole(role);
+
+    const targetRoute = getDefaultRouteForRole(role);
+    if (pathname !== targetRoute) {
+      router.push(targetRoute);
+      return;
+    }
+
+    router.refresh();
+  };
 
   return (
     <header className="rounded-[22px] border border-surface-border bg-white px-4 py-4 shadow-soft sm:rounded-[24px] sm:px-5">
@@ -36,24 +60,28 @@ export function Header() {
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[420px]">
+        <div className="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[340px]">
           {canUseRoleSwitch && availableRoles.length > 1 ? (
-            <div className="flex w-full flex-wrap items-center justify-end gap-2">
-              {availableRoles.map((role) => {
-                const isActive = user?.role === role;
+            <div className="flex w-full items-center gap-2">
+              <label
+                htmlFor="header-role-switcher"
+                className="shrink-0 text-sm font-semibold text-primary"
+              >
+                الدور
+              </label>
 
-                return (
-                  <Button
-                    key={role}
-                    type="button"
-                    variant={isActive ? 'primary' : 'ghost'}
-                    className="min-w-[118px] flex-1 sm:flex-none"
-                    onClick={() => switchViewRole(role)}
-                  >
+              <select
+                id="header-role-switcher"
+                value={user?.role || 'user'}
+                onChange={handleRoleChange}
+                className="h-11 w-full rounded-2xl border border-surface-border bg-white px-4 text-sm text-primary outline-none transition focus:border-primary"
+              >
+                {availableRoles.map((role) => (
+                  <option key={role} value={role}>
                     {ROLE_LABELS[role]}
-                  </Button>
-                );
-              })}
+                  </option>
+                ))}
+              </select>
             </div>
           ) : null}
 

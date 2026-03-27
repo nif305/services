@@ -11,14 +11,22 @@ export async function POST() {
     expires: new Date(0),
   };
 
-  response.cookies.set('inventory_platform_session', '', cookieOptions);
-  response.cookies.set('user_id', '', cookieOptions);
-  response.cookies.set('user_role', '', cookieOptions);
-  response.cookies.set('user_status', '', cookieOptions);
-  response.cookies.set('user_email', '', cookieOptions);
-  response.cookies.set('user_name', '', cookieOptions);
-  response.cookies.set('user_department', '', cookieOptions);
-  response.cookies.set('user_employee_id', '', cookieOptions);
+  const cookiesToClear = [
+    'inventory_platform_session',
+    'user_id',
+    'user_role',
+    'user_roles',
+    'user_status',
+    'user_email',
+    'user_name',
+    'user_department',
+    'user_employee_id',
+    'active_role',
+  ];
+
+  for (const cookieName of cookiesToClear) {
+    response.cookies.set(cookieName, '', cookieOptions);
+  }
 
   return response;
 }

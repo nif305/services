@@ -41,6 +41,8 @@ export const CustodyService = {
             select: {
               name: true,
               code: true,
+              category: true,
+              type: true,
             },
           },
           returnRequests: {

@@ -163,7 +163,7 @@ export default function ReturnsPage() {
   const role = (user?.role || '').toLowerCase();
 
   const isEmployee = role === 'user';
-  const canProcessReturns = role === 'warehouse' || role === 'manager';
+  const canProcessReturns = role === 'warehouse';
 
   const [returns, setReturns] = useState<ReturnItem[]>([]);
   const [custodies, setCustodies] = useState<CustodyOption[]>([]);
@@ -356,7 +356,7 @@ export default function ReturnsPage() {
 
     if (returnMode === 'REQUEST_ITEM') {
       if (!requestItemId) {
-        alert('اختر بند الطلب المطلوب إعادة الفائض منه');
+        alert('اختر بند الطلب المطلوب إعادة فائضه');
         return;
       }
 
@@ -549,8 +549,8 @@ export default function ReturnsPage() {
             </h1>
             <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
               {isEmployee
-                ? 'إرجاع العهد المسترجعة أو رفع طلب إعادة فائض المواد الاستهلاكية من الطلبات المصروفة.'
-                : 'استلام المواد الراجعة وتوثيق حالتها وإغلاق الطلبات بشكل موحد للمدير ومسؤول المخزن.'}
+                ? 'إرجاع العهد أو رفع طلب إعادة فائض المواد الاستهلاكية من الطلبات المصروفة.'
+                : 'استلام المواد الراجعة وتوثيق حالتها وإغلاق الطلبات لمسؤول المخزن.'}
             </p>
           </div>
 
@@ -744,9 +744,9 @@ export default function ReturnsPage() {
                     : 'border-surface-border bg-white text-slate-700'
                 }`}
               >
-                <div className="font-semibold">إرجاع عهدة مسترجعة</div>
+                <div className="font-semibold">إرجاع عهدة</div>
                 <div className="mt-1 text-[12px] leading-6 text-slate-500">
-                  خاص بالمواد المسترجعة الموجودة في عهدتي
+                  خاص بالمواد الموجودة في عهدتي
                 </div>
               </button>
 

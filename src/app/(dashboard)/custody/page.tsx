@@ -76,7 +76,7 @@ function statusLabel(status: CustodyStatus) {
   return 'أُعيدت';
 }
 
-function statusVariant(status: CustodyStatus): 'success' | 'warning' | 'neutral' {
+function statusVariant(status: CustodyStatus): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'ACTIVE') return 'success';
   if (status === 'RETURN_REQUESTED') return 'warning';
   return 'neutral';
@@ -190,7 +190,7 @@ export default function CustodyPage() {
           <div className="min-w-0">
             <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">عهدتي</h1>
             <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
-              تظهر هنا المواد العهدية المصروفة لك التي لم تُقفل بعد، ويمكنك من خلالها متابعة حالتها ورفع طلب الإرجاع.
+              تظهر هنا المواد المسترجعة التي ما زالت بعهدتك ولم تُغلق بعد.
             </p>
           </div>
 
@@ -201,7 +201,7 @@ export default function CustodyPage() {
           </Link>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-5 sm:gap-4 xl:grid-cols-3">
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-3 sm:mt-5 sm:gap-4">
           <div className="rounded-[20px] border border-surface-border bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
             <div className="text-[12px] text-surface-subtle sm:text-[13px]">إجمالي العهد الحالية</div>
             <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
@@ -245,14 +245,14 @@ export default function CustodyPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:gap-4 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-2 sm:gap-4">
         {loading ? (
           <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
             جارٍ تحميل العهد...
           </Card>
         ) : filteredItems.length === 0 ? (
           <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
-            لا توجد عهد مسجلة عليك حاليًا
+            لا توجد مواد مسجلة عليك حاليًا
           </Card>
         ) : (
           filteredItems.map((item) => {
@@ -267,7 +267,7 @@ export default function CustodyPage() {
                   <div className="min-w-0 flex-1">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <Badge variant={statusVariant(item.status)}>{statusLabel(item.status)}</Badge>
-                      <span className="break-all rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700 break-all">
                         {item.code}
                       </span>
                     </div>
@@ -297,7 +297,7 @@ export default function CustodyPage() {
                     </div>
 
                     {item.notes ? (
-                      <div className="mt-4 break-words whitespace-pre-wrap rounded-[18px] border border-surface-border bg-white p-4 text-[13px] leading-7 text-slate-700">
+                      <div className="mt-4 rounded-[18px] border border-surface-border bg-white p-4 text-[13px] leading-7 text-slate-700 whitespace-pre-wrap break-words">
                         {item.notes}
                       </div>
                     ) : null}
@@ -339,7 +339,7 @@ export default function CustodyPage() {
         title="تفاصيل العهدة"
       >
         <div className="space-y-4">
-          <div className="break-words rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-8 text-slate-700 sm:rounded-[20px]">
+          <div className="rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-8 text-slate-700 break-words">
             <div>
               المادة: <span className="text-slate-900">{selectedItem?.itemName || '-'}</span>
             </div>

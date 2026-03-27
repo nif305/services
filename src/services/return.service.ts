@@ -428,16 +428,8 @@ export const ReturnService = {
             },
           });
 
-          if (remainingOpenCustodies === 0) {
-            await tx.request.update({
-              where: { id: ret.custody!.requestId },
-              data: {
-                status: RequestStatus.RETURNED,
-                processedAt: new Date(),
-                processedById: approverId,
-              },
-            });
-          }
+          // نبقي حالة الطلب كما هي، وتُدار دورة الإرجاع من خلال العهدة وطلبات الإرجاع فقط.
+          void remainingOpenCustodies;
         }
 
         return {

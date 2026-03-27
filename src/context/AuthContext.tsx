@@ -183,20 +183,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedUser = loadStoredUser(AUTH_STORAGE_KEY);
       const storedOriginalUser = loadStoredUser(AUTH_ORIGINAL_STORAGE_KEY);
 
-      if (storedUser) {
-        if (!isMounted) return;
+      if (storedUser && isMounted) {
         setUser(storedUser);
-
-        if (storedOriginalUser) {
-          setOriginalUser(storedOriginalUser);
-        } else {
-          setOriginalUser(storedUser);
-          saveOriginalAuthUser(storedUser);
-        }
-
+        setOriginalUser(storedOriginalUser || storedUser);
         syncRoleCookies(storedUser.role, storedUser.roles);
-        setLoading(false);
-        return;
       }
 
       try {
@@ -212,9 +202,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (res.ok && json?.user) {
           const normalized = normalizeUser(json.user);
-          setUser(normalized);
+          setUser((current) => ({
+            ...(current || normalized),
+            ...normalized,
+            role: current?.role && normalized.roles.includes(current.role) ? current.role : normalized.role,
+            roles: normalized.roles,
+          }));
           setOriginalUser(normalized);
-          saveAuthUser(normalized);
+          saveAuthUser({
+            ...(storedUser || normalized),
+            ...normalized,
+            role: storedUser?.role && normalized.roles.includes(storedUser.role) ? storedUser.role : normalized.role,
+            roles: normalized.roles,
+          });
           saveOriginalAuthUser(normalized);
           syncRoleCookies(normalized.role, normalized.roles);
         } else {
@@ -225,10 +225,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {
         if (!isMounted) return;
-        setUser(null);
-        setOriginalUser(null);
-        saveAuthUser(null);
-        saveOriginalAuthUser(null);
+
+        if (!storedUser) {
+          setUser(null);
+          setOriginalUser(null);
+          saveAuthUser(null);
+          saveOriginalAuthUser(null);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);

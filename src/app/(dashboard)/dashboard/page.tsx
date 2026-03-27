@@ -10,7 +10,7 @@ type AppRole = 'manager' | 'warehouse' | 'user';
 type RequestRow = {
   id: string;
   code?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'ISSUED' | 'RETURNED' | 'DRAFT';
+  status: 'PENDING' | 'REJECTED' | 'ISSUED';
   createdAt?: string;
   requesterId?: string;
   requester?: {
@@ -56,7 +56,7 @@ type CustodyItem = {
   assignedToUserName: string;
   assignedDate: string;
   dueDate?: string | null;
-  status: 'ACTIVE' | 'DUE_SOON' | 'OVERDUE' | 'RETURN_REQUESTED' | 'RETURNED';
+  status: 'ACTIVE' | 'RETURN_REQUESTED' | 'RETURNED';
 };
 
 type NotificationItem = {
@@ -392,9 +392,9 @@ function WarehouseDashboard({ fullName }: { fullName?: string }) {
 
   const stats = useMemo(() => {
     const pendingRequests = requests.filter((item) => item.status === 'PENDING').length;
-    const approvedRequests = requests.filter((item) => item.status === 'APPROVED').length;
+    const approvedRequests = requests.filter((item) => item.status === 'ISSUED').length;
     const pendingReturns = returns.filter((item) => item.status === 'PENDING').length;
-    const overdueCustody = custody.filter((item) => item.status === 'OVERDUE' || daysLate(item.dueDate) > 0).length;
+    const overdueCustody = custody.filter((item) => item.status !== 'RETURNED' && daysLate(item.dueDate) > 0).length;
     const lowStock = inventory.filter((item) => item.status === 'LOW_STOCK').length;
     const outOfStock = inventory.filter((item) => item.status === 'OUT_OF_STOCK').length;
     const totalAlerts = notifications.filter((item) => !item.isRead).length;
@@ -699,10 +699,10 @@ function ManagerDashboard({ fullName }: { fullName?: string }) {
 
   const mainStats = useMemo(() => {
     const materialPending = requests.filter((item) => item.status === 'PENDING').length;
-    const materialApprovedNotIssued = requests.filter((item) => item.status === 'APPROVED').length;
+    const materialApprovedNotIssued = requests.filter((item) => item.status === 'ISSUED').length;
     const pendingReturns = returns.filter((item) => item.status === 'PENDING').length;
     const unclosedReturns = returns.filter((item) => item.status === 'APPROVED' || item.status === 'PENDING').length;
-    const overdueCustody = custody.filter((item) => item.status === 'OVERDUE' || daysLate(item.dueDate) > 0).length;
+    const overdueCustody = custody.filter((item) => item.status !== 'RETURNED' && daysLate(item.dueDate) > 0).length;
     const lowStock = inventory.filter((item) => item.status === 'LOW_STOCK').length;
     const outOfStock = inventory.filter((item) => item.status === 'OUT_OF_STOCK').length;
 
@@ -1251,11 +1251,11 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
 
   const stats = useMemo(() => {
     return {
-      openRequests: myRequests.filter((item) => item.status === 'PENDING' || item.status === 'APPROVED').length,
+      openRequests: myRequests.filter((item) => item.status === 'PENDING').length,
       activeCustody: myCustody.filter((item) => item.status !== 'RETURNED').length,
       pendingReturns: myReturns.filter((item) => item.status === 'PENDING').length,
       unreadNotifications: myNotifications.filter((item) => !item.isRead).length,
-      overdueCustody: myCustody.filter((item) => item.status === 'OVERDUE' || daysLate(item.dueDate) > 0).length,
+      overdueCustody: myCustody.filter((item) => item.status !== 'RETURNED' && daysLate(item.dueDate) > 0).length,
       serviceOpen:
         serviceCounts.maintenance +
         serviceCounts.cleaning +
@@ -1361,7 +1361,7 @@ function UserDashboard({ fullName, userId }: { fullName?: string; userId?: strin
               : 'normal',
         })),
       ...myCustody
-        .filter((item) => item.status === 'OVERDUE' || daysLate(item.dueDate) > 0)
+        .filter((item) => item.status !== 'RETURNED' && daysLate(item.dueDate) > 0)
         .slice(0, 2)
         .map((item) => ({
           id: `cus-${item.id}`,

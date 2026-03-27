@@ -26,7 +26,7 @@ export function Header() {
 
   return (
     <header className="rounded-[22px] border border-surface-border bg-white px-4 py-4 shadow-soft sm:rounded-[24px] sm:px-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
           <h1 className="truncate text-[18px] font-bold text-primary sm:text-[20px]">
             مرحبًا، {user?.fullName || 'مستخدم النظام'}
@@ -36,17 +36,18 @@ export function Header() {
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
+        <div className="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[420px]">
           {canUseRoleSwitch && availableRoles.length > 1 ? (
-            <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3">
+            <div className="flex w-full flex-wrap items-center justify-end gap-2">
               {availableRoles.map((role) => {
                 const isActive = user?.role === role;
 
                 return (
                   <Button
                     key={role}
+                    type="button"
                     variant={isActive ? 'primary' : 'ghost'}
-                    className="w-full sm:min-w-[118px]"
+                    className="min-w-[118px] flex-1 sm:flex-none"
                     onClick={() => switchViewRole(role)}
                   >
                     {ROLE_LABELS[role]}
@@ -56,13 +57,15 @@ export function Header() {
             </div>
           ) : null}
 
-          <Button
-            variant="ghost"
-            onClick={logout}
-            className="w-full sm:w-auto"
-          >
-            تسجيل الخروج
-          </Button>
+          <div className="flex w-full justify-end">
+            <Button
+              variant="ghost"
+              onClick={logout}
+              className="w-full sm:w-auto"
+            >
+              تسجيل الخروج
+            </Button>
+          </div>
         </div>
       </div>
     </header>

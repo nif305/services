@@ -1,57 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-type SessionRole = 'user' | 'warehouse' | 'manager';
-
-function normalizeRole(role: string): SessionRole {
-  const value = role.toLowerCase();
-
-  if (value === 'manager') return 'manager';
-  if (value === 'warehouse') return 'warehouse';
-  return 'user';
-}
-
-function normalizeRoles(roles: string[] | null | undefined): SessionRole[] {
-  const normalized = Array.from(
-    new Set((roles ?? []).map((role) => normalizeRole(role)))
-  );
-
-  if (!normalized.includes('user')) {
-    normalized.unshift('user');
+function normalizeRoles(roleOrRoles: unknown): string[] {
+  if (Array.isArray(roleOrRoles)) {
+    return roleOrRoles
+      .map((role) => String(role).toLowerCase())
+      .filter(Boolean);
   }
 
-  return normalized;
+  if (typeof roleOrRoles === 'string' && roleOrRoles.trim()) {
+    return [roleOrRoles.toLowerCase()];
+  }
+
+  return ['user'];
 }
 
-function getPrimaryRole(roles: SessionRole[]): SessionRole {
+function getPrimaryRole(roles: string[]): string {
   if (roles.includes('manager')) return 'manager';
   if (roles.includes('warehouse')) return 'warehouse';
   return 'user';
 }
 
-function buildExpiredCookieOptions() {
-  return {
+function clearSessionResponse() {
+  const response = NextResponse.json({ user: null }, { status: 401 });
+
+  const cookieOptions = {
     httpOnly: true as const,
     sameSite: 'lax' as const,
     secure: true,
     path: '/',
     expires: new Date(0),
   };
-}
-
-function buildActiveCookieOptions() {
-  return {
-    httpOnly: true as const,
-    sameSite: 'lax' as const,
-    secure: true,
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-  };
-}
-
-function clearSessionResponse() {
-  const response = NextResponse.json({ user: null }, { status: 401 });
-  const cookieOptions = buildExpiredCookieOptions();
 
   response.cookies.set('inventory_platform_session', '', cookieOptions);
   response.cookies.set('user_id', '', cookieOptions);
@@ -62,6 +41,7 @@ function clearSessionResponse() {
   response.cookies.set('user_name', '', cookieOptions);
   response.cookies.set('user_department', '', cookieOptions);
   response.cookies.set('user_employee_id', '', cookieOptions);
+  response.cookies.set('active_role', '', cookieOptions);
 
   return response;
 }
@@ -69,6 +49,7 @@ function clearSessionResponse() {
 export async function GET(request: NextRequest) {
   try {
     const userId = request.cookies.get('user_id')?.value;
+    const activeRoleFromCookie = request.cookies.get('active_role')?.value?.toLowerCase();
 
     if (!userId) {
       return clearSessionResponse();
@@ -85,14 +66,11 @@ export async function GET(request: NextRequest) {
       return clearSessionResponse();
     }
 
-    const roles = normalizeRoles(
-      Array.isArray((user as any).roles)
-        ? (user as any).roles
-        : [String((user as any).role ?? 'USER')]
-    );
-
+    const roles = normalizeRoles((user as { roles?: string[]; role?: string }).roles ?? user.role);
     const primaryRole = getPrimaryRole(roles);
-    const cookieOptions = buildActiveCookieOptions();
+    const activeRole = activeRoleFromCookie && roles.includes(activeRoleFromCookie)
+      ? activeRoleFromCookie
+      : primaryRole;
 
     const response = NextResponse.json({
       user: {
@@ -105,7 +83,7 @@ export async function GET(request: NextRequest) {
         department: user.department,
         jobTitle: user.jobTitle,
         operationalProject: user.department || '',
-        role: primaryRole,
+        role: activeRole,
         roles,
         status: user.status.toLowerCase(),
         avatar: user.avatar,
@@ -121,10 +99,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const cookieOptions = {
+      httpOnly: true as const,
+      sameSite: 'lax' as const,
+      secure: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    };
+
     response.cookies.set('inventory_platform_session', 'active', cookieOptions);
     response.cookies.set('user_id', user.id, cookieOptions);
-    response.cookies.set('user_role', primaryRole, cookieOptions);
+    response.cookies.set('user_role', activeRole, cookieOptions);
     response.cookies.set('user_roles', JSON.stringify(roles), cookieOptions);
+    response.cookies.set('active_role', activeRole, cookieOptions);
     response.cookies.set('user_status', user.status.toLowerCase(), cookieOptions);
     response.cookies.set('user_email', user.email, cookieOptions);
     response.cookies.set('user_name', user.fullName, cookieOptions);

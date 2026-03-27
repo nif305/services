@@ -16,18 +16,13 @@ export function Header() {
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
 
   const availableRoles = useMemo<Role[]>(() => {
-    const originalRole = originalUser?.role;
+    const roles = Array.isArray(originalUser?.roles) ? originalUser.roles : [];
 
-    if (originalRole === 'manager') {
-      return ['manager', 'warehouse', 'user'];
-    }
-
-    if (originalRole === 'warehouse') {
-      return ['warehouse', 'user'];
-    }
-
-    return ['user'];
-  }, [originalUser?.role]);
+    return roles.filter(
+      (role): role is Role =>
+        role === 'manager' || role === 'warehouse' || role === 'user'
+    );
+  }, [originalUser?.roles]);
 
   return (
     <header className="rounded-[22px] border border-surface-border bg-white px-4 py-4 shadow-soft sm:rounded-[24px] sm:px-5">
@@ -36,17 +31,13 @@ export function Header() {
           <h1 className="truncate text-[18px] font-bold text-primary sm:text-[20px]">
             مرحبًا، {user?.fullName || 'مستخدم النظام'}
           </h1>
-
-          <div className="mt-1 flex flex-col gap-1 text-[12px] leading-6 text-surface-subtle sm:text-[13px]">
-            <p className="truncate">{user?.department || 'وكالة التدريب'}</p>
-            <p className="truncate">
-              الدور الحالي: {ROLE_LABELS[(user?.role as Role) || 'user']}
-            </p>
-          </div>
+          <p className="mt-1 truncate text-[12px] leading-6 text-surface-subtle sm:text-[13px]">
+            {user?.department || 'وكالة التدريب'}
+          </p>
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
-          {canUseRoleSwitch ? (
+          {canUseRoleSwitch && availableRoles.length > 1 ? (
             <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3">
               {availableRoles.map((role) => {
                 const isActive = user?.role === role;
@@ -65,11 +56,7 @@ export function Header() {
             </div>
           ) : null}
 
-          <Button
-            variant="ghost"
-            onClick={logout}
-            className="w-full sm:w-auto"
-          >
+          <Button variant="ghost" onClick={logout} className="w-full sm:w-auto">
             تسجيل الخروج
           </Button>
         </div>

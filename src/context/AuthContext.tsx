@@ -23,6 +23,7 @@ export type AppUser = {
   jobTitle?: string;
   operationalProject?: string;
   role: Role;
+  roles: Role[];
   status: Status;
   avatar?: string | null;
   createdAt?: string | null;
@@ -58,19 +59,43 @@ const AUTH_STORAGE_KEY = 'inventory-auth-user';
 const AUTH_ORIGINAL_STORAGE_KEY = 'inventory-auth-original-user';
 
 function normalizeRole(role?: string | null): Role {
-  const value = (role || '').toLowerCase();
+  const value = String(role || '').toLowerCase();
   if (value === 'manager') return 'manager';
   if (value === 'warehouse') return 'warehouse';
   return 'user';
 }
 
+function normalizeRoles(roles?: unknown, fallbackRole?: string | null): Role[] {
+  const raw = Array.isArray(roles) ? roles : fallbackRole ? [fallbackRole] : ['user'];
+  const normalized = Array.from(new Set(raw.map((role) => normalizeRole(String(role)))));
+
+  if (!normalized.includes('user')) {
+    normalized.unshift('user');
+  }
+
+  return normalized;
+}
+
 function normalizeStatus(status?: string | null): Status {
-  const value = (status || '').toLowerCase();
-  if (value === 'disabled') return 'disabled';
-  return 'active';
+  return String(status || '').toLowerCase() === 'disabled' ? 'disabled' : 'active';
+}
+
+function resolvePrimaryRole(roles: Role[], currentRole?: string | null): Role {
+  const normalizedCurrent = normalizeRole(currentRole);
+
+  if (roles.includes(normalizedCurrent)) {
+    return normalizedCurrent;
+  }
+
+  if (roles.includes('manager')) return 'manager';
+  if (roles.includes('warehouse')) return 'warehouse';
+  return 'user';
 }
 
 function normalizeUser(user: any): AppUser {
+  const roles = normalizeRoles(user?.roles, user?.role);
+  const role = resolvePrimaryRole(roles, user?.role);
+
   return {
     id: user?.id || '',
     employeeId: user?.employeeId || '',
@@ -81,7 +106,8 @@ function normalizeUser(user: any): AppUser {
     department: user?.department || '',
     jobTitle: user?.jobTitle || '',
     operationalProject: user?.operationalProject || user?.department || '',
-    role: normalizeRole(user?.role),
+    role,
+    roles,
     status: normalizeStatus(user?.status),
     avatar: user?.avatar || null,
     createdAt: user?.createdAt || null,
@@ -124,6 +150,15 @@ function loadStoredUser(key: string): AppUser | null {
   }
 }
 
+function syncRoleCookies(role: Role, roles: Role[]) {
+  if (typeof document === 'undefined') return;
+
+  const maxAge = 60 * 60 * 24 * 7;
+  document.cookie = `active_role=${role}; path=/; max-age=${maxAge}; samesite=lax`;
+  document.cookie = `user_role=${role}; path=/; max-age=${maxAge}; samesite=lax`;
+  document.cookie = `user_roles=${encodeURIComponent(JSON.stringify(roles))}; path=/; max-age=${maxAge}; samesite=lax`;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [originalUser, setOriginalUser] = useState<AppUser | null>(null);
@@ -159,6 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           saveOriginalAuthUser(storedUser);
         }
 
+        syncRoleCookies(storedUser.role, storedUser.roles);
         setLoading(false);
         return;
       }
@@ -180,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setOriginalUser(normalized);
           saveAuthUser(normalized);
           saveOriginalAuthUser(normalized);
+          syncRoleCookies(normalized.role, normalized.roles);
         } else {
           setUser(null);
           setOriginalUser(null);
@@ -238,6 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setOriginalUser(normalized);
     saveAuthUser(normalized);
     saveOriginalAuthUser(normalized);
+    syncRoleCookies(normalized.role, normalized.roles);
   }, []);
 
   const logout = useCallback(() => {
@@ -256,17 +294,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const switchViewRole = useCallback(
     (role: Role) => {
       if (!originalUser) return;
-
-      const allowed =
-        (originalUser.role === 'manager' &&
-          (role === 'manager' || role === 'warehouse' || role === 'user')) ||
-        (originalUser.role === 'warehouse' && (role === 'warehouse' || role === 'user'));
-
-      if (!allowed) return;
+      if (!originalUser.roles.includes(role)) return;
 
       const nextUser = { ...originalUser, role };
       setUser(nextUser);
       saveAuthUser(nextUser);
+      syncRoleCookies(role, originalUser.roles);
     },
     [originalUser]
   );
@@ -278,8 +311,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       allUsers,
       loading,
       isAuthenticated: !!user,
-      canUseRoleSwitch:
-        originalUser?.role === 'manager' || originalUser?.role === 'warehouse',
+      canUseRoleSwitch: (originalUser?.roles?.length || 0) > 1,
       login,
       logout,
       refreshUsers,

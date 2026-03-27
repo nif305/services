@@ -66,8 +66,17 @@ function normalizeRole(role?: string | null): Role {
 }
 
 function normalizeRoles(roles?: unknown, fallbackRole?: string | null): Role[] {
-  const raw = Array.isArray(roles) ? roles : fallbackRole ? [fallbackRole] : ['user'];
-  const normalized = Array.from(new Set(raw.map((role) => normalizeRole(String(role)))));
+  const rawRoles = Array.isArray(roles)
+    ? roles
+    : typeof roles === 'string' && roles.trim()
+      ? [roles]
+      : fallbackRole
+        ? [fallbackRole]
+        : ['user'];
+
+  const normalized = Array.from(
+    new Set(rawRoles.map((role) => normalizeRole(String(role))))
+  );
 
   if (!normalized.includes('user')) {
     normalized.unshift('user');
@@ -116,26 +125,15 @@ function normalizeUser(user: any): AppUser {
   };
 }
 
-function saveAuthUser(user: AppUser | null) {
+function saveStoredUser(key: string, user: AppUser | null) {
   if (typeof window === 'undefined') return;
 
   if (!user) {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(key);
     return;
   }
 
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-}
-
-function saveOriginalAuthUser(user: AppUser | null) {
-  if (typeof window === 'undefined') return;
-
-  if (!user) {
-    localStorage.removeItem(AUTH_ORIGINAL_STORAGE_KEY);
-    return;
-  }
-
-  localStorage.setItem(AUTH_ORIGINAL_STORAGE_KEY, JSON.stringify(user));
+  localStorage.setItem(key, JSON.stringify(user));
 }
 
 function loadStoredUser(key: string): AppUser | null {
@@ -167,8 +165,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/users', { cache: 'no-store' });
-      const json = await res.json().catch(() => null);
+      const response = await fetch('/api/users', { cache: 'no-store' });
+      const json = await response.json().catch(() => null);
       const rows = Array.isArray(json?.data) ? json.data.map(normalizeUser) : [];
       setAllUsers(rows);
     } catch {
@@ -177,72 +175,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
 
-    const bootstrapAuth = async () => {
+    const bootstrap = async () => {
       const storedUser = loadStoredUser(AUTH_STORAGE_KEY);
       const storedOriginalUser = loadStoredUser(AUTH_ORIGINAL_STORAGE_KEY);
 
-      if (storedUser && isMounted) {
+      if (storedUser && mounted) {
         setUser(storedUser);
         setOriginalUser(storedOriginalUser || storedUser);
-        syncRoleCookies(storedUser.role, storedUser.roles);
       }
 
       try {
-        const res = await fetch('/api/auth/me', {
+        const response = await fetch('/api/auth/me', {
           method: 'GET',
           credentials: 'include',
           cache: 'no-store',
         });
 
-        const json: MeResponse = await res.json().catch(() => ({ user: null }));
+        const json: MeResponse = await response.json().catch(() => ({ user: null }));
 
-        if (!isMounted) return;
+        if (!mounted) return;
 
-        if (res.ok && json?.user) {
-          const normalized = normalizeUser(json.user);
-          setUser((current) => ({
-            ...(current || normalized),
-            ...normalized,
-            role: current?.role && normalized.roles.includes(current.role) ? current.role : normalized.role,
-            roles: normalized.roles,
-          }));
-          setOriginalUser(normalized);
-          saveAuthUser({
-            ...(storedUser || normalized),
-            ...normalized,
-            role: storedUser?.role && normalized.roles.includes(storedUser.role) ? storedUser.role : normalized.role,
-            roles: normalized.roles,
-          });
-          saveOriginalAuthUser(normalized);
-          syncRoleCookies(normalized.role, normalized.roles);
+        if (response.ok && json?.user) {
+          const normalizedFromApi = normalizeUser(json.user);
+          const effectiveCurrentRole =
+            storedUser?.role && normalizedFromApi.roles.includes(storedUser.role)
+              ? storedUser.role
+              : normalizedFromApi.role;
+
+          const effectiveUser: AppUser = {
+            ...normalizedFromApi,
+            role: effectiveCurrentRole,
+          };
+
+          setUser(effectiveUser);
+          setOriginalUser(normalizedFromApi);
+
+          saveStoredUser(AUTH_STORAGE_KEY, effectiveUser);
+          saveStoredUser(AUTH_ORIGINAL_STORAGE_KEY, normalizedFromApi);
+          syncRoleCookies(effectiveCurrentRole, normalizedFromApi.roles);
         } else {
           setUser(null);
           setOriginalUser(null);
-          saveAuthUser(null);
-          saveOriginalAuthUser(null);
+          saveStoredUser(AUTH_STORAGE_KEY, null);
+          saveStoredUser(AUTH_ORIGINAL_STORAGE_KEY, null);
         }
       } catch {
-        if (!isMounted) return;
+        if (!mounted) return;
 
         if (!storedUser) {
           setUser(null);
           setOriginalUser(null);
-          saveAuthUser(null);
-          saveOriginalAuthUser(null);
+          saveStoredUser(AUTH_STORAGE_KEY, null);
+          saveStoredUser(AUTH_ORIGINAL_STORAGE_KEY, null);
         }
       } finally {
-        if (isMounted) {
+        if (mounted) {
           setLoading(false);
         }
       }
     };
 
-    bootstrapAuth();
+    bootstrap();
 
     return () => {
-      isMounted = false;
+      mounted = false;
     };
   }, []);
 
@@ -253,18 +251,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, refreshUsers]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await fetch('/api/auth/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
 
-    const json: LoginResponse = await res.json().catch(() => ({
+    const json: LoginResponse = await response.json().catch(() => ({
       error: 'تعذر تسجيل الدخول',
     }));
 
-    if (!res.ok || !json?.data) {
+    if (!response.ok || !json?.data) {
       throw new Error(json?.error || 'تعذر تسجيل الدخول');
     }
 
@@ -276,8 +274,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setUser(normalized);
     setOriginalUser(normalized);
-    saveAuthUser(normalized);
-    saveOriginalAuthUser(normalized);
+    saveStoredUser(AUTH_STORAGE_KEY, normalized);
+    saveStoredUser(AUTH_ORIGINAL_STORAGE_KEY, normalized);
     syncRoleCookies(normalized.role, normalized.roles);
   }, []);
 
@@ -287,8 +285,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       credentials: 'include',
       cache: 'no-store',
     }).finally(() => {
-      saveAuthUser(null);
-      saveOriginalAuthUser(null);
+      saveStoredUser(AUTH_STORAGE_KEY, null);
+      saveStoredUser(AUTH_ORIGINAL_STORAGE_KEY, null);
       setAllUsers([]);
       window.location.replace('/login');
     });
@@ -299,9 +297,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!originalUser) return;
       if (!originalUser.roles.includes(role)) return;
 
-      const nextUser = { ...originalUser, role };
+      const nextUser: AppUser = {
+        ...originalUser,
+        role,
+      };
+
       setUser(nextUser);
-      saveAuthUser(nextUser);
+      saveStoredUser(AUTH_STORAGE_KEY, nextUser);
       syncRoleCookies(role, originalUser.roles);
     },
     [originalUser]

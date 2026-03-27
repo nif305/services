@@ -56,7 +56,11 @@ export function Header() {
             </div>
           ) : null}
 
-          <Button variant="ghost" onClick={logout} className="w-full sm:w-auto">
+          <Button
+            variant="ghost"
+            onClick={logout}
+            className="w-full sm:w-auto"
+          >
             تسجيل الخروج
           </Button>
         </div>

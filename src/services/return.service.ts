@@ -155,7 +155,7 @@ export const ReturnService = {
 
       const targets = await prisma.user.findMany({
         where: {
-          role: { in: [Role.MANAGER, Role.WAREHOUSE] },
+          roles: { hasSome: [Role.MANAGER, Role.WAREHOUSE] },
         },
         select: { id: true },
       });
@@ -284,7 +284,7 @@ export const ReturnService = {
 
       const targets = await prisma.user.findMany({
         where: {
-          role: { in: [Role.MANAGER, Role.WAREHOUSE] },
+          roles: { hasSome: [Role.MANAGER, Role.WAREHOUSE] },
         },
         select: { id: true },
       });
@@ -428,8 +428,16 @@ export const ReturnService = {
             },
           });
 
-          // نبقي حالة الطلب كما هي، وتُدار دورة الإرجاع من خلال العهدة وطلبات الإرجاع فقط.
-          void remainingOpenCustodies;
+          if (remainingOpenCustodies === 0) {
+            await tx.request.update({
+              where: { id: ret.custody!.requestId },
+              data: {
+                status: RequestStatus.RETURNED,
+                processedAt: new Date(),
+                processedById: approverId,
+              },
+            });
+          }
         }
 
         return {

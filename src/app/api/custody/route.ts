@@ -16,9 +16,16 @@ async function resolveSessionUser(request: NextRequest) {
   const cookieEmployeeId = decodeURIComponent(
     request.cookies.get('user_employee_id')?.value || ''
   ).trim();
-  const cookieRole = decodeURIComponent(request.cookies.get('user_role')?.value || 'user').trim();
 
-  const role = mapRole(cookieRole);
+  const effectiveRole = mapRole(
+    decodeURIComponent(
+      request.headers.get('x-active-role') ||
+        request.cookies.get('server_active_role')?.value ||
+        request.cookies.get('active_role')?.value ||
+        request.cookies.get('user_role')?.value ||
+        'user'
+    ).trim()
+  );
 
   let user = null;
 
@@ -27,7 +34,6 @@ async function resolveSessionUser(request: NextRequest) {
       where: { id: cookieId },
       select: {
         id: true,
-        role: true,
         status: true,
       },
     });
@@ -43,7 +49,6 @@ async function resolveSessionUser(request: NextRequest) {
       },
       select: {
         id: true,
-        role: true,
         status: true,
       },
     });
@@ -54,7 +59,6 @@ async function resolveSessionUser(request: NextRequest) {
       where: { employeeId: cookieEmployeeId },
       select: {
         id: true,
-        role: true,
         status: true,
       },
     });
@@ -70,7 +74,7 @@ async function resolveSessionUser(request: NextRequest) {
 
   return {
     id: user.id,
-    role: user.role || role,
+    role: effectiveRole,
   };
 }
 
@@ -82,7 +86,7 @@ export async function GET(request: NextRequest) {
       where: {
         userId: session.id,
         status: {
-          in: [CustodyStatus.ACTIVE, CustodyStatus.RETURN_REQUESTED],
+          in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED],
         },
         item: {
           type: ItemType.RETURNABLE,

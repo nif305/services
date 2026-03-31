@@ -20,10 +20,16 @@ async function resolveSessionUser(request: NextRequest) {
   const cookieEmployeeId = decodeURIComponent(
     request.cookies.get('user_employee_id')?.value || ''
   ).trim();
-  const activeRoleCookie = decodeURIComponent(request.cookies.get('active_role')?.value || '').trim();
-  const fallbackRoleCookie = decodeURIComponent(request.cookies.get('user_role')?.value || 'user').trim();
 
-  const role = mapRole(activeRoleCookie || fallbackRoleCookie);
+  const effectiveRole = mapRole(
+    decodeURIComponent(
+      request.headers.get('x-active-role') ||
+        request.cookies.get('server_active_role')?.value ||
+        request.cookies.get('active_role')?.value ||
+        request.cookies.get('user_role')?.value ||
+        'user'
+    ).trim()
+  );
 
   let user = null;
 
@@ -32,7 +38,6 @@ async function resolveSessionUser(request: NextRequest) {
       where: { id: cookieId },
       select: {
         id: true,
-        role: true,
         department: true,
         email: true,
         employeeId: true,
@@ -51,7 +56,6 @@ async function resolveSessionUser(request: NextRequest) {
       },
       select: {
         id: true,
-        role: true,
         department: true,
         email: true,
         employeeId: true,
@@ -65,7 +69,6 @@ async function resolveSessionUser(request: NextRequest) {
       where: { employeeId: cookieEmployeeId },
       select: {
         id: true,
-        role: true,
         department: true,
         email: true,
         employeeId: true,
@@ -84,7 +87,7 @@ async function resolveSessionUser(request: NextRequest) {
 
   return {
     id: user.id,
-    role,
+    role: effectiveRole,
     department: user.department || cookieDepartment,
   };
 }
@@ -181,7 +184,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
 
     if (body.action === 'approve') {
-      if (session.role !== Role.WAREHOUSE) {
+      if (session.role !== Role.MANAGER && session.role !== Role.WAREHOUSE) {
         return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
       }
 
@@ -197,7 +200,7 @@ export async function PUT(request: NextRequest) {
     }
 
     if (body.action === 'reject') {
-      if (session.role !== Role.WAREHOUSE) {
+      if (session.role !== Role.MANAGER && session.role !== Role.WAREHOUSE) {
         return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
       }
 

@@ -56,62 +56,74 @@ function getRequestItemsCount(requests: GenericItem[]) {
   return requests.reduce((sum, req) => sum + (Array.isArray(req?.items) ? req.items.length : 0), 0);
 }
 
-function cardToneClasses(tone: 'primary' | 'gold' | 'danger' | 'neutral' | 'success') {
-  if (tone === 'primary') return 'from-[#016564] to-[#1b7f79] text-white border-[#016564]/20';
-  if (tone === 'gold') return 'from-[#d0b284] to-[#e4cda9] text-slate-900 border-[#d0b284]/40';
-  if (tone === 'danger') return 'from-[#7c1e3e] to-[#a12c54] text-white border-[#7c1e3e]/20';
-  if (tone === 'success') return 'from-[#2d8f6f] to-[#4ea987] text-white border-[#2d8f6f]/20';
-  return 'from-white to-[#f8f9f9] text-slate-900 border-slate-200';
-}
-
-function StatCard({
-  title,
-  value,
-  subtitle,
-  tone = 'neutral',
+function SurfaceCard({
+  children,
+  className = '',
 }: {
-  title: string;
-  value: number | string;
-  subtitle: string;
-  tone?: 'primary' | 'gold' | 'danger' | 'neutral' | 'success';
+  children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div
-      className={`rounded-[28px] border bg-gradient-to-br p-5 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.25)] ${cardToneClasses(tone)}`}
-    >
-      <div className="text-[13px] font-medium opacity-90">{title}</div>
-      <div className="mt-3 text-[34px] font-bold leading-none">{value}</div>
-      <div className="mt-3 text-[12px] leading-6 opacity-80">{subtitle}</div>
+    <div className={`rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.28)] ${className}`}>
+      {children}
     </div>
+  );
+}
+
+function SmallStat({
+  title,
+  value,
+  note,
+  tone = 'default',
+}: {
+  title: string;
+  value: number;
+  note: string;
+  tone?: 'default' | 'primary' | 'gold' | 'danger' | 'success';
+}) {
+  const tones: Record<string, string> = {
+    default: 'bg-white text-slate-900',
+    primary: 'bg-[#f4fbfa] text-[#016564]',
+    gold: 'bg-[#fbf7ee] text-[#9b7a31]',
+    danger: 'bg-[#fff7fa] text-[#7c1e3e]',
+    success: 'bg-[#f2fbf7] text-[#21795c]',
+  };
+
+  return (
+    <SurfaceCard className={`p-4 ${tones[tone]}`}>
+      <div className="text-[12px] font-medium text-slate-500">{title}</div>
+      <div className="mt-2 text-[28px] font-bold leading-none">{formatNumber(value)}</div>
+      <div className="mt-2 text-[11px] leading-5 text-slate-500">{note}</div>
+    </SurfaceCard>
   );
 }
 
 function SectionCard({
   title,
   subtitle,
-  children,
   action,
+  children,
 }: {
   title: string;
   subtitle?: string;
-  children: React.ReactNode;
   action?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[30px] border border-slate-200 bg-white/95 p-5 shadow-[0_20px_60px_-32px_rgba(2,32,71,0.20)] backdrop-blur">
+    <SurfaceCard className="p-5">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-[20px] font-bold text-[#016564]">{title}</h2>
-          {subtitle ? <p className="mt-1 text-[13px] leading-6 text-slate-500">{subtitle}</p> : null}
+          <h2 className="text-[18px] font-bold text-[#016564]">{title}</h2>
+          {subtitle ? <p className="mt-1 text-[12px] leading-6 text-slate-500">{subtitle}</p> : null}
         </div>
         {action}
       </div>
       {children}
-    </section>
+    </SurfaceCard>
   );
 }
 
-function ActionRow({
+function ActionItem({
   title,
   count,
   hint,
@@ -127,115 +139,112 @@ function ActionRow({
   return (
     <Link
       href={href}
-      className={`group flex items-center justify-between rounded-[22px] border px-4 py-4 transition hover:-translate-y-0.5 hover:shadow-md ${
-        critical ? 'border-[#7c1e3e]/20 bg-[#fff7fa]' : 'border-slate-200 bg-slate-50 hover:bg-white'
+      className={`flex items-center justify-between gap-3 rounded-[18px] border px-4 py-3 transition hover:-translate-y-0.5 hover:shadow-sm ${
+        critical ? 'border-[#7c1e3e]/15 bg-[#fff8fa]' : 'border-slate-200 bg-slate-50 hover:bg-white'
       }`}
     >
       <div className="min-w-0">
-        <div className="text-[15px] font-semibold text-slate-900">{title}</div>
-        <div className="mt-1 text-[12px] leading-6 text-slate-500">{hint}</div>
+        <div className="text-[14px] font-semibold text-slate-900">{title}</div>
+        <div className="mt-1 text-[11px] leading-5 text-slate-500">{hint}</div>
       </div>
-      <div
-        className={`rounded-full px-3 py-2 text-[13px] font-bold ${
-          critical ? 'bg-[#7c1e3e] text-white' : 'bg-[#016564] text-white'
-        }`}
-      >
+      <div className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${critical ? 'bg-[#7c1e3e] text-white' : 'bg-[#016564] text-white'}`}>
         {formatNumber(count)}
       </div>
     </Link>
   );
 }
 
-function QuickLink({ href, label }: { href: string; label: string }) {
+function QuickAction({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-[14px] font-semibold text-slate-700 shadow-sm transition hover:border-[#016564]/30 hover:bg-[#f8fbfb] hover:text-[#016564]"
+      className="rounded-[16px] border border-slate-200 bg-slate-50 px-4 py-3 text-[13px] font-semibold text-slate-700 transition hover:border-[#016564]/25 hover:bg-[#f7fbfb] hover:text-[#016564]"
     >
       {label}
     </Link>
   );
 }
 
-function MiniBarChart({
-  title,
-  subtitle,
+function LegendDot({ color }: { color: string }) {
+  return <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />;
+}
+
+function InventoryDonut({
+  total,
   data,
-  colorClass = 'bg-[#016564]',
 }: {
-  title: string;
-  subtitle: string;
-  data: { name: string; value: number }[];
-  colorClass?: string;
+  total: number;
+  data: { name: string; value: number; color: string }[];
 }) {
-  const max = Math.max(...data.map((d) => d.value), 1);
+  const safeTotal = total || 1;
+  let start = 0;
+  const segments = data
+    .map((item) => {
+      const angle = (item.value / safeTotal) * 360;
+      const seg = `${item.color} ${start}deg ${start + angle}deg`;
+      start += angle;
+      return seg;
+    })
+    .join(', ');
 
   return (
-    <SectionCard title={title} subtitle={subtitle}>
-      <div className="space-y-4">
+    <div className="grid gap-4 xl:grid-cols-[140px_1fr] xl:items-center">
+      <div className="relative mx-auto h-[140px] w-[140px]">
+        <div
+          className="h-[140px] w-[140px] rounded-full"
+          style={{ background: `conic-gradient(${segments})` }}
+        />
+        <div className="absolute inset-[18px] flex items-center justify-center rounded-full bg-white shadow-inner">
+          <div className="text-center">
+            <div className="text-[10px] text-slate-400">الإجمالي</div>
+            <div className="mt-1 text-[26px] font-bold text-slate-900">{formatNumber(total)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
         {data.map((item) => (
-          <div key={item.name}>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <div className="text-[13px] font-medium text-slate-700">{item.name}</div>
-              <div className="text-[13px] font-bold text-slate-900">{formatNumber(item.value)}</div>
+          <div key={item.name} className="flex items-center justify-between rounded-[16px] bg-slate-50 px-3 py-2.5">
+            <div className="flex items-center gap-2.5">
+              <LegendDot color={item.color} />
+              <span className="text-[13px] font-medium text-slate-700">{item.name}</span>
             </div>
-            <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className={`h-full rounded-full ${colorClass}`}
-                style={{ width: `${Math.max((item.value / max) * 100, item.value > 0 ? 8 : 0)}%` }}
-              />
-            </div>
+            <span className="text-[13px] font-bold text-slate-900">{formatNumber(item.value)}</span>
           </div>
         ))}
       </div>
-    </SectionCard>
+    </div>
   );
 }
 
-function DonutLegend({
-  title,
-  subtitle,
+function MiniBars({
   data,
+  color,
 }: {
-  title: string;
-  subtitle: string;
-  data: { name: string; value: number; color: string }[];
+  data: { name: string; value: number }[];
+  color: string;
 }) {
-  const total = data.reduce((sum, item) => sum + item.value, 0) || 1;
-
+  const max = Math.max(...data.map((d) => d.value), 1);
   return (
-    <SectionCard title={title} subtitle={subtitle}>
-      <div className="grid gap-4 xl:grid-cols-[180px_1fr] xl:items-center">
-        <div className="relative mx-auto h-40 w-40">
-          <div
-            className="h-40 w-40 rounded-full"
-            style={{
-              background: `conic-gradient(${data
-                .map((item) => `${item.color} ${(item.value / total) * 100}%`)
-                .join(', ')})`,
-            }}
-          />
-          <div className="absolute inset-5 flex items-center justify-center rounded-full bg-white text-center shadow-inner">
-            <div>
-              <div className="text-[11px] text-slate-500">الإجمالي</div>
-              <div className="text-[24px] font-bold text-slate-900">{formatNumber(total)}</div>
-            </div>
+    <div className="space-y-3">
+      {data.map((item) => (
+        <div key={item.name}>
+          <div className="mb-1.5 flex items-center justify-between gap-3">
+            <div className="text-[12px] font-medium text-slate-700">{item.name}</div>
+            <div className="text-[12px] font-bold text-slate-900">{formatNumber(item.value)}</div>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full"
+              style={{
+                backgroundColor: color,
+                width: `${Math.max((item.value / max) * 100, item.value > 0 ? 8 : 0)}%`,
+              }}
+            />
           </div>
         </div>
-
-        <div className="space-y-3">
-          {data.map((item) => (
-            <div key={item.name} className="flex items-center justify-between gap-3 rounded-[18px] border border-slate-100 bg-slate-50 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-[14px] font-medium text-slate-700">{item.name}</span>
-              </div>
-              <div className="text-[14px] font-bold text-slate-900">{formatNumber(item.value)}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </SectionCard>
+      ))}
+    </div>
   );
 }
 
@@ -313,33 +322,16 @@ function UnifiedDashboard() {
       return qty <= 0;
     }).length;
 
-    const returnableItems = inventory.filter(
-      (item) => String(item.type || '').toUpperCase() === 'RETURNABLE'
-    ).length;
-    const consumableItems = inventory.filter(
-      (item) => String(item.type || '').toUpperCase() === 'CONSUMABLE'
-    ).length;
+    const returnableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'RETURNABLE').length;
+    const consumableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'CONSUMABLE').length;
 
-    const pendingRequests = requests.filter(
-      (item) => String(item.status || '').toUpperCase() === 'PENDING'
-    ).length;
-    const issuedRequests = requests.filter(
-      (item) => String(item.status || '').toUpperCase() === 'ISSUED'
-    ).length;
-    const rejectedRequests = requests.filter(
-      (item) => String(item.status || '').toUpperCase() === 'REJECTED'
-    ).length;
+    const pendingRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
+    const issuedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'ISSUED').length;
+    const rejectedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length;
 
-    const pendingReturns = returns.filter(
-      (item) => String(item.status || '').toUpperCase() === 'PENDING'
-    ).length;
-    const approvedReturns = returns.filter(
-      (item) => String(item.status || '').toUpperCase() === 'APPROVED'
-    ).length;
+    const pendingReturns = returns.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
 
-    const activeCustody = custody.filter(
-      (item) => String(item.status || '').toUpperCase() === 'ACTIVE'
-    ).length;
+    const activeCustody = custody.filter((item) => String(item.status || '').toUpperCase() === 'ACTIVE').length;
     const delayedCustody = custody.filter((item) => {
       const due = item.expectedReturn || item.dueDate;
       if (!due) return false;
@@ -367,7 +359,6 @@ function UnifiedDashboard() {
       issuedRequests,
       rejectedRequests,
       pendingReturns,
-      approvedReturns,
       activeCustody,
       delayedCustody,
       openMaintenance,
@@ -379,7 +370,7 @@ function UnifiedDashboard() {
     };
   }, [data]);
 
-  const inventoryChartData = useMemo(
+  const inventoryStatusData = useMemo(
     () => [
       { name: 'متاح', value: Math.max(metrics.totalInventory - metrics.lowStock - metrics.outOfStock, 0), color: '#016564' },
       { name: 'منخفض', value: metrics.lowStock, color: '#d0b284' },
@@ -398,7 +389,7 @@ function UnifiedDashboard() {
     [metrics]
   );
 
-  const serviceDemandData = useMemo(
+  const servicesData = useMemo(
     () => [
       { name: 'صيانة', value: metrics.openMaintenance },
       { name: 'شراء مباشر', value: metrics.openPurchases },
@@ -414,18 +405,19 @@ function UnifiedDashboard() {
         { href: '/inventory', label: 'فتح المخزون' },
         { href: '/requests', label: 'فتح الطلبات' },
         { href: '/returns', label: 'فتح الإرجاعات' },
-        { href: '/users', label: 'إدارة المستخدمين' },
-        { href: '/reports', label: 'التقارير' },
+        { href: '/users', label: 'المستخدمون' },
         { href: '/notifications', label: 'الإشعارات' },
+        { href: '/maintenance', label: 'الصيانة' },
       ];
     }
     if (role === 'warehouse') {
       return [
-        { href: '/inventory', label: 'تجهيز المواد' },
+        { href: '/inventory', label: 'المخزون' },
         { href: '/requests', label: 'صرف الطلبات' },
         { href: '/returns', label: 'استلام الإرجاعات' },
-        { href: '/maintenance', label: 'طلبات الصيانة' },
+        { href: '/custody', label: 'العهد' },
         { href: '/notifications', label: 'الإشعارات' },
+        { href: '/maintenance', label: 'الصيانة' },
       ];
     }
     return [
@@ -434,6 +426,7 @@ function UnifiedDashboard() {
       { href: '/returns', label: 'طلبات الإرجاع' },
       { href: '/maintenance', label: 'طلبات الصيانة' },
       { href: '/notifications', label: 'الإشعارات' },
+      { href: '/purchases', label: 'شراء مباشر' },
     ];
   }, [role]);
 
@@ -443,7 +436,7 @@ function UnifiedDashboard() {
         {
           title: 'طلبات صرف بانتظار التنفيذ',
           count: metrics.pendingRequests,
-          hint: 'طلبات مواد تحتاج تدخلًا تشغيليًا',
+          hint: 'طلبات مواد تتطلب تدخلًا مباشرًا',
           href: '/requests',
           critical: metrics.pendingRequests > 0,
         },
@@ -468,13 +461,6 @@ function UnifiedDashboard() {
           href: '/inventory',
           critical: metrics.outOfStock > 0,
         },
-        {
-          title: 'طلبات خدمية مفتوحة',
-          count: metrics.openMaintenance + metrics.openPurchases + metrics.cleaningRequests + metrics.otherRequests,
-          hint: 'صيانة وشراء ونظافة وطلبات أخرى',
-          href: '/maintenance',
-          critical: false,
-        },
       ];
     }
 
@@ -497,23 +483,16 @@ function UnifiedDashboard() {
         {
           title: 'مواد منخفضة الكمية',
           count: metrics.lowStock,
-          hint: 'تابع الأصناف القريبة من حد الأمان',
+          hint: 'أصناف قريبة من حد الأمان',
           href: '/inventory',
           critical: metrics.lowStock > 0,
         },
         {
           title: 'مواد نافدة الكمية',
           count: metrics.outOfStock,
-          hint: 'هذه الأصناف ستعطل الطلبات الجديدة',
+          hint: 'ستؤثر على الطلبات الجديدة',
           href: '/inventory',
           critical: metrics.outOfStock > 0,
-        },
-        {
-          title: 'عهد تحتاج متابعة',
-          count: metrics.activeCustody + metrics.delayedCustody,
-          hint: 'مواد مصروفة تحتاج إرجاعًا أو متابعة',
-          href: '/custody',
-          critical: metrics.delayedCustody > 0,
         },
       ];
     }
@@ -524,35 +503,24 @@ function UnifiedDashboard() {
         count: metrics.pendingRequests,
         hint: 'طلبات مواد ما زالت قيد الانتظار',
         href: '/requests',
-        critical: false,
       },
       {
         title: 'طلباتي المصروفة',
         count: metrics.issuedRequests,
         hint: 'طلبات تم صرفها لك بالفعل',
         href: '/requests',
-        critical: false,
       },
       {
         title: 'عهدتي النشطة',
         count: metrics.activeCustody,
         hint: 'مواد مسترجعة مسجلة عليك',
         href: '/custody',
-        critical: false,
-      },
-      {
-        title: 'عهد تحتاج إرجاعًا',
-        count: metrics.delayedCustody,
-        hint: 'عهد تجاوزت الموعد المحدد',
-        href: '/custody',
-        critical: metrics.delayedCustody > 0,
       },
       {
         title: 'إرجاعاتي المفتوحة',
         count: metrics.pendingReturns,
         hint: 'طلبات إرجاع لم تُستلم بعد',
         href: '/returns',
-        critical: false,
       },
     ];
   }, [metrics, role]);
@@ -561,61 +529,63 @@ function UnifiedDashboard() {
     return (data.notifications || [])
       .slice()
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-      .slice(0, 5);
+      .slice(0, 4);
   }, [data.notifications]);
 
-  const heroTitle =
-    role === 'manager'
-      ? 'لوحة قيادة تشغيلية للمخزون والطلبات'
-      : role === 'warehouse'
-      ? 'لوحة تنفيذ يومية لمسؤول المخزن'
-      : 'لوحة متابعة شخصية للطلبات والعهدة';
-
-  const heroText =
-    role === 'manager'
-      ? 'تعرض الاختناقات التشغيلية، حالة المخزون، الطلبات المفتوحة، ونقاط التدخل الإداري المباشر.'
-      : role === 'warehouse'
-      ? 'تعرض ما يجب صرفه واستلامه ومتابعته الآن، مع مؤشرات المخزون الحرجة والمواد تحت الضغط.'
-      : 'تعرض طلباتك وعهدتك وإرجاعاتك وتحديثاتك الأحدث بشكل مباشر وواضح.';
-
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[34px] border border-[#016564]/10 bg-[radial-gradient(circle_at_top_right,rgba(208,178,132,0.28),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(1,101,100,0.22),transparent_28%),linear-gradient(135deg,#ffffff_0%,#f7fbfb_42%,#eef7f6_100%)] p-6 shadow-[0_26px_80px_-35px_rgba(1,101,100,0.35)] sm:p-8">
-        <div className="absolute -left-8 -top-8 h-28 w-28 rounded-full bg-[#016564]/10 blur-2xl" />
-        <div className="absolute bottom-0 right-0 h-36 w-36 rounded-full bg-[#d0b284]/20 blur-3xl" />
-        <div className="relative grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-          <div>
-            <div className="inline-flex rounded-full border border-[#016564]/15 bg-white/80 px-4 py-2 text-[12px] font-semibold text-[#016564] shadow-sm">
-              مركز قيادة المواد التدريبية
+    <div className="space-y-5">
+      <section className="relative overflow-hidden rounded-[28px] border border-[#016564]/10 bg-[radial-gradient(circle_at_top_right,rgba(208,178,132,0.20),transparent_30%),linear-gradient(135deg,#ffffff_0%,#f8fbfb_48%,#f1f8f7_100%)] p-5 sm:p-6">
+        <div className="absolute inset-y-0 left-0 w-32 bg-[linear-gradient(180deg,rgba(1,101,100,0.06),transparent)] blur-2xl" />
+        <div className="relative grid gap-5 xl:grid-cols-[320px_1fr]">
+          <SurfaceCard className="p-4 sm:p-5">
+            <div className="text-[14px] font-bold text-[#016564]">مؤشر المخزون</div>
+            <div className="mt-1 text-[11px] leading-5 text-slate-500">قراءة سريعة لحالة الأصناف</div>
+            <div className="mt-4">
+              <InventoryDonut total={metrics.totalInventory} data={inventoryStatusData} />
             </div>
-            <h1 className="mt-4 max-w-3xl text-[28px] font-bold leading-[1.3] text-slate-900 sm:text-[38px]">
-              {heroTitle}
-            </h1>
-            <p className="mt-3 max-w-2xl text-[14px] leading-8 text-slate-600 sm:text-[15px]">
-              {heroText}
-            </p>
+          </SurfaceCard>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <StatCard title="إجمالي الأصناف" value={formatNumber(metrics.totalInventory)} subtitle="عدد المواد المعرفة في النظام" tone="primary" />
-              <StatCard title="طلبات بانتظار الإجراء" value={formatNumber(metrics.pendingRequests + metrics.pendingReturns)} subtitle="صرف أو استلام" tone="danger" />
-              <StatCard title="تنبيهات غير مقروءة" value={formatNumber(metrics.unreadNotifications)} subtitle="آخر ما وصلك داخل النظام" tone="gold" />
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="rounded-full border border-[#016564]/15 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-[#016564]">
+                منصة مخزون المواد التدريبية
+              </div>
             </div>
-          </div>
 
-          <div className="grid gap-3">
-            <DonutLegend title="مؤشر المخزون" subtitle="قراءة سريعة لحالة الأصناف" data={inventoryChartData} />
+            <div>
+              <h1 className="text-[22px] font-bold leading-[1.4] text-slate-900 sm:text-[28px]">
+                {role === 'manager'
+                  ? 'لوحة قيادة تشغيلية للمخزون والطلبات'
+                  : role === 'warehouse'
+                  ? 'لوحة تنفيذ يومية لمسؤول المخزن'
+                  : 'لوحة متابعة الطلبات والعهدة'}
+              </h1>
+              <p className="mt-2 max-w-3xl text-[13px] leading-7 text-slate-600">
+                {role === 'manager'
+                  ? 'تركيز مباشر على حالة المخزون، الاختناقات التشغيلية، والطلبات التي تستدعي تدخلًا إداريًا.'
+                  : role === 'warehouse'
+                  ? 'تعرض ما يجب صرفه واستلامه الآن، مع حالة الأصناف الأكثر تأثيرًا على الجاهزية.'
+                  : 'تعرض طلباتك، عهدتك، إرجاعاتك، وأحدث التحديثات المرتبطة بحسابك.'}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SmallStat title="إجمالي الأصناف" value={metrics.totalInventory} note="عدد المواد المعرفة في النظام" tone="primary" />
+              <SmallStat title="طلبات بانتظار الإجراء" value={metrics.pendingRequests + metrics.pendingReturns} note="صرف أو استلام" tone="danger" />
+              <SmallStat title="تنبيهات غير مقروءة" value={metrics.unreadNotifications} note="آخر ما وصلك داخل النظام" tone="gold" />
+            </div>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="مواد منخفضة" value={formatNumber(metrics.lowStock)} subtitle="تحتاج متابعة قريبة" tone="gold" />
-        <StatCard title="مواد نافدة" value={formatNumber(metrics.outOfStock)} subtitle="تؤثر على الجاهزية" tone="danger" />
-        <StatCard title="مواد قابلة للإرجاع" value={formatNumber(metrics.returnableItems)} subtitle="مرتبطة بالعهدة" tone="success" />
-        <StatCard title="مواد استهلاكية" value={formatNumber(metrics.consumableItems)} subtitle="صرف مباشر واستهلاك" tone="neutral" />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SmallStat title="مواد منخفضة" value={metrics.lowStock} note="تحتاج متابعة قريبة" tone="gold" />
+        <SmallStat title="مواد نافدة" value={metrics.outOfStock} note="تؤثر على الجاهزية" tone="danger" />
+        <SmallStat title="مواد قابلة للإرجاع" value={metrics.returnableItems} note="مرتبطة بالعهدة" tone="success" />
+        <SmallStat title="مواد استهلاكية" value={metrics.consumableItems} note="صرف مباشر واستهلاك" tone="default" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
         <SectionCard
           title={
             role === 'manager'
@@ -624,69 +594,61 @@ function UnifiedDashboard() {
               ? 'الإجراءات التشغيلية الحالية'
               : 'ما الذي يجب متابعته الآن؟'
           }
-          subtitle="عناصر تنفيذية مباشرة وليست معلومات عامة"
+          subtitle="عناصر تنفيذية مباشرة"
         >
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {actionRows.map((row) => (
-              <ActionRow key={row.title} {...row} />
+              <ActionItem key={row.title} {...row} />
             ))}
           </div>
         </SectionCard>
 
-        <SectionCard title="وصول سريع" subtitle="اختصارات مباشرة إلى أهم المسارات">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <SectionCard title="وصول سريع" subtitle="اختصارات إلى أهم المسارات">
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {quickLinks.map((link) => (
-              <QuickLink key={link.href} href={link.href} label={link.label} />
+              <QuickAction key={link.href} href={link.href} label={link.label} />
             ))}
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <div className="text-[13px] font-semibold text-[#016564]">العهدة النشطة</div>
-              <div className="mt-2 text-[26px] font-bold text-slate-900">{formatNumber(metrics.activeCustody)}</div>
-              <div className="mt-1 text-[12px] text-slate-500">عدد المواد المسجلة في العهدة حاليًا</div>
-            </div>
-            <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-              <div className="text-[13px] font-semibold text-[#016564]">بنود الطلبات</div>
-              <div className="mt-2 text-[26px] font-bold text-slate-900">{formatNumber(metrics.requestItemsCount)}</div>
-              <div className="mt-1 text-[12px] text-slate-500">إجمالي البنود المسجلة في الطلبات</div>
-            </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <SurfaceCard className="p-4">
+              <div className="text-[12px] font-semibold text-[#016564]">العهدة النشطة</div>
+              <div className="mt-2 text-[24px] font-bold text-slate-900">{formatNumber(metrics.activeCustody)}</div>
+              <div className="mt-1 text-[11px] text-slate-500">مواد ما زالت في عهدة المستخدمين</div>
+            </SurfaceCard>
+            <SurfaceCard className="p-4">
+              <div className="text-[12px] font-semibold text-[#016564]">بنود الطلبات</div>
+              <div className="mt-2 text-[24px] font-bold text-slate-900">{formatNumber(metrics.requestItemsCount)}</div>
+              <div className="mt-1 text-[11px] text-slate-500">إجمالي البنود المسجلة داخل الطلبات</div>
+            </SurfaceCard>
           </div>
         </SectionCard>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <MiniBarChart title="حركة الطلبات والإرجاعات" subtitle="رسم مباشر يفيد القرار اليومي" data={requestFlowData} colorClass="bg-[#016564]" />
-        <MiniBarChart title="الخدمات التشغيلية المساندة" subtitle="صيانة وشراء ونظافة وطلبات أخرى" data={serviceDemandData} colorClass="bg-[#7c1e3e]" />
+      <div className="grid gap-5 xl:grid-cols-2">
+        <MiniBarChart title="حركة الطلبات والإرجاعات" subtitle="قراءة سريعة للحالة الحالية" data={requestFlowData} color="#016564" />
+        <MiniBarChart title="الخدمات التشغيلية المساندة" subtitle="صيانة وشراء ونظافة وطلبات أخرى" data={servicesData} color="#7c1e3e" />
       </div>
 
       <SectionCard
         title="آخر ما وصلك"
-        subtitle="أحدث الإشعارات والأنشطة المسجلة في النظام"
-        action={
-          <Link href="/notifications" className="text-[13px] font-semibold text-[#016564]">
-            فتح صفحة الإشعارات
-          </Link>
-        }
+        subtitle="أحدث الإشعارات والتحديثات"
+        action={<Link href="/notifications" className="text-[12px] font-semibold text-[#016564]">فتح الإشعارات</Link>}
       >
         {loading ? (
-          <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-6 text-center text-slate-500">
-            جارٍ تحميل البيانات...
-          </div>
+          <div className="rounded-[18px] bg-slate-50 p-5 text-center text-[13px] text-slate-500">جارٍ تحميل البيانات...</div>
         ) : latestUpdates.length === 0 ? (
-          <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-6 text-center text-slate-500">
-            لا توجد تحديثات حديثة
-          </div>
+          <div className="rounded-[18px] bg-slate-50 p-5 text-center text-[13px] text-slate-500">لا توجد تحديثات حديثة</div>
         ) : (
           <div className="grid gap-3 xl:grid-cols-2">
             {latestUpdates.map((item) => (
-              <div key={item.id} className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
-                <div className="text-[15px] font-bold text-slate-900">{item.title || 'إشعار'}</div>
-                <div className="mt-1 text-[13px] leading-7 text-slate-600">{item.message || 'لا توجد تفاصيل إضافية'}</div>
-                <div className="mt-3 text-[11px] text-slate-400">
+              <SurfaceCard key={item.id} className="p-4">
+                <div className="text-[14px] font-bold text-slate-900">{item.title || 'إشعار'}</div>
+                <div className="mt-1 text-[12px] leading-6 text-slate-600">{item.message || 'لا توجد تفاصيل إضافية'}</div>
+                <div className="mt-2 text-[11px] text-slate-400">
                   {item.createdAt ? new Date(item.createdAt).toLocaleString('ar-SA') : '—'}
                 </div>
-              </div>
+              </SurfaceCard>
             ))}
           </div>
         )}

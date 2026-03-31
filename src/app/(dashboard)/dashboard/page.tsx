@@ -1,9 +1,22 @@
-
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, Legend } from 'recharts';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  PieChart,
+  Pie,
+  Cell,
+  AreaChart,
+  Area,
+  CartesianGrid,
+  Legend,
+} from 'recharts';
 import { useAuth } from '@/context/AuthContext';
 
 type GenericItem = Record<string, any>;
@@ -50,11 +63,6 @@ function isOpenStatus(value: any) {
   return ['PENDING', 'OPEN', 'NEW', 'IN_PROGRESS', 'ACTIVE', 'RETURN_REQUESTED'].includes(s);
 }
 
-function isClosedStatus(value: any) {
-  const s = String(value || '').toUpperCase();
-  return ['APPROVED', 'ISSUED', 'DONE', 'CLOSED', 'RETURNED', 'COMPLETED'].includes(s);
-}
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat('ar-SA').format(value || 0);
 }
@@ -83,7 +91,9 @@ function StatCard({
   tone?: 'primary' | 'gold' | 'danger' | 'neutral' | 'success';
 }) {
   return (
-    <div className={`rounded-[28px] border bg-gradient-to-br p-5 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.25)] ${cardToneClasses(tone)}`}>
+    <div
+      className={`rounded-[28px] border bg-gradient-to-br p-5 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.25)] ${cardToneClasses(tone)}`}
+    >
       <div className="text-[13px] font-medium opacity-90">{title}</div>
       <div className="mt-3 text-[34px] font-bold leading-none">{value}</div>
       <div className="mt-3 text-[12px] leading-6 opacity-80">{subtitle}</div>
@@ -121,7 +131,7 @@ function ActionRow({
   count,
   hint,
   href,
-  critical = False,
+  critical = false,
 }: {
   title: string;
   count: number;
@@ -133,16 +143,18 @@ function ActionRow({
     <Link
       href={href}
       className={`group flex items-center justify-between rounded-[22px] border px-4 py-4 transition hover:-translate-y-0.5 hover:shadow-md ${
-        critical
-          ? 'border-[#7c1e3e]/20 bg-[#fff7fa]'
-          : 'border-slate-200 bg-slate-50 hover:bg-white'
+        critical ? 'border-[#7c1e3e]/20 bg-[#fff7fa]' : 'border-slate-200 bg-slate-50 hover:bg-white'
       }`}
     >
       <div className="min-w-0">
         <div className="text-[15px] font-semibold text-slate-900">{title}</div>
         <div className="mt-1 text-[12px] leading-6 text-slate-500">{hint}</div>
       </div>
-      <div className={`rounded-full px-3 py-2 text-[13px] font-bold ${critical ? 'bg-[#7c1e3e] text-white' : 'bg-[#016564] text-white'}`}>
+      <div
+        className={`rounded-full px-3 py-2 text-[13px] font-bold ${
+          critical ? 'bg-[#7c1e3e] text-white' : 'bg-[#016564] text-white'
+        }`}
+      >
         {formatNumber(count)}
       </div>
     </Link>
@@ -242,17 +254,33 @@ function UnifiedDashboard() {
       return qty <= 0;
     }).length;
 
-    const returnableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'RETURNABLE').length;
-    const consumableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'CONSUMABLE').length;
+    const returnableItems = inventory.filter(
+      (item) => String(item.type || '').toUpperCase() === 'RETURNABLE'
+    ).length;
+    const consumableItems = inventory.filter(
+      (item) => String(item.type || '').toUpperCase() === 'CONSUMABLE'
+    ).length;
 
-    const pendingRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
-    const issuedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'ISSUED').length;
-    const rejectedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length;
+    const pendingRequests = requests.filter(
+      (item) => String(item.status || '').toUpperCase() === 'PENDING'
+    ).length;
+    const issuedRequests = requests.filter(
+      (item) => String(item.status || '').toUpperCase() === 'ISSUED'
+    ).length;
+    const rejectedRequests = requests.filter(
+      (item) => String(item.status || '').toUpperCase() === 'REJECTED'
+    ).length;
 
-    const pendingReturns = returns.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
-    const approvedReturns = returns.filter((item) => String(item.status || '').toUpperCase() === 'APPROVED').length;
+    const pendingReturns = returns.filter(
+      (item) => String(item.status || '').toUpperCase() === 'PENDING'
+    ).length;
+    const approvedReturns = returns.filter(
+      (item) => String(item.status || '').toUpperCase() === 'APPROVED'
+    ).length;
 
-    const activeCustody = custody.filter((item) => String(item.status || '').toUpperCase() === 'ACTIVE').length;
+    const activeCustody = custody.filter(
+      (item) => String(item.status || '').toUpperCase() === 'ACTIVE'
+    ).length;
     const delayedCustody = custody.filter((item) => {
       const due = item.expectedReturn || item.dueDate;
       if (!due) return false;
@@ -261,8 +289,12 @@ function UnifiedDashboard() {
 
     const openMaintenance = maintenance.filter((item) => isOpenStatus(item.status)).length;
     const openPurchases = purchases.filter((item) => isOpenStatus(item.status)).length;
-    const cleaningRequests = suggestions.filter((item) => String(item.category || '').toUpperCase() === 'CLEANING' && isOpenStatus(item.status)).length;
-    const otherRequests = suggestions.filter((item) => String(item.category || '').toUpperCase() !== 'CLEANING' && isOpenStatus(item.status)).length;
+    const cleaningRequests = suggestions.filter(
+      (item) => String(item.category || '').toUpperCase() === 'CLEANING' && isOpenStatus(item.status)
+    ).length;
+    const otherRequests = suggestions.filter(
+      (item) => String(item.category || '').toUpperCase() !== 'CLEANING' && isOpenStatus(item.status)
+    ).length;
 
     const unreadNotifications = notifications.filter((item) => !item.isRead).length;
 
@@ -288,25 +320,34 @@ function UnifiedDashboard() {
     };
   }, [data]);
 
-  const inventoryChartData = useMemo(() => [
-    { name: 'متاح', value: Math.max(metrics.totalInventory - metrics.lowStock - metrics.outOfStock, 0) },
-    { name: 'منخفض', value: metrics.lowStock },
-    { name: 'نافد', value: metrics.outOfStock },
-  ], [metrics]);
+  const inventoryChartData = useMemo(
+    () => [
+      { name: 'متاح', value: Math.max(metrics.totalInventory - metrics.lowStock - metrics.outOfStock, 0) },
+      { name: 'منخفض', value: metrics.lowStock },
+      { name: 'نافد', value: metrics.outOfStock },
+    ],
+    [metrics]
+  );
 
-  const requestFlowData = useMemo(() => [
-    { name: 'جديد', value: metrics.pendingRequests },
-    { name: 'تم الصرف', value: metrics.issuedRequests },
-    { name: 'مرفوض', value: metrics.rejectedRequests },
-    { name: 'إرجاع مفتوح', value: metrics.pendingReturns },
-  ], [metrics]);
+  const requestFlowData = useMemo(
+    () => [
+      { name: 'جديد', value: metrics.pendingRequests },
+      { name: 'تم الصرف', value: metrics.issuedRequests },
+      { name: 'مرفوض', value: metrics.rejectedRequests },
+      { name: 'إرجاع مفتوح', value: metrics.pendingReturns },
+    ],
+    [metrics]
+  );
 
-  const serviceDemandData = useMemo(() => [
-    { name: 'صيانة', value: metrics.openMaintenance },
-    { name: 'شراء مباشر', value: metrics.openPurchases },
-    { name: 'نظافة', value: metrics.cleaningRequests },
-    { name: 'طلبات أخرى', value: metrics.otherRequests },
-  ], [metrics]);
+  const serviceDemandData = useMemo(
+    () => [
+      { name: 'صيانة', value: metrics.openMaintenance },
+      { name: 'شراء مباشر', value: metrics.openPurchases },
+      { name: 'نظافة', value: metrics.cleaningRequests },
+      { name: 'طلبات أخرى', value: metrics.otherRequests },
+    ],
+    [metrics]
+  );
 
   const quickLinks = useMemo(() => {
     if (role === 'manager') {
@@ -340,50 +381,147 @@ function UnifiedDashboard() {
   const actionRows = useMemo(() => {
     if (role === 'manager') {
       return [
-        { title: 'طلبات صرف بانتظار التنفيذ', count: metrics.pendingRequests, hint: 'طلبات مواد تحتاج تدخلًا تشغيليًا', href: '/requests', critical: metrics.pendingRequests > 0 },
-        { title: 'إرجاعات بانتظار الاستلام', count: metrics.pendingReturns, hint: 'مواد عائدة لم تُستلم بعد', href: '/returns', critical: metrics.pendingReturns > 0 },
-        { title: 'عهد متأخرة', count: metrics.delayedCustody, hint: 'مواد تجاوزت تاريخ الإرجاع', href: '/custody', critical: metrics.delayedCustody > 0 },
-        { title: 'مواد منخفضة أو نافدة', count: metrics.lowStock + metrics.outOfStock, hint: 'تحتاج قرارًا على المخزون أو التوريد', href: '/inventory', critical: metrics.outOfStock > 0 },
-        { title: 'طلبات خدمية مفتوحة', count: metrics.openMaintenance + metrics.openPurchases + metrics.cleaningRequests + metrics.otherRequests, hint: 'صيانة وشراء ونظافة وطلبات أخرى', href: '/maintenance', critical: False },
-      ]
+        {
+          title: 'طلبات صرف بانتظار التنفيذ',
+          count: metrics.pendingRequests,
+          hint: 'طلبات مواد تحتاج تدخلًا تشغيليًا',
+          href: '/requests',
+          critical: metrics.pendingRequests > 0,
+        },
+        {
+          title: 'إرجاعات بانتظار الاستلام',
+          count: metrics.pendingReturns,
+          hint: 'مواد عائدة لم تُستلم بعد',
+          href: '/returns',
+          critical: metrics.pendingReturns > 0,
+        },
+        {
+          title: 'عهد متأخرة',
+          count: metrics.delayedCustody,
+          hint: 'مواد تجاوزت تاريخ الإرجاع',
+          href: '/custody',
+          critical: metrics.delayedCustody > 0,
+        },
+        {
+          title: 'مواد منخفضة أو نافدة',
+          count: metrics.lowStock + metrics.outOfStock,
+          hint: 'تحتاج قرارًا على المخزون أو التوريد',
+          href: '/inventory',
+          critical: metrics.outOfStock > 0,
+        },
+        {
+          title: 'طلبات خدمية مفتوحة',
+          count:
+            metrics.openMaintenance +
+            metrics.openPurchases +
+            metrics.cleaningRequests +
+            metrics.otherRequests,
+          hint: 'صيانة وشراء ونظافة وطلبات أخرى',
+          href: '/maintenance',
+          critical: false,
+        },
+      ];
     }
-    if (role == 'warehouse'):
+
+    if (role === 'warehouse') {
       return [
-        { title: 'طلبات بانتظار الصرف', count: metrics.pendingRequests, hint: 'نفّذ الصرف للطلبات الجديدة', href: '/requests', critical: metrics.pendingRequests > 0 },
-        { title: 'إرجاعات تنتظر الاستلام', count: metrics.pendingReturns, hint: 'أغلق عمليات الاستلام والتوثيق', href: '/returns', critical: metrics.pendingReturns > 0 },
-        { title: 'مواد منخفضة الكمية', count: metrics.lowStock, hint: 'تابع الأصناف القريبة من حد الأمان', href: '/inventory', critical: metrics.lowStock > 0 },
-        { title: 'مواد نافدة الكمية', count: metrics.outOfStock, hint: 'هذه الأصناف ستعطل الطلبات الجديدة', href: '/inventory', critical: metrics.outOfStock > 0 },
-        { title: 'عهد تحتاج متابعة', count: metrics.activeCustody + metrics.delayedCustody, hint: 'مواد مصروفة تحتاج إرجاعًا أو متابعة', href: '/custody', critical: metrics.delayedCustody > 0 },
-      ]
+        {
+          title: 'طلبات بانتظار الصرف',
+          count: metrics.pendingRequests,
+          hint: 'نفّذ الصرف للطلبات الجديدة',
+          href: '/requests',
+          critical: metrics.pendingRequests > 0,
+        },
+        {
+          title: 'إرجاعات تنتظر الاستلام',
+          count: metrics.pendingReturns,
+          hint: 'أغلق عمليات الاستلام والتوثيق',
+          href: '/returns',
+          critical: metrics.pendingReturns > 0,
+        },
+        {
+          title: 'مواد منخفضة الكمية',
+          count: metrics.lowStock,
+          hint: 'تابع الأصناف القريبة من حد الأمان',
+          href: '/inventory',
+          critical: metrics.lowStock > 0,
+        },
+        {
+          title: 'مواد نافدة الكمية',
+          count: metrics.outOfStock,
+          hint: 'هذه الأصناف ستعطل الطلبات الجديدة',
+          href: '/inventory',
+          critical: metrics.outOfStock > 0,
+        },
+        {
+          title: 'عهد تحتاج متابعة',
+          count: metrics.activeCustody + metrics.delayedCustody,
+          hint: 'مواد مصروفة تحتاج إرجاعًا أو متابعة',
+          href: '/custody',
+          critical: metrics.delayedCustody > 0,
+        },
+      ];
+    }
+
     return [
-      { title: 'طلباتي الجديدة', count: metrics.pendingRequests, hint: 'طلبات مواد ما زالت قيد الانتظار', href: '/requests', critical: False },
-      { title: 'طلباتي المصروفة', count: metrics.issuedRequests, hint: 'طلبات تم صرفها لك بالفعل', href: '/requests', critical: False },
-      { title: 'عهدتي النشطة', count: metrics.activeCustody, hint: 'مواد مسترجعة مسجلة عليك', href: '/custody', critical: False },
-      { title: 'عهد تحتاج إرجاعًا', count: metrics.delayedCustody, hint: 'عهد تجاوزت الموعد المحدد', href: '/custody', critical: metrics.delayedCustody > 0 },
-      { title: 'إرجاعاتي المفتوحة', count: metrics.pendingReturns, hint: 'طلبات إرجاع لم تُستلم بعد', href: '/returns', critical: False },
+      {
+        title: 'طلباتي الجديدة',
+        count: metrics.pendingRequests,
+        hint: 'طلبات مواد ما زالت قيد الانتظار',
+        href: '/requests',
+        critical: false,
+      },
+      {
+        title: 'طلباتي المصروفة',
+        count: metrics.issuedRequests,
+        hint: 'طلبات تم صرفها لك بالفعل',
+        href: '/requests',
+        critical: false,
+      },
+      {
+        title: 'عهدتي النشطة',
+        count: metrics.activeCustody,
+        hint: 'مواد مسترجعة مسجلة عليك',
+        href: '/custody',
+        critical: false,
+      },
+      {
+        title: 'عهد تحتاج إرجاعًا',
+        count: metrics.delayedCustody,
+        hint: 'عهد تجاوزت الموعد المحدد',
+        href: '/custody',
+        critical: metrics.delayedCustody > 0,
+      },
+      {
+        title: 'إرجاعاتي المفتوحة',
+        count: metrics.pendingReturns,
+        hint: 'طلبات إرجاع لم تُستلم بعد',
+        href: '/returns',
+        critical: false,
+      },
     ];
   }, [metrics, role]);
 
   const latestUpdates = useMemo(() => {
-    const rows = (data.notifications || [])
+    return (data.notifications || [])
       .slice()
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
       .slice(0, 5);
-
-    return rows;
   }, [data.notifications]);
 
-  const heroTitle = role === 'manager'
-    ? 'لوحة قيادة تشغيلية للمخزون والطلبات'
-    : role === 'warehouse'
-    ? 'لوحة تنفيذ يومية لمسؤول المخزن'
-    : 'لوحة متابعة شخصية للطلبات والعهدة';
+  const heroTitle =
+    role === 'manager'
+      ? 'لوحة قيادة تشغيلية للمخزون والطلبات'
+      : role === 'warehouse'
+      ? 'لوحة تنفيذ يومية لمسؤول المخزن'
+      : 'لوحة متابعة شخصية للطلبات والعهدة';
 
-  const heroText = role === 'manager'
-    ? 'تعرض الاختناقات التشغيلية، حالة المخزون، الطلبات المفتوحة، ونقاط التدخل الإداري المباشر.'
-    : role === 'warehouse'
-    ? 'تعرض ما يجب صرفه واستلامه ومتابعته الآن، مع مؤشرات المخزون الحرجة والمواد تحت الضغط.'
-    : 'تعرض طلباتك وعهدتك وإرجاعاتك وتحديثاتك الأحدث بشكل مباشر وواضح.';
+  const heroText =
+    role === 'manager'
+      ? 'تعرض الاختناقات التشغيلية، حالة المخزون، الطلبات المفتوحة، ونقاط التدخل الإداري المباشر.'
+      : role === 'warehouse'
+      ? 'تعرض ما يجب صرفه واستلامه ومتابعته الآن، مع مؤشرات المخزون الحرجة والمواد تحت الضغط.'
+      : 'تعرض طلباتك وعهدتك وإرجاعاتك وتحديثاتك الأحدث بشكل مباشر وواضح.';
 
   return (
     <div className="space-y-6">
@@ -403,9 +541,24 @@ function UnifiedDashboard() {
             </p>
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <StatCard title="إجمالي الأصناف" value={formatNumber(metrics.totalInventory)} subtitle="عدد المواد المعرفة في النظام" tone="primary" />
-              <StatCard title="طلبات بانتظار الإجراء" value={formatNumber(metrics.pendingRequests + metrics.pendingReturns)} subtitle="صرف أو استلام" tone="danger" />
-              <StatCard title="تنبيهات غير مقروءة" value={formatNumber(metrics.unreadNotifications)} subtitle="آخر ما وصلك داخل النظام" tone="gold" />
+              <StatCard
+                title="إجمالي الأصناف"
+                value={formatNumber(metrics.totalInventory)}
+                subtitle="عدد المواد المعرفة في النظام"
+                tone="primary"
+              />
+              <StatCard
+                title="طلبات بانتظار الإجراء"
+                value={formatNumber(metrics.pendingRequests + metrics.pendingReturns)}
+                subtitle="صرف أو استلام"
+                tone="danger"
+              />
+              <StatCard
+                title="تنبيهات غير مقروءة"
+                value={formatNumber(metrics.unreadNotifications)}
+                subtitle="آخر ما وصلك داخل النظام"
+                tone="gold"
+              />
             </div>
           </div>
 
@@ -415,7 +568,14 @@ function UnifiedDashboard() {
               <div className="mt-4 h-[220px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={inventoryChartData} dataKey="value" nameKey="name" innerRadius={52} outerRadius={82} paddingAngle={4}>
+                    <Pie
+                      data={inventoryChartData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={52}
+                      outerRadius={82}
+                      paddingAngle={4}
+                    >
                       <Cell fill="#016564" />
                       <Cell fill="#d0b284" />
                       <Cell fill="#7c1e3e" />
@@ -439,7 +599,13 @@ function UnifiedDashboard() {
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
         <SectionCard
-          title={role === 'manager' ? 'أهم العناصر التي تستدعي تدخلًا مباشرًا' : role === 'warehouse' ? 'الإجراءات التشغيلية الحالية' : 'ما الذي يجب متابعته الآن؟'}
+          title={
+            role === 'manager'
+              ? 'أهم العناصر التي تستدعي تدخلًا مباشرًا'
+              : role === 'warehouse'
+              ? 'الإجراءات التشغيلية الحالية'
+              : 'ما الذي يجب متابعته الآن؟'
+          }
           subtitle="عناصر تنفيذية مباشرة وليست معلومات عامة"
         >
           <div className="space-y-3">
@@ -459,12 +625,16 @@ function UnifiedDashboard() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
               <div className="text-[13px] font-semibold text-[#016564]">العهدة النشطة</div>
-              <div className="mt-2 text-[26px] font-bold text-slate-900">{formatNumber(metrics.activeCustody)}</div>
+              <div className="mt-2 text-[26px] font-bold text-slate-900">
+                {formatNumber(metrics.activeCustody)}
+              </div>
               <div className="mt-1 text-[12px] text-slate-500">عدد المواد المسجلة في العهدة حاليًا</div>
             </div>
             <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
               <div className="text-[13px] font-semibold text-[#016564]">بنود الطلبات</div>
-              <div className="mt-2 text-[26px] font-bold text-slate-900">{formatNumber(metrics.requestItemsCount)}</div>
+              <div className="mt-2 text-[26px] font-bold text-slate-900">
+                {formatNumber(metrics.requestItemsCount)}
+              </div>
               <div className="mt-1 text-[12px] text-slate-500">إجمالي البنود المسجلة في الطلبات</div>
             </div>
           </div>
@@ -492,8 +662,8 @@ function UnifiedDashboard() {
               <AreaChart data={serviceDemandData}>
                 <defs>
                   <linearGradient id="serviceFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#d0b284" stopOpacity={0.9}/>
-                    <stop offset="95%" stopColor="#d0b284" stopOpacity={0.15}/>
+                    <stop offset="5%" stopColor="#d0b284" stopOpacity={0.9} />
+                    <stop offset="95%" stopColor="#d0b284" stopOpacity={0.15} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -507,7 +677,15 @@ function UnifiedDashboard() {
         </SectionCard>
       </div>
 
-      <SectionCard title="آخر ما وصلك" subtitle="أحدث الإشعارات والأنشطة المسجلة في النظام" action={<Link href="/notifications" className="text-[13px] font-semibold text-[#016564]">فتح صفحة الإشعارات</Link>}>
+      <SectionCard
+        title="آخر ما وصلك"
+        subtitle="أحدث الإشعارات والأنشطة المسجلة في النظام"
+        action={
+          <Link href="/notifications" className="text-[13px] font-semibold text-[#016564]">
+            فتح صفحة الإشعارات
+          </Link>
+        }
+      >
         {loading ? (
           <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-6 text-center text-slate-500">
             جارٍ تحميل البيانات...
@@ -521,7 +699,9 @@ function UnifiedDashboard() {
             {latestUpdates.map((item) => (
               <div key={item.id} className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
                 <div className="text-[15px] font-bold text-slate-900">{item.title || 'إشعار'}</div>
-                <div className="mt-1 text-[13px] leading-7 text-slate-600">{item.message || 'لا توجد تفاصيل إضافية'}</div>
+                <div className="mt-1 text-[13px] leading-7 text-slate-600">
+                  {item.message || 'لا توجد تفاصيل إضافية'}
+                </div>
                 <div className="mt-3 text-[11px] text-slate-400">
                   {item.createdAt ? new Date(item.createdAt).toLocaleString('ar-SA') : '—'}
                 </div>

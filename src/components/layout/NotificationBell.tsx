@@ -28,15 +28,9 @@ function normalizeNotification(item: ServerNotification) {
       ? 'action'
       : 'info';
 
-  const kind =
-    severity === 'critical' || severity === 'action' || entityType === 'message' ? 'alert' : 'notification';
+  const kind = entityType === 'message' ? 'message' : 'notification';
 
   return { ...item, severity, kind };
-}
-
-function isUrgentCenterItem(item: ReturnType<typeof normalizeNotification>) {
-  const entityType = String(item.entityType || '').toLowerCase();
-  return item.severity === 'critical' || item.kind === 'alert' || entityType === 'message';
 }
 
 function resolveItemLink(item: ReturnType<typeof normalizeNotification>): string | null {
@@ -74,7 +68,6 @@ export function NotificationBell({ userId }: { userId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<ReturnType<typeof normalizeNotification>[]>([]);
-  const [toasts, setToasts] = useState<ReturnType<typeof normalizeNotification>[]>([]);
 
   const unreadCount = useMemo(() => items.filter((item) => !item.isRead).length, [items]);
 
@@ -97,28 +90,17 @@ export function NotificationBell({ userId }: { userId: string }) {
 
     const handleUpdated = () => refresh();
 
-    const handleToast = async () => {
-      await refresh();
-    };
-
     window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, handleUpdated);
     window.addEventListener('storage', handleUpdated);
     window.addEventListener('focus', handleUpdated);
-    window.addEventListener('inventory-notification-toast', handleToast as EventListener);
 
     return () => {
       mounted = false;
       window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, handleUpdated);
       window.removeEventListener('storage', handleUpdated);
       window.removeEventListener('focus', handleUpdated);
-      window.removeEventListener('inventory-notification-toast', handleToast as EventListener);
     };
   }, [userId]);
-
-  useEffect(() => {
-    const latestUrgent = items.filter((item) => !item.isRead && !isUrgentCenterItem(item)).slice(0, 3);
-    setToasts(latestUrgent);
-  }, [items]);
 
   const markOneRead = async (id: string) => {
     await fetch('/api/notifications', {
@@ -167,20 +149,6 @@ export function NotificationBell({ userId }: { userId: string }) {
         ) : null}
       </button>
 
-      {toasts.length > 0 ? (
-        <div className="pointer-events-none fixed left-4 top-4 z-[96] flex w-[min(92vw,360px)] flex-col gap-2">
-          {toasts.map((toast) => (
-            <div
-              key={toast.id}
-              className="pointer-events-auto rounded-[20px] border border-[#d6e4e2] bg-white p-4 shadow-xl"
-            >
-              <div className="text-sm font-bold text-[#016564]">{toast.title}</div>
-              <div className="mt-1 text-xs leading-6 text-slate-600">{toast.message}</div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
       {open ? (
         <>
           <button
@@ -197,8 +165,12 @@ export function NotificationBell({ userId }: { userId: string }) {
               </div>
 
               <div className="flex items-center gap-2">
-                <button type="button" onClick={markAllRead} className="text-xs text-[#016564]">تعليم الكل كمقروء</button>
-                <Link href="/notifications" className="text-xs text-slate-500" onClick={() => setOpen(false)}>عرض الكل</Link>
+                <button type="button" onClick={markAllRead} className="text-xs text-[#016564]">
+                  تعليم الكل كمقروء
+                </button>
+                <Link href="/notifications" className="text-xs text-slate-500" onClick={() => setOpen(false)}>
+                  عرض الكل
+                </Link>
               </div>
             </div>
 

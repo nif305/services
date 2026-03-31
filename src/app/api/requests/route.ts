@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Role, RequestStatus, Status } from '@prisma/client';
+import { Role, Status, RequestStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { RequestService } from '@/services/request.service';
 
@@ -23,15 +23,18 @@ function normalizeRequestStatus(status: string | null): RequestStatus | undefine
 async function resolveSessionUser(request: NextRequest) {
   const cookieId = decodeURIComponent(request.cookies.get('user_id')?.value || '').trim();
   const cookieEmail = decodeURIComponent(request.cookies.get('user_email')?.value || '').trim();
-  const cookieDepartment = decodeURIComponent(
-    request.cookies.get('user_department')?.value || ''
+  const cookieName = decodeURIComponent(
+    request.cookies.get('user_name')?.value || 'مستخدم النظام'
   ).trim();
-
+  const cookieDepartment = decodeURIComponent(
+    request.cookies.get('user_department')?.value || 'إدارة عمليات التدريب'
+  ).trim();
+  const cookieEmployeeId = decodeURIComponent(
+    request.cookies.get('user_employee_id')?.value || ''
+  ).trim();
   const effectiveRole = mapRole(
     decodeURIComponent(
-      request.cookies.get('active_role')?.value ||
-        request.cookies.get('user_role')?.value ||
-        'user'
+      request.cookies.get('active_role')?.value || request.cookies.get('user_role')?.value || 'user'
     ).trim()
   );
 
@@ -40,13 +43,7 @@ async function resolveSessionUser(request: NextRequest) {
   if (cookieId) {
     user = await prisma.user.findUnique({
       where: { id: cookieId },
-      select: {
-        id: true,
-        department: true,
-        email: true,
-        employeeId: true,
-        status: true,
-      },
+      select: { id: true, department: true, email: true, employeeId: true, status: true },
     });
   }
 
@@ -58,13 +55,14 @@ async function resolveSessionUser(request: NextRequest) {
           mode: 'insensitive',
         },
       },
-      select: {
-        id: true,
-        department: true,
-        email: true,
-        employeeId: true,
-        status: true,
-      },
+      select: { id: true, department: true, email: true, employeeId: true, status: true },
+    });
+  }
+
+  if (!user && cookieEmployeeId) {
+    user = await prisma.user.findUnique({
+      where: { employeeId: cookieEmployeeId },
+      select: { id: true, department: true, email: true, employeeId: true, status: true },
     });
   }
 
@@ -72,14 +70,15 @@ async function resolveSessionUser(request: NextRequest) {
     throw new Error('تعذر التحقق من المستخدم الحالي. أعد تسجيل الدخول ثم حاول مرة أخرى.');
   }
 
-  if (user.status !== Status.ACTIVE) {
+  if ((user as any).status && (user as any).status !== Status.ACTIVE) {
     throw new Error('الحساب غير نشط.');
   }
 
   return {
+
     id: user.id,
     role: effectiveRole,
-    department: user.department || cookieDepartment || 'إدارة عمليات التدريب',
+    department: user.department || cookieDepartment,
   };
 }
 

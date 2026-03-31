@@ -64,7 +64,9 @@ function SurfaceCard({
   className?: string;
 }) {
   return (
-    <div className={`rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.28)] ${className}`}>
+    <div
+      className={`rounded-[24px] border border-slate-200 bg-white shadow-[0_18px_50px_-34px_rgba(15,23,42,0.28)] ${className}`}
+    >
       {children}
     </div>
   );
@@ -147,7 +149,11 @@ function ActionItem({
         <div className="text-[14px] font-semibold text-slate-900">{title}</div>
         <div className="mt-1 text-[11px] leading-5 text-slate-500">{hint}</div>
       </div>
-      <div className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${critical ? 'bg-[#7c1e3e] text-white' : 'bg-[#016564] text-white'}`}>
+      <div
+        className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${
+          critical ? 'bg-[#7c1e3e] text-white' : 'bg-[#016564] text-white'
+        }`}
+      >
         {formatNumber(count)}
       </div>
     </Link>
@@ -204,7 +210,10 @@ function InventoryDonut({
 
       <div className="space-y-2.5">
         {data.map((item) => (
-          <div key={item.name} className="flex items-center justify-between rounded-[16px] bg-slate-50 px-3 py-2.5">
+          <div
+            key={item.name}
+            className="flex items-center justify-between rounded-[16px] bg-slate-50 px-3 py-2.5"
+          >
             <div className="flex items-center gap-2.5">
               <LegendDot color={item.color} />
               <span className="text-[13px] font-medium text-slate-700">{item.name}</span>
@@ -225,6 +234,7 @@ function MiniBars({
   color: string;
 }) {
   const max = Math.max(...data.map((d) => d.value), 1);
+
   return (
     <div className="space-y-3">
       {data.map((item) => (
@@ -245,6 +255,24 @@ function MiniBars({
         </div>
       ))}
     </div>
+  );
+}
+
+function MiniBarChart({
+  title,
+  subtitle,
+  data,
+  color,
+}: {
+  title: string;
+  subtitle: string;
+  data: { name: string; value: number }[];
+  color: string;
+}) {
+  return (
+    <SectionCard title={title} subtitle={subtitle}>
+      <MiniBars data={data} color={color} />
+    </SectionCard>
   );
 }
 
@@ -322,29 +350,48 @@ function UnifiedDashboard() {
       return qty <= 0;
     }).length;
 
-    const returnableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'RETURNABLE').length;
-    const consumableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'CONSUMABLE').length;
+    const returnableItems = inventory.filter(
+      (item) => String(item.type || '').toUpperCase() === 'RETURNABLE'
+    ).length;
+    const consumableItems = inventory.filter(
+      (item) => String(item.type || '').toUpperCase() === 'CONSUMABLE'
+    ).length;
 
-    const pendingRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
-    const issuedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'ISSUED').length;
-    const rejectedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length;
+    const pendingRequests = requests.filter(
+      (item) => String(item.status || '').toUpperCase() === 'PENDING'
+    ).length;
+    const issuedRequests = requests.filter(
+      (item) => String(item.status || '').toUpperCase() === 'ISSUED'
+    ).length;
+    const rejectedRequests = requests.filter(
+      (item) => String(item.status || '').toUpperCase() === 'REJECTED'
+    ).length;
 
-    const pendingReturns = returns.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
+    const pendingReturns = returns.filter(
+      (item) => String(item.status || '').toUpperCase() === 'PENDING'
+    ).length;
 
-    const activeCustody = custody.filter((item) => String(item.status || '').toUpperCase() === 'ACTIVE').length;
+    const activeCustody = custody.filter(
+      (item) => String(item.status || '').toUpperCase() === 'ACTIVE'
+    ).length;
     const delayedCustody = custody.filter((item) => {
       const due = item.expectedReturn || item.dueDate;
       if (!due) return false;
-      return new Date(due).getTime() < Date.now() && String(item.status || '').toUpperCase() !== 'RETURNED';
+      return (
+        new Date(due).getTime() < Date.now() &&
+        String(item.status || '').toUpperCase() !== 'RETURNED'
+      );
     }).length;
 
     const openMaintenance = maintenance.filter((item) => isOpenStatus(item.status)).length;
     const openPurchases = purchases.filter((item) => isOpenStatus(item.status)).length;
     const cleaningRequests = suggestions.filter(
-      (item) => String(item.category || '').toUpperCase() === 'CLEANING' && isOpenStatus(item.status)
+      (item) =>
+        String(item.category || '').toUpperCase() === 'CLEANING' && isOpenStatus(item.status)
     ).length;
     const otherRequests = suggestions.filter(
-      (item) => String(item.category || '').toUpperCase() !== 'CLEANING' && isOpenStatus(item.status)
+      (item) =>
+        String(item.category || '').toUpperCase() !== 'CLEANING' && isOpenStatus(item.status)
     ).length;
 
     const unreadNotifications = notifications.filter((item) => !item.isRead).length;
@@ -372,7 +419,11 @@ function UnifiedDashboard() {
 
   const inventoryStatusData = useMemo(
     () => [
-      { name: 'متاح', value: Math.max(metrics.totalInventory - metrics.lowStock - metrics.outOfStock, 0), color: '#016564' },
+      {
+        name: 'متاح',
+        value: Math.max(metrics.totalInventory - metrics.lowStock - metrics.outOfStock, 0),
+        color: '#016564',
+      },
       { name: 'منخفض', value: metrics.lowStock, color: '#d0b284' },
       { name: 'نافد', value: metrics.outOfStock, color: '#7c1e3e' },
     ],
@@ -633,7 +684,11 @@ function UnifiedDashboard() {
       <SectionCard
         title="آخر ما وصلك"
         subtitle="أحدث الإشعارات والتحديثات"
-        action={<Link href="/notifications" className="text-[12px] font-semibold text-[#016564]">فتح الإشعارات</Link>}
+        action={
+          <Link href="/notifications" className="text-[12px] font-semibold text-[#016564]">
+            فتح الإشعارات
+          </Link>
+        }
       >
         {loading ? (
           <div className="rounded-[18px] bg-slate-50 p-5 text-center text-[13px] text-slate-500">جارٍ تحميل البيانات...</div>
@@ -644,7 +699,9 @@ function UnifiedDashboard() {
             {latestUpdates.map((item) => (
               <SurfaceCard key={item.id} className="p-4">
                 <div className="text-[14px] font-bold text-slate-900">{item.title || 'إشعار'}</div>
-                <div className="mt-1 text-[12px] leading-6 text-slate-600">{item.message || 'لا توجد تفاصيل إضافية'}</div>
+                <div className="mt-1 text-[12px] leading-6 text-slate-600">
+                  {item.message || 'لا توجد تفاصيل إضافية'}
+                </div>
                 <div className="mt-2 text-[11px] text-slate-400">
                   {item.createdAt ? new Date(item.createdAt).toLocaleString('ar-SA') : '—'}
                 </div>

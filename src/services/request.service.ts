@@ -89,7 +89,7 @@ async function ensureCoreUsers() {
       update: {
         fullName: user.fullName,
         department: user.department,
-        roles: { set: user.roles },
+        roles: user.roles,
         status: user.status,
       },
       create: user,
@@ -308,7 +308,7 @@ async function createRequest(data: {
 
   const targets = await prisma.user.findMany({
     where: {
-      role: { in: [Role.MANAGER, Role.WAREHOUSE] },
+      roles: { hasSome: [Role.MANAGER, Role.WAREHOUSE] },
       status: Status.ACTIVE,
     },
     select: { id: true },
@@ -487,7 +487,7 @@ async function cancelBeforeIssue(requestId: string, userId: string, notes?: stri
 
   const targets = await prisma.user.findMany({
     where: {
-      role: { in: [Role.MANAGER, Role.WAREHOUSE] },
+      roles: { hasSome: [Role.MANAGER, Role.WAREHOUSE] },
       status: Status.ACTIVE,
     },
     select: { id: true },

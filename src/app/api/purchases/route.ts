@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PurchaseStatus, Role, Status } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
+
+async function generateCode(prefix: string, model: 'maintenance' | 'purchase') {
+  const year = new Date().getFullYear();
+  const rows = model === 'maintenance'
+    ? await prisma.maintenanceRequest.findMany({ where: { code: { startsWith: `${prefix}-${year}-` } }, select: { id: true } })
+    : await prisma.purchaseRequest.findMany({ where: { code: { startsWith: `${prefix}-${year}-` } }, select: { id: true } });
+  return `${prefix}-${year}-${String(rows.length + 1).padStart(4, '0')}`;
+}
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
   if (normalized === 'manager') return Role.MANAGER;
@@ -86,14 +94,12 @@ export async function GET(request: NextRequest) {
             ...(status ? { status: status as PurchaseStatus } : {}),
           };
 
-    const [rows, stats] = await Promise.all([
-      prisma.purchaseRequest.findMany({ where, orderBy: { createdAt: 'desc' } }),
-      prisma.purchaseRequest.groupBy({ by: ['status'], _count: { _all: true } }),
-    ]);
+    const rows = await prisma.purchaseRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
 
-    const grouped = Object.fromEntries(stats.map((row) => [String(row.status).toLowerCase(), row._count._all]));
-
-    return NextResponse.json({ data: rows, stats: { total: rows.length, ...grouped } });
+    return NextResponse.json({ data: rows });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'تعذر جلب طلبات الشراء' }, { status: 500 });
   }
@@ -103,7 +109,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const sessionUser = await resolveSessionUser(request);
-    const code = await generatePurchaseCode();
+    const code = await generateCode('PRC', 'purchase');
 
     const row = await prisma.purchaseRequest.create({
       data: {

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -19,17 +19,11 @@ type SuggestionRow = {
   code?: string;
   title: string;
   description?: string | null;
-  type?: SuggestionType;
   category?: SuggestionType;
   status: SuggestionStatus;
-  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'NORMAL' | 'URGENT' | null;
   createdAt?: string;
-  requesterId?: string;
-  requester?: {
-    fullName?: string;
-    department?: string;
-    email?: string;
-  } | null;
+  adminNotes?: string | null;
+  requester?: { fullName?: string; department?: string; email?: string } | null;
 };
 
 type FormState = {
@@ -45,6 +39,11 @@ type FormState = {
   otherRecipient: string;
 };
 
+type FeedbackState = {
+  title: string;
+  message: string;
+};
+
 const DEFAULT_FORM: FormState = {
   scope: 'BUILDING',
   programName: '',
@@ -58,113 +57,54 @@ const DEFAULT_FORM: FormState = {
   otherRecipient: '',
 };
 
-const MAINTENANCE_PARTS = [
-  'التكييف',
-  'الإلكترونيات',
-  'الطاولات والكراسي',
-  'الأبواب',
-  'الإنارة',
-  'الشاشات',
-  'القاعات التدريبية',
-  'ممرات المبنى',
-  'دورات المياه',
-  'أخرى',
-];
-
-const CLEANING_AREAS = [
-  'قاعة تدريبية',
-  'ممرات المبنى',
-  'دورات المياه',
-  'منطقة الضيافة',
-  'مكاتب',
-  'مداخل المبنى',
-  'أخرى',
-];
+const MAINTENANCE_PARTS = ['التكييف','الإلكترونيات','الطاولات والكراسي','الأبواب','الإنارة','الشاشات','القاعات التدريبية','ممرات المبنى','دورات المياه','أخرى'];
+const CLEANING_AREAS = ['قاعة تدريبية','ممرات المبنى','دورات المياه','منطقة الضيافة','مكاتب','مداخل المبنى','أخرى'];
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—';
   try {
-    return new Intl.DateTimeFormat('ar-SA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(value));
-  } catch {
-    return '—';
-  }
+    return new Intl.DateTimeFormat('ar-SA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+  } catch { return '—'; }
 }
 
 function normalizeArabic(value: string) {
-  return (value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/ؤ/g, 'و')
-    .replace(/ئ/g, 'ي')
-    .replace(/ء/g, '')
-    .replace(/\s+/g, ' ');
+  return (value || '').toLowerCase().trim().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').replace(/ء/g, '').replace(/\s+/g, ' ');
 }
 
-function resolveType(row: SuggestionRow): SuggestionType {
-  return (row.type || row.category || 'OTHER') as SuggestionType;
-}
-
+function resolveType(row: SuggestionRow): SuggestionType { return (row.category || 'OTHER') as SuggestionType; }
 function typeMeta(type: SuggestionType) {
   if (type === 'MAINTENANCE') return { label: 'طلب صيانة', variant: 'danger' as const };
   if (type === 'CLEANING') return { label: 'طلب نظافة', variant: 'info' as const };
   if (type === 'PURCHASE') return { label: 'طلب شراء مباشر', variant: 'warning' as const };
   return { label: 'طلبات أخرى', variant: 'neutral' as const };
 }
-
 function statusMeta(status: SuggestionStatus) {
   if (status === 'PENDING') return { label: 'بانتظار المدير', variant: 'warning' as const };
   if (status === 'UNDER_REVIEW') return { label: 'قيد المراجعة', variant: 'info' as const };
-  if (status === 'APPROVED') return { label: 'معتمد', variant: 'success' as const };
-  if (status === 'REJECTED') return { label: 'مرفوض', variant: 'danger' as const };
-  return { label: 'تمت المعالجة', variant: 'neutral' as const };
+  if (status === 'APPROVED' || status === 'IMPLEMENTED') return { label: 'معتمد', variant: 'success' as const };
+  return { label: 'مرفوض', variant: 'danger' as const };
 }
-
 function buildPageTitle(type: SuggestionType) {
   if (type === 'MAINTENANCE') return 'طلب صيانة';
   if (type === 'CLEANING') return 'طلب نظافة';
   if (type === 'PURCHASE') return 'طلب شراء مباشر';
-  return 'طلبات أخرى';
+  return 'طلب آخر';
 }
-
 function buildDefaultRecipient(type: SuggestionType) {
-  if (type === 'MAINTENANCE' || type === 'CLEANING') {
-    return 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa';
-  }
-
-  if (type === 'PURCHASE') {
-    return 'finance@nauss.edu.sa,aalaraj@nauss.edu.sa,YAlqaoud@nauss.edu.sa,Procurement@nauss.edu.sa';
-  }
-
+  if (type === 'PURCHASE') return 'wa.n1@nauss.edu.sa';
+  if (type === 'MAINTENANCE' || type === 'CLEANING') return 'test@nauss.edu.sa';
   return '';
 }
-
 function parseAdminNotes(value?: string | null) {
-  if (!value) return { note: value || '', linkedCode: '' };
-  try {
-    const parsed = JSON.parse(value);
-    return {
-      note: parsed?.adminNotes || '',
-      linkedCode: parsed?.linkedCode || '',
-    };
-  } catch {
-    return { note: value, linkedCode: '' };
-  }
+  if (!value) return { note: '', linkedCode: '' };
+  try { const parsed = JSON.parse(value); return { note: parsed?.adminNotes || '', linkedCode: parsed?.linkedCode || '' }; }
+  catch { return { note: value, linkedCode: '' }; }
 }
 
 export default function SuggestionsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-
   const [rows, setRows] = useState<SuggestionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -174,17 +114,12 @@ export default function SuggestionsPage() {
   const [adminNotes, setAdminNotes] = useState('');
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
 
   const canManage = user?.role === 'manager';
   const requestedType = (searchParams.get('type') || '').toUpperCase() as SuggestionType;
   const isCreateMode = searchParams.get('new') === '1';
-  const activeType: SuggestionType =
-    requestedType === 'MAINTENANCE' ||
-    requestedType === 'CLEANING' ||
-    requestedType === 'PURCHASE' ||
-    requestedType === 'OTHER'
-      ? requestedType
-      : 'OTHER';
+  const activeType: SuggestionType = ['MAINTENANCE','CLEANING','PURCHASE','OTHER'].includes(requestedType) ? requestedType : 'OTHER';
 
   async function fetchRows() {
     setLoading(true);
@@ -193,396 +128,205 @@ export default function SuggestionsPage() {
       const res = await fetch(`/api/suggestions${categoryQuery}`, { cache: 'no-store' });
       const data = await res.json();
       setRows(Array.isArray(data?.data) ? data.data : []);
-    } catch {
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch { setRows([]); }
+    finally { setLoading(false); }
   }
+  useEffect(() => { fetchRows(); }, [searchParams.toString()]);
+  useEffect(() => { setAdminNotes(selected ? parseAdminNotes(selected.adminNotes).note : ''); }, [selected]);
 
-  useEffect(() => {
-    fetchRows();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.toString()]);
-
-  useEffect(() => {
-    if (!selected) {
-      setAdminNotes('');
-      return;
-    }
-
-    const parsed = parseAdminNotes((selected as any).adminNotes);
-    setAdminNotes(parsed.note || '');
-  }, [selected]);
-
-  const stats = useMemo(() => {
-    return {
-      total: rows.length,
-      pending: rows.filter((row) => row.status === 'PENDING').length,
-      approved: rows.filter((row) => row.status === 'APPROVED' || row.status === 'IMPLEMENTED').length,
-      rejected: rows.filter((row) => row.status === 'REJECTED').length,
-    };
-  }, [rows]);
+  const stats = useMemo(() => ({
+    total: rows.length,
+    pending: rows.filter((r) => r.status === 'PENDING' || r.status === 'UNDER_REVIEW').length,
+    approved: rows.filter((r) => r.status === 'APPROVED' || r.status === 'IMPLEMENTED').length,
+    rejected: rows.filter((r) => r.status === 'REJECTED').length,
+  }), [rows]);
 
   const filteredRows = useMemo(() => {
     const q = normalizeArabic(search);
-
     return rows.filter((row) => {
-      const type = resolveType(row);
-      const haystack = normalizeArabic(
-        [
-          row.code,
-          row.title,
-          row.description,
-          row.requester?.fullName,
-          row.requester?.department,
-          typeMeta(type).label,
-          statusMeta(row.status).label,
-        ]
-          .filter(Boolean)
-          .join(' ')
-      );
-
+      const haystack = normalizeArabic([row.code,row.title,row.description,row.requester?.fullName,row.requester?.department].filter(Boolean).join(' '));
       return q ? haystack.includes(q) : true;
     });
   }, [rows, search]);
 
-  function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
+  const pendingRows = filteredRows.filter((row) => row.status === 'PENDING' || row.status === 'UNDER_REVIEW');
+  const processedRows = filteredRows.filter((row) => row.status === 'APPROVED' || row.status === 'IMPLEMENTED' || row.status === 'REJECTED');
 
-  function resetCreateState() {
-    setForm(DEFAULT_FORM);
-    setAttachments([]);
-  }
-
+  function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) { setForm((prev) => ({ ...prev, [key]: value })); }
+  function resetCreateState() { setForm(DEFAULT_FORM); setAttachments([]); }
+  function closeCreateMode() { resetCreateState(); router.replace('/suggestions'); }
   async function fileToAttachmentPayload(file: File) {
     const buffer = await file.arrayBuffer();
-
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const chunkSize = 0x8000;
-
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode(...chunk);
-    }
-
-    return {
-      filename: file.name,
-      contentType: file.type || 'application/octet-stream',
-      base64Content: btoa(binary),
-    };
-  }
-
-  function closeCreateMode() {
-    resetCreateState();
-    router.replace('/suggestions');
+    let binary = ''; const bytes = new Uint8Array(buffer); const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    return { filename: file.name, contentType: file.type || 'application/octet-stream', base64Content: btoa(binary) };
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-
     const areaName = form.area === 'أخرى' ? form.customArea.trim() : form.area.trim();
     const quantityValue = Math.max(1, Number(form.quantity || 1));
-    const uploadedNames = attachments.map((file) => file.name).join(' | ');
-    const requestSource =
-      form.scope === 'PROGRAM'
-        ? `مرتبط ببرنامج تدريبي وتحسين تجربة المتدربين${form.programName ? ` | اسم البرنامج: ${form.programName}` : ''}`
-        : 'مرتبط بملاحظة عامة في المبنى وقد تؤثر على تجربة جميع المستفيدين';
+    const requestSource = form.scope === 'PROGRAM'
+      ? `مرتبط ببرنامج تدريبي${form.programName ? ` — ${form.programName}` : ''}`
+      : 'مرتبط بملاحظة عامة في المبنى';
+    const uploaded = await Promise.all(attachments.map(fileToAttachmentPayload));
+    const uploadedNames = attachments.map((file) => file.name).join(' ، ');
 
     let title = buildPageTitle(activeType);
     let description = form.issueSummary.trim();
     let itemName = '';
     let location = form.location.trim();
     let externalRecipient = buildDefaultRecipient(activeType);
-    let metaDetails = '';
 
-    if (activeType === 'MAINTENANCE') {
+    if (activeType === 'MAINTENANCE' || activeType === 'CLEANING') {
       itemName = areaName;
       if (!areaName || !description) {
-        alert('أكمل حقول طلب الصيانة المطلوبة');
+        setFeedback({ title: 'بيانات ناقصة', message: `أكمل حقول ${buildPageTitle(activeType)} المطلوبة` });
         return;
       }
-
-      metaDetails = [
-        `مصدر الحاجة: ${requestSource}`,
-        uploadedNames ? `المرفقات: ${uploadedNames}` : '',
-      ]
-        .filter(Boolean)
-        .join(' | ');
     }
-
-    if (activeType === 'CLEANING') {
-      itemName = areaName;
-      if (!areaName || !description) {
-        alert('أكمل حقول طلب النظافة المطلوبة');
-        return;
-      }
-
-      metaDetails = [
-        `مصدر الحاجة: ${requestSource}`,
-        uploadedNames ? `المرفقات: ${uploadedNames}` : '',
-      ]
-        .filter(Boolean)
-        .join(' | ');
-    }
-
     if (activeType === 'PURCHASE') {
       title = 'طلب شراء مباشر';
       itemName = form.itemName.trim();
       if (!itemName || !description) {
-        alert('أكمل حقول طلب الشراء المباشر المطلوبة');
+        setFeedback({ title: 'بيانات ناقصة', message: 'أكمل حقول طلب الشراء المباشر المطلوبة' });
         return;
       }
-
-      metaDetails = [
-        `مصدر الحاجة: ${requestSource}`,
-        uploadedNames ? `المرفقات: ${uploadedNames}` : '',
-      ]
-        .filter(Boolean)
-        .join(' | ');
     }
-
     if (activeType === 'OTHER') {
       title = form.otherTitle.trim() || 'طلب آخر';
       if (!title || !description) {
-        alert('أكمل حقول الطلب الأخرى المطلوبة');
+        setFeedback({ title: 'بيانات ناقصة', message: 'أكمل حقول الطلب الأخرى المطلوبة' });
         return;
       }
-
       externalRecipient = form.otherRecipient.trim();
-      metaDetails = [
-        `مصدر الحاجة: ${requestSource}`,
-        uploadedNames ? `المرفقات: ${uploadedNames}` : '',
-      ]
-        .filter(Boolean)
-        .join(' | ');
     }
-
-    const attachmentPayload = await Promise.all(attachments.map((file) => fileToAttachmentPayload(file)));
 
     setSubmitting(true);
     try {
       const res = await fetch('/api/suggestions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          category: activeType,
-          title,
-          description,
-          justification: metaDetails,
-          itemName,
-          quantity: quantityValue,
-          location,
-          externalRecipient,
-          requestSource,
-          programName: form.programName.trim(),
-          area: areaName,
-          attachments: attachmentPayload,
+          category: activeType, title, description, itemName, quantity: quantityValue, location, externalRecipient,
+          requestSource, programName: form.programName.trim(), area: areaName, attachments: uploaded,
         }),
       });
-
       const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        alert(data?.error || 'تعذر حفظ الطلب');
-        return;
-      }
-
-      alert('تم رفع الطلب بنجاح وإحالته إلى المدير للمراجعة');
+      if (!res.ok) { setFeedback({ title: 'تعذر حفظ الطلب', message: data?.error || 'تعذر حفظ الطلب' }); return; }
+      setFeedback({ title: 'تم بنجاح', message: `تم رفع الطلب برقم ${data?.data?.code || ''} وإحالته إلى المدير للمراجعة.` });
       closeCreateMode();
       await fetchRows();
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   }
 
   async function handleDecision(action: 'approve' | 'reject') {
     if (!selected) return;
-
     setProcessing(true);
     try {
-      const targetDepartment =
-        resolveType(selected) === 'MAINTENANCE' || resolveType(selected) === 'CLEANING'
-          ? 'SUPPORT_SERVICES'
-          : resolveType(selected) === 'PURCHASE'
-          ? 'FINANCE'
-          : 'OTHER';
-
+      const targetDepartment = resolveType(selected) === 'PURCHASE' ? 'FINANCE' : resolveType(selected) === 'OTHER' ? 'OTHER' : 'SUPPORT_SERVICES';
       const res = await fetch('/api/suggestions', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          suggestionId: selected.id,
-          action,
-          adminNotes,
-          targetDepartment,
-        }),
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestionId: selected.id, action, adminNotes, targetDepartment }),
       });
-
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data?.error || 'تعذر معالجة الطلب');
-        return;
-      }
-
-      alert(action === 'approve' ? 'تم اعتماد الطلب' : 'تم رفض الطلب');
+      if (!res.ok) { setFeedback({ title: 'تعذر معالجة الطلب', message: data?.error || 'تعذر معالجة الطلب' }); return; }
+      setFeedback({ title: action === 'approve' ? 'تم اعتماد الطلب' : 'تم رفض الطلب', message: action === 'approve' ? `تم اعتماد الطلب برقم ${data?.linkedCode || selected.code || ''}` : 'تم رفض الطلب بنجاح' });
       setSelected(null);
       await fetchRows();
-    } finally {
-      setProcessing(false);
-    }
+    } finally { setProcessing(false); }
   }
 
   function renderCreateForm() {
     const title = buildPageTitle(activeType);
     const areaOptions = activeType === 'MAINTENANCE' ? MAINTENANCE_PARTS : CLEANING_AREAS;
-
     return (
       <form onSubmit={handleCreate} className="space-y-5">
         <div>
-          <h1 className="text-[22px] font-extrabold leading-[1.25] text-[#016564] sm:text-[26px]">{title}</h1>
-          <p className="mt-2 text-[13px] leading-7 text-[#61706f] sm:text-sm">نموذج مباشر وسريع لإرسال الطلب إلى المدير للمراجعة والاعتماد.</p>
+          <h1 className="text-[24px] font-extrabold text-[#016564]">{title}</h1>
+          <p className="mt-2 text-sm leading-7 text-[#61706f]">نموذج مباشر وواضح، مصمم لتقليل التمرير وتسهيل رفع الطلب.</p>
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="space-y-2 lg:col-span-2">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2">
             <label className="block text-sm font-semibold text-slate-700">مصدر الحاجة</label>
-            <select
-              value={form.scope}
-              onChange={(e) => updateForm('scope', e.target.value as RequestScope)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
-            >
-              <option value="BUILDING">مرتبط بملاحظة عامة في المبنى وقد تؤثر على تجربة جميع المستفيدين</option>
-              <option value="PROGRAM">مرتبط ببرنامج تدريبي وتحسين تجربة المتدربين</option>
+            <select value={form.scope} onChange={(e) => updateForm('scope', e.target.value as RequestScope)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
+              <option value="BUILDING">مرتبط بملاحظة عامة في المبنى</option>
+              <option value="PROGRAM">مرتبط ببرنامج تدريبي</option>
             </select>
           </div>
+          <Input label="الموقع" value={form.location} onChange={(e) => updateForm('location', e.target.value)} placeholder="مثال: LAB 2 أو القاعة A" />
+          {form.scope === 'PROGRAM' ? <Input label="اسم البرنامج" value={form.programName} onChange={(e) => updateForm('programName', e.target.value)} placeholder="اكتب اسم البرنامج إن وجد" /> : <div />}
 
-          <Input
-            label="الموقع"
-            value={form.location}
-            onChange={(e) => updateForm('location', e.target.value)}
-            placeholder="مثال: القاعة 3 أو الممر الغربي"
-          />
-        </div>
-
-        {form.scope === 'PROGRAM' ? (
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <Input
-                label="اسم البرنامج التدريبي (إن وجد)"
-                value={form.programName}
-                onChange={(e) => updateForm('programName', e.target.value)}
-                placeholder="اكتب اسم البرنامج إن وجد"
-              />
-            </div>
-          </div>
-        ) : null}
-
-        {activeType === 'MAINTENANCE' || activeType === 'CLEANING' ? (
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="space-y-2 lg:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700">
-                {activeType === 'MAINTENANCE' ? 'الجزء المطلوب صيانته' : 'الموقع أو الجزء المطلوب تنظيفه'}
-              </label>
-              <select
-                value={form.area}
-                onChange={(e) => updateForm('area', e.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
-              >
+          {(activeType === 'MAINTENANCE' || activeType === 'CLEANING') ? <>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-slate-700">{activeType === 'MAINTENANCE' ? 'الجزء المطلوب صيانته' : 'الجزء المطلوب تنظيفه'}</label>
+              <select value={form.area} onChange={(e) => updateForm('area', e.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
                 <option value="">اختر</option>
-                {areaOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
+                {areaOptions.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
+            {form.area === 'أخرى' ? <Input label="تحديد الجزء" value={form.customArea} onChange={(e) => updateForm('customArea', e.target.value)} placeholder="اكتب الجزء المطلوب" /> : <div />}
+          </> : null}
 
-            {form.area === 'أخرى' ? (
-              <Input
-                label="تحديد الجزء"
-                value={form.customArea}
-                onChange={(e) => updateForm('customArea', e.target.value)}
-                placeholder="اكتب الجزء المطلوب"
-              />
-            ) : null}
-          </div>
-        ) : null}
+          {activeType === 'PURCHASE' ? <>
+            <Input label="الصنف المطلوب" value={form.itemName} onChange={(e) => updateForm('itemName', e.target.value)} placeholder="اكتب اسم الصنف المطلوب" />
+            <Input label="الكمية" type="number" min="1" value={form.quantity} onChange={(e) => updateForm('quantity', e.target.value)} placeholder="1" />
+          </> : null}
 
-        {activeType === 'PURCHASE' ? (
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <Input
-                label="الصنف المطلوب"
-                value={form.itemName}
-                onChange={(e) => updateForm('itemName', e.target.value)}
-                placeholder="اكتب اسم الصنف المطلوب"
-              />
-            </div>
-            <Input
-              label="الكمية"
-              type="number"
-              min="1"
-              value={form.quantity}
-              onChange={(e) => updateForm('quantity', e.target.value)}
-              placeholder="1"
-            />
-          </div>
-        ) : null}
-
-        {activeType === 'OTHER' ? (
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <Input
-                label="عنوان الطلب"
-                value={form.otherTitle}
-                onChange={(e) => updateForm('otherTitle', e.target.value)}
-                placeholder="مثال: طلب معالجة تشغيلية أخرى"
-              />
-            </div>
-            <Input
-              label="الجهة المقترحة مبدئيًا (اختياري)"
-              value={form.otherRecipient}
-              onChange={(e) => updateForm('otherRecipient', e.target.value)}
-              placeholder="يُترك فارغًا إذا كان المدير سيحدده لاحقًا"
-            />
-          </div>
-        ) : null}
+          {activeType === 'OTHER' ? <>
+            <Input label="عنوان الطلب" value={form.otherTitle} onChange={(e) => updateForm('otherTitle', e.target.value)} placeholder="مثال: معالجة تشغيلية أخرى" />
+            <Input label="البريد المراد التوجيه له (اختياري)" value={form.otherRecipient} onChange={(e) => updateForm('otherRecipient', e.target.value)} placeholder="اتركه فارغًا إذا سيحدده المدير" />
+          </> : null}
+        </div>
 
         <div className="space-y-2">
-          <label className="block text-sm font-semibold text-slate-700">
-            {activeType === 'PURCHASE' ? 'وصف الطلب ومبرره' : activeType === 'OTHER' ? 'ملخص الطلب' : 'سبب الطلب أو الملاحظة'}
-          </label>
-          <textarea
-            value={form.issueSummary}
-            onChange={(e) => updateForm('issueSummary', e.target.value)}
-            rows={5}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
-            placeholder="اكتب التفاصيل كاملة هنا بشكل مباشر وواضح"
-          />
+          <label className="block text-sm font-semibold text-slate-700">سبب الطلب أو الملاحظة</label>
+          <textarea value={form.issueSummary} onChange={(e) => updateForm('issueSummary', e.target.value)} rows={5} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7" placeholder="اكتب وصفًا واضحًا وكاملًا للطلب" />
         </div>
 
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-slate-700">المرفقات (اختياري)</label>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => setAttachments(Array.from(e.target.files || []))}
-            className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
-          />
-          {attachments.length > 0 ? (
-            <div className="rounded-2xl border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm text-[#304342]">
-              الملفات المختارة: {attachments.map((file) => file.name).join(' ، ')}
-            </div>
-          ) : null}
+          <input type="file" accept="image/*" multiple onChange={(e) => setAttachments(Array.from(e.target.files || []))} className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />
+          {attachments.length > 0 ? <div className="rounded-2xl border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm text-[#304342]">الملفات المختارة: {attachments.map((file) => file.name).join(' ، ')}</div> : null}
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button>
-          <Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button>
+          <Button type="submit" disabled={submitting} className="w-full sm:w-auto">إرسال الطلب</Button>
         </div>
       </form>
+    );
+  }
+
+  function renderRows(sectionTitle: string, rowsToRender: SuggestionRow[]) {
+    if (rowsToRender.length === 0) return null;
+    return (
+      <section className="space-y-3">
+        <div className="flex items-center justify-between"><h3 className="text-lg font-extrabold text-[#016564]">{sectionTitle}</h3><div className="text-xs text-[#61706f]">{rowsToRender.length} عنصر</div></div>
+        {rowsToRender.map((row) => {
+          const type = resolveType(row); const typeBadge = typeMeta(type); const statusBadge = statusMeta(row.status);
+          return (
+            <Card key={row.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="break-all font-mono text-sm font-bold text-[#016564]">{row.code || row.id}</div>
+                    <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>
+                    <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+                  </div>
+                  <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">{row.title}</div>
+                  {row.description ? <div className="break-words text-sm leading-7 text-[#304342]">{row.description}</div> : null}
+                  <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
+                    <div>التاريخ: {formatDateTime(row.createdAt)}</div>
+                    <div className="break-words">مقدم الطلب: {row.requester?.fullName || '—'}</div>
+                  </div>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:w-auto"><Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>فتح التفاصيل</Button></div>
+              </div>
+            </Card>
+          );
+        })}
+      </section>
     );
   }
 
@@ -594,18 +338,13 @@ export default function SuggestionsPage() {
             <h2 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">الطلبات المرفوعة</h2>
             <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">متابعة طلبات الصيانة، النظافة، الشراء المباشر، والطلبات الأخرى بعد رفعها.</p>
           </div>
-          {!canManage ? (
-            <Button className="w-full sm:w-auto" onClick={() => router.push('/suggestions?new=1&type=OTHER')}>
-              طلب جديد
-            </Button>
-          ) : null}
+          {!canManage ? <Button className="w-full sm:w-auto" onClick={() => router.push('/suggestions?new=1&type=OTHER')}>طلب جديد</Button> : null}
         </div>
-
         <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl"><div className="text-[12px] text-[#6f7b7a]">إجمالي الطلبات</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564] sm:text-xl">{stats.total}</div></Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl"><div className="text-[12px] text-[#6f7b7a]">بانتظار المدير</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284] sm:text-xl">{stats.pending}</div></Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl"><div className="text-[12px] text-[#6f7b7a]">المعالجة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#498983] sm:text-xl">{stats.approved}</div></Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl"><div className="text-[12px] text-[#6f7b7a]">المرفوضة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e] sm:text-xl">{stats.rejected}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي الطلبات</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564]">{stats.total}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">بانتظار المدير</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284]">{stats.pending}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المعالجة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#498983]">{stats.approved}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المرفوضة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e]">{stats.rejected}</div></Card>
         </div>
       </section>
 
@@ -613,76 +352,34 @@ export default function SuggestionsPage() {
         <Input label="بحث" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث برقم الطلب أو العنوان أو اسم مقدم الطلب" />
       </section>
 
-      <section className="space-y-3">
-        {loading ? (
-          <div className="space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-32 w-full rounded-[24px] sm:rounded-3xl" />)}</div>
-        ) : filteredRows.length === 0 ? (
-          <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">لا توجد طلبات مطابقة</Card>
-        ) : (
-          filteredRows.map((row) => {
-            const type = resolveType(row);
-            const typeBadge = typeMeta(type);
-            const statusBadge = statusMeta(row.status);
+      {loading ? <div className="space-y-3">{[1,2,3].map((i)=><Skeleton key={i} className="h-32 w-full rounded-[24px] sm:rounded-3xl" />)}</div> : (
+        canManage ? <div className="space-y-6">{renderRows('طلبات تحتاج اعتماد', pendingRows)}{renderRows('طلبات تم اعتمادها أو رفضها', processedRows)}</div> : (filteredRows.length===0 ? <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">لا توجد طلبات مطابقة</Card> : renderRows('جميع الطلبات', filteredRows))
+      )}
 
-            return (
-              <Card key={row.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0 space-y-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="break-all font-mono text-sm font-bold text-[#016564]">{row.code || row.id}</div>
-                      <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>
-                      <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-                    </div>
-                    <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">{row.title}</div>
-                    {row.description ? <div className="break-words text-sm leading-7 text-[#304342]">{row.description}</div> : null}
-                    <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
-                      <div>التاريخ: {formatDateTime(row.createdAt)}</div>
-                      <div className="break-words">مقدم الطلب: {row.requester?.fullName || '—'}</div>
-                    </div>
-                  </div>
-                  <div className="flex w-full flex-col gap-2 sm:w-auto"><Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>فتح التفاصيل</Button></div>
-                </div>
-              </Card>
-            );
-          })
-        )}
-      </section>
-
-      <Modal isOpen={isCreateMode} onClose={closeCreateMode} title={buildPageTitle(activeType)} size="xl">
+      <Modal isOpen={isCreateMode} onClose={closeCreateMode} title={buildPageTitle(activeType)} size="2xl" bodyClassName="max-h-none overflow-visible p-5 sm:p-6">
         {isCreateMode ? renderCreateForm() : null}
       </Modal>
 
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="lg">
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="2xl" bodyClassName="max-h-none overflow-visible p-5 sm:p-6">
         {selected ? (
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">الرمز</div><div className="mt-1 break-all text-sm leading-7 text-[#304342]">{selected.code || selected.id}</div></div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">النوع</div><div className="mt-1 text-sm leading-7 text-[#304342]">{typeMeta(resolveType(selected)).label}</div></div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">الحالة</div><div className="mt-1 text-sm leading-7 text-[#304342]">{statusMeta(selected.status).label}</div></div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">التاريخ</div><div className="mt-1 text-sm leading-7 text-[#304342]">{formatDateTime(selected.createdAt)}</div></div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">العنوان</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.title}</div></div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">الوصف</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.description || '—'}</div></div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">مقدم الطلب</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requester?.fullName || '—'}{selected.requester?.department ? ` — ${selected.requester.department}` : ''}</div></div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">الرمز</div><div className="mt-1 break-all text-sm leading-7 text-[#304342]">{selected.code || selected.id}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">النوع</div><div className="mt-1 text-sm leading-7 text-[#304342]">{typeMeta(resolveType(selected)).label}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">الحالة</div><div className="mt-1 text-sm leading-7 text-[#304342]">{statusMeta(selected.status).label}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">التاريخ</div><div className="mt-1 text-sm leading-7 text-[#304342]">{formatDateTime(selected.createdAt)}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 lg:col-span-2"><div className="text-xs font-bold text-[#016564]">العنوان</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.title}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 lg:col-span-2"><div className="text-xs font-bold text-[#016564]">الوصف</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.description || '—'}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 lg:col-span-2"><div className="text-xs font-bold text-[#016564]">مقدم الطلب</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requester?.fullName || '—'}{selected.requester?.department ? ` — ${selected.requester.department}` : ''}</div></div>
             </div>
-
-            {canManage ? (
-              <div className="space-y-3 rounded-[20px] border border-[#e7ebea] bg-[#f8fbfb] p-4">
-                <div className="text-sm font-bold text-[#016564]">قرار المدير</div>
-                <textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب ملاحظة القرار أو التوجيه" />
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  {selected.status === 'PENDING' || selected.status === 'UNDER_REVIEW' ? (
-                    <>
-                      <Button variant="danger" className="w-full sm:w-auto" loading={processing} onClick={() => handleDecision('reject')}>رفض الطلب</Button>
-                      <Button className="w-full sm:w-auto" loading={processing} onClick={() => handleDecision('approve')}>اعتماد الطلب</Button>
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
+            {canManage ? <div className="space-y-3 rounded-[20px] border border-[#e7ebea] bg-[#f8fbfb] p-4"><div className="text-sm font-bold text-[#016564]">قرار المدير</div><textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800" placeholder="اكتب ملاحظة القرار أو التوجيه" /><div className="flex flex-col gap-2 sm:flex-row sm:justify-end">{selected.status === 'PENDING' || selected.status === 'UNDER_REVIEW' ? <><Button variant="danger" className="w-full sm:w-auto" disabled={processing} onClick={() => handleDecision('reject')}>رفض الطلب</Button><Button className="w-full sm:w-auto" disabled={processing} onClick={() => handleDecision('approve')}>اعتماد الطلب</Button></> : null}</div></div> : null}
             <div className="flex justify-end"><Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">إغلاق</Button></div>
           </div>
         ) : null}
+      </Modal>
+
+      <Modal isOpen={!!feedback} onClose={() => setFeedback(null)} title={feedback?.title || 'تنبيه'} size="md" bodyClassName="max-h-none overflow-visible">
+        {feedback ? <div className="space-y-4"><div className="text-sm leading-8 text-[#304342]">{feedback.message}</div><div className="flex justify-end"><Button onClick={() => setFeedback(null)}>حسنًا</Button></div></div> : null}
       </Modal>
     </div>
   );

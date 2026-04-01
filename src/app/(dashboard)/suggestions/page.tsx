@@ -39,7 +39,6 @@ type FormState = {
   area: string;
   customArea: string;
   issueSummary: string;
-  justification: string;
   itemName: string;
   quantity: string;
   otherTitle: string;
@@ -53,7 +52,6 @@ const DEFAULT_FORM: FormState = {
   area: '',
   customArea: '',
   issueSummary: '',
-  justification: '',
   itemName: '',
   quantity: '1',
   otherTitle: '',
@@ -277,7 +275,6 @@ export default function SuggestionsPage() {
     };
   }
 
-
   function closeCreateMode() {
     resetCreateState();
     router.replace('/suggestions');
@@ -289,27 +286,27 @@ export default function SuggestionsPage() {
     const areaName = form.area === 'أخرى' ? form.customArea.trim() : form.area.trim();
     const quantityValue = Math.max(1, Number(form.quantity || 1));
     const uploadedNames = attachments.map((file) => file.name).join(' | ');
-    const requestSource = form.scope === 'PROGRAM'
-      ? `مرتبط ببرنامج تدريبي وتحسين تجربة المتدربين${form.programName ? ` | اسم البرنامج: ${form.programName}` : ''}`
-      : 'مرتبط بملاحظة عامة في المبنى وقد تؤثر على تجربة جميع المستفيدين';
+    const requestSource =
+      form.scope === 'PROGRAM'
+        ? `مرتبط ببرنامج تدريبي وتحسين تجربة المتدربين${form.programName ? ` | اسم البرنامج: ${form.programName}` : ''}`
+        : 'مرتبط بملاحظة عامة في المبنى وقد تؤثر على تجربة جميع المستفيدين';
 
     let title = buildPageTitle(activeType);
     let description = form.issueSummary.trim();
-    let justification = form.justification.trim();
     let itemName = '';
     let location = form.location.trim();
     let externalRecipient = buildDefaultRecipient(activeType);
+    let metaDetails = '';
 
     if (activeType === 'MAINTENANCE') {
       itemName = areaName;
-      if (!areaName || !description || !justification) {
+      if (!areaName || !description) {
         alert('أكمل حقول طلب الصيانة المطلوبة');
         return;
       }
 
-      justification = [
+      metaDetails = [
         `مصدر الحاجة: ${requestSource}`,
-        `السبب/الملاحظة: ${justification}`,
         uploadedNames ? `المرفقات: ${uploadedNames}` : '',
       ]
         .filter(Boolean)
@@ -318,14 +315,13 @@ export default function SuggestionsPage() {
 
     if (activeType === 'CLEANING') {
       itemName = areaName;
-      if (!areaName || !description || !justification) {
+      if (!areaName || !description) {
         alert('أكمل حقول طلب النظافة المطلوبة');
         return;
       }
 
-      justification = [
+      metaDetails = [
         `مصدر الحاجة: ${requestSource}`,
-        `الملاحظة: ${justification}`,
         uploadedNames ? `المرفقات: ${uploadedNames}` : '',
       ]
         .filter(Boolean)
@@ -335,15 +331,13 @@ export default function SuggestionsPage() {
     if (activeType === 'PURCHASE') {
       title = 'طلب شراء مباشر';
       itemName = form.itemName.trim();
-      description = form.issueSummary.trim();
-      if (!itemName || !description || !justification) {
+      if (!itemName || !description) {
         alert('أكمل حقول طلب الشراء المباشر المطلوبة');
         return;
       }
 
-      justification = [
+      metaDetails = [
         `مصدر الحاجة: ${requestSource}`,
-        `مبرر الطلب: ${justification}`,
         uploadedNames ? `المرفقات: ${uploadedNames}` : '',
       ]
         .filter(Boolean)
@@ -352,15 +346,14 @@ export default function SuggestionsPage() {
 
     if (activeType === 'OTHER') {
       title = form.otherTitle.trim() || 'طلب آخر';
-      if (!title || !description || !justification) {
+      if (!title || !description) {
         alert('أكمل حقول الطلب الأخرى المطلوبة');
         return;
       }
 
       externalRecipient = form.otherRecipient.trim();
-      justification = [
+      metaDetails = [
         `مصدر الحاجة: ${requestSource}`,
-        `تفاصيل إضافية: ${justification}`,
         uploadedNames ? `المرفقات: ${uploadedNames}` : '',
       ]
         .filter(Boolean)
@@ -378,7 +371,7 @@ export default function SuggestionsPage() {
           category: activeType,
           title,
           description,
-          justification,
+          justification: metaDetails,
           itemName,
           quantity: quantityValue,
           location,
@@ -447,153 +440,149 @@ export default function SuggestionsPage() {
     const areaOptions = activeType === 'MAINTENANCE' ? MAINTENANCE_PARTS : CLEANING_AREAS;
 
     return (
-      <form onSubmit={handleCreate} className="space-y-4">
+      <form onSubmit={handleCreate} className="space-y-5">
         <div>
           <h1 className="text-[22px] font-extrabold leading-[1.25] text-[#016564] sm:text-[26px]">{title}</h1>
-          <p className="mt-2 text-[13px] leading-7 text-[#61706f] sm:text-sm">نموذج مبسط ومباشر لإرسال الطلب إلى المدير للمراجعة.</p>
+          <p className="mt-2 text-[13px] leading-7 text-[#61706f] sm:text-sm">نموذج مباشر وسريع لإرسال الطلب إلى المدير للمراجعة والاعتماد.</p>
         </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">مصدر الحاجة</label>
+
+        <div className="grid gap-3 lg:grid-cols-3">
+          <div className="space-y-2 lg:col-span-2">
+            <label className="block text-sm font-semibold text-slate-700">مصدر الحاجة</label>
+            <select
+              value={form.scope}
+              onChange={(e) => updateForm('scope', e.target.value as RequestScope)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
+            >
+              <option value="BUILDING">مرتبط بملاحظة عامة في المبنى وقد تؤثر على تجربة جميع المستفيدين</option>
+              <option value="PROGRAM">مرتبط ببرنامج تدريبي وتحسين تجربة المتدربين</option>
+            </select>
+          </div>
+
+          <Input
+            label="الموقع"
+            value={form.location}
+            onChange={(e) => updateForm('location', e.target.value)}
+            placeholder="مثال: القاعة 3 أو الممر الغربي"
+          />
+        </div>
+
+        {form.scope === 'PROGRAM' ? (
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Input
+                label="اسم البرنامج التدريبي (إن وجد)"
+                value={form.programName}
+                onChange={(e) => updateForm('programName', e.target.value)}
+                placeholder="اكتب اسم البرنامج إن وجد"
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {activeType === 'MAINTENANCE' || activeType === 'CLEANING' ? (
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="space-y-2 lg:col-span-2">
+              <label className="block text-sm font-semibold text-slate-700">
+                {activeType === 'MAINTENANCE' ? 'الجزء المطلوب صيانته' : 'الموقع أو الجزء المطلوب تنظيفه'}
+              </label>
               <select
-                value={form.scope}
-                onChange={(e) => updateForm('scope', e.target.value as RequestScope)}
+                value={form.area}
+                onChange={(e) => updateForm('area', e.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
               >
-                <option value="BUILDING">مرتبط بملاحظة عامة في المبنى وقد تؤثر على تجربة جميع المستفيدين</option>
-                <option value="PROGRAM">مرتبط ببرنامج تدريبي وتحسين تجربة المتدربين</option>
+                <option value="">اختر</option>
+                {areaOptions.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
               </select>
             </div>
 
-            <Input
-              label="الموقع"
-              value={form.location}
-              onChange={(e) => updateForm('location', e.target.value)}
-              placeholder="مثال: القاعة 3 أو الممر الغربي"
-            />
+            {form.area === 'أخرى' ? (
+              <Input
+                label="تحديد الجزء"
+                value={form.customArea}
+                onChange={(e) => updateForm('customArea', e.target.value)}
+                placeholder="اكتب الجزء المطلوب"
+              />
+            ) : null}
           </div>
+        ) : null}
 
-          {form.scope === 'PROGRAM' ? (
-            <Input
-              label="اسم البرنامج التدريبي (إن وجد)"
-              value={form.programName}
-              onChange={(e) => updateForm('programName', e.target.value)}
-              placeholder="اكتب اسم البرنامج إن وجد"
-            />
-          ) : null}
-
-          {(activeType === 'MAINTENANCE' || activeType === 'CLEANING') ? (
-            <>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">
-                  {activeType === 'MAINTENANCE' ? 'الجزء المطلوب صيانته' : 'الموقع أو الجزء المطلوب تنظيفه'}
-                </label>
-                <select
-                  value={form.area}
-                  onChange={(e) => updateForm('area', e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
-                >
-                  <option value="">اختر</option>
-                  {areaOptions.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-              </div>
-
-              {form.area === 'أخرى' ? (
-                <Input
-                  label="تحديد الجزء"
-                  value={form.customArea}
-                  onChange={(e) => updateForm('customArea', e.target.value)}
-                  placeholder="اكتب الجزء المطلوب"
-                />
-              ) : null}
-            </>
-          ) : null}
-
-          {activeType === 'PURCHASE' ? (
-            <div className="grid gap-3 sm:grid-cols-2">
+        {activeType === 'PURCHASE' ? (
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="lg:col-span-2">
               <Input
                 label="الصنف المطلوب"
                 value={form.itemName}
                 onChange={(e) => updateForm('itemName', e.target.value)}
                 placeholder="اكتب اسم الصنف المطلوب"
               />
-              <Input
-                label="الكمية"
-                type="number"
-                min="1"
-                value={form.quantity}
-                onChange={(e) => updateForm('quantity', e.target.value)}
-                placeholder="1"
-              />
             </div>
-          ) : null}
+            <Input
+              label="الكمية"
+              type="number"
+              min="1"
+              value={form.quantity}
+              onChange={(e) => updateForm('quantity', e.target.value)}
+              placeholder="1"
+            />
+          </div>
+        ) : null}
 
-          {activeType === 'OTHER' ? (
-            <div className="grid gap-3 sm:grid-cols-2">
+        {activeType === 'OTHER' ? (
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="lg:col-span-2">
               <Input
                 label="عنوان الطلب"
                 value={form.otherTitle}
                 onChange={(e) => updateForm('otherTitle', e.target.value)}
                 placeholder="مثال: طلب معالجة تشغيلية أخرى"
               />
-              <Input
-                label="الجهة المقترحة مبدئيًا (اختياري)"
-                value={form.otherRecipient}
-                onChange={(e) => updateForm('otherRecipient', e.target.value)}
-                placeholder="يُترك فارغًا إذا كان المدير سيحدده لاحقًا"
-              />
+            </div>
+            <Input
+              label="الجهة المقترحة مبدئيًا (اختياري)"
+              value={form.otherRecipient}
+              onChange={(e) => updateForm('otherRecipient', e.target.value)}
+              placeholder="يُترك فارغًا إذا كان المدير سيحدده لاحقًا"
+            />
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">
+            {activeType === 'PURCHASE' ? 'وصف الطلب ومبرره' : activeType === 'OTHER' ? 'ملخص الطلب' : 'سبب الطلب أو الملاحظة'}
+          </label>
+          <textarea
+            value={form.issueSummary}
+            onChange={(e) => updateForm('issueSummary', e.target.value)}
+            rows={5}
+            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
+            placeholder="اكتب التفاصيل كاملة هنا بشكل مباشر وواضح"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-slate-700">المرفقات (اختياري)</label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+            className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
+          />
+          {attachments.length > 0 ? (
+            <div className="rounded-2xl border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm text-[#304342]">
+              الملفات المختارة: {attachments.map((file) => file.name).join(' ، ')}
             </div>
           ) : null}
+        </div>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">
-              {activeType === 'PURCHASE' ? 'وصف الطلب' : activeType === 'OTHER' ? 'ملخص الطلب' : 'سبب الطلب أو الملاحظة'}
-            </label>
-            <textarea
-              value={form.issueSummary}
-              onChange={(e) => updateForm('issueSummary', e.target.value)}
-              rows={4}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
-              placeholder="اكتب وصفًا واضحًا ومباشرًا"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">
-              {activeType === 'PURCHASE' ? 'مبرر الشراء' : 'التفاصيل الإضافية'}
-            </label>
-            <textarea
-              value={form.justification}
-              onChange={(e) => updateForm('justification', e.target.value)}
-              rows={4}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
-              placeholder="اكتب المبرر أو التفاصيل التي تستدعي رفع الطلب"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">المرفقات</label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => setAttachments(Array.from(e.target.files || []))}
-              className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700"
-            />
-            {attachments.length > 0 ? (
-              <div className="rounded-2xl border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm text-[#304342]">
-                الملفات المختارة: {attachments.map((file) => file.name).join(' ، ')}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button>
-            <Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button>
-          </div>
-        </form>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button>
+          <Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button>
+        </div>
+      </form>
     );
   }
 
@@ -602,63 +591,33 @@ export default function SuggestionsPage() {
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <h2 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">
-              الطلبات المرفوعة
-            </h2>
-            <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">
-              متابعة طلبات الصيانة، النظافة، الشراء المباشر، والطلبات الأخرى بعد رفعها.
-            </p>
+            <h2 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">الطلبات المرفوعة</h2>
+            <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">متابعة طلبات الصيانة، النظافة، الشراء المباشر، والطلبات الأخرى بعد رفعها.</p>
           </div>
           {!canManage ? (
-            <Button
-              className="w-full sm:w-auto"
-              onClick={() => router.push('/suggestions?new=1&type=OTHER')}
-            >
+            <Button className="w-full sm:w-auto" onClick={() => router.push('/suggestions?new=1&type=OTHER')}>
               طلب جديد
             </Button>
           ) : null}
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
-            <div className="text-[12px] text-[#6f7b7a]">إجمالي الطلبات</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564] sm:text-xl">{stats.total}</div>
-          </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
-            <div className="text-[12px] text-[#6f7b7a]">بانتظار المدير</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284] sm:text-xl">{stats.pending}</div>
-          </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
-            <div className="text-[12px] text-[#6f7b7a]">المعالجة</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#498983] sm:text-xl">{stats.approved}</div>
-          </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
-            <div className="text-[12px] text-[#6f7b7a]">المرفوضة</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e] sm:text-xl">{stats.rejected}</div>
-          </Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl"><div className="text-[12px] text-[#6f7b7a]">إجمالي الطلبات</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564] sm:text-xl">{stats.total}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl"><div className="text-[12px] text-[#6f7b7a]">بانتظار المدير</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284] sm:text-xl">{stats.pending}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl"><div className="text-[12px] text-[#6f7b7a]">المعالجة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#498983] sm:text-xl">{stats.approved}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl"><div className="text-[12px] text-[#6f7b7a]">المرفوضة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e] sm:text-xl">{stats.rejected}</div></Card>
         </div>
       </section>
 
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
-        <Input
-          label="بحث"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="ابحث برقم الطلب أو العنوان أو اسم مقدم الطلب"
-        />
+        <Input label="بحث" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث برقم الطلب أو العنوان أو اسم مقدم الطلب" />
       </section>
 
       <section className="space-y-3">
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((item) => (
-              <Skeleton key={item} className="h-32 w-full rounded-[24px] sm:rounded-3xl" />
-            ))}
-          </div>
+          <div className="space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-32 w-full rounded-[24px] sm:rounded-3xl" />)}</div>
         ) : filteredRows.length === 0 ? (
-          <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">
-            لا توجد طلبات مطابقة
-          </Card>
+          <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">لا توجد طلبات مطابقة</Card>
         ) : (
           filteredRows.map((row) => {
             const type = resolveType(row);
@@ -674,22 +633,14 @@ export default function SuggestionsPage() {
                       <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>
                       <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
                     </div>
-
                     <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">{row.title}</div>
-
-                    {row.description ? (
-                      <div className="break-words text-sm leading-7 text-[#304342]">{row.description}</div>
-                    ) : null}
-
+                    {row.description ? <div className="break-words text-sm leading-7 text-[#304342]">{row.description}</div> : null}
                     <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
                       <div>التاريخ: {formatDateTime(row.createdAt)}</div>
                       <div className="break-words">مقدم الطلب: {row.requester?.fullName || '—'}</div>
                     </div>
                   </div>
-
-                  <div className="flex w-full flex-col gap-2 sm:w-auto">
-                    <Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>فتح التفاصيل</Button>
-                  </div>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto"><Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>فتح التفاصيل</Button></div>
                 </div>
               </Card>
             );
@@ -697,68 +648,27 @@ export default function SuggestionsPage() {
         )}
       </section>
 
-      <Modal
-        isOpen={isCreateMode}
-        onClose={closeCreateMode}
-        title={buildPageTitle(activeType)}
-      >
+      <Modal isOpen={isCreateMode} onClose={closeCreateMode} title={buildPageTitle(activeType)} size="xl">
         {isCreateMode ? renderCreateForm() : null}
       </Modal>
 
-      <Modal
-        isOpen={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'}
-      >
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="lg">
         {selected ? (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">الرمز</div>
-                <div className="mt-1 break-all text-sm leading-7 text-[#304342]">{selected.code || selected.id}</div>
-              </div>
-
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">النوع</div>
-                <div className="mt-1 text-sm leading-7 text-[#304342]">{typeMeta(resolveType(selected)).label}</div>
-              </div>
-
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">الحالة</div>
-                <div className="mt-1 text-sm leading-7 text-[#304342]">{statusMeta(selected.status).label}</div>
-              </div>
-
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">التاريخ</div>
-                <div className="mt-1 text-sm leading-7 text-[#304342]">{formatDateTime(selected.createdAt)}</div>
-              </div>
-
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">العنوان</div>
-                <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.title}</div>
-              </div>
-
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">الوصف</div>
-                <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.description || '—'}</div>
-              </div>
-
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">مقدم الطلب</div>
-                <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requester?.fullName || '—'}{selected.requester?.department ? ` — ${selected.requester.department}` : ''}</div>
-              </div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">الرمز</div><div className="mt-1 break-all text-sm leading-7 text-[#304342]">{selected.code || selected.id}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">النوع</div><div className="mt-1 text-sm leading-7 text-[#304342]">{typeMeta(resolveType(selected)).label}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">الحالة</div><div className="mt-1 text-sm leading-7 text-[#304342]">{statusMeta(selected.status).label}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">التاريخ</div><div className="mt-1 text-sm leading-7 text-[#304342]">{formatDateTime(selected.createdAt)}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">العنوان</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.title}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">الوصف</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.description || '—'}</div></div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl"><div className="text-xs font-bold text-[#016564]">مقدم الطلب</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requester?.fullName || '—'}{selected.requester?.department ? ` — ${selected.requester.department}` : ''}</div></div>
             </div>
 
             {canManage ? (
               <div className="space-y-3 rounded-[20px] border border-[#e7ebea] bg-[#f8fbfb] p-4">
                 <div className="text-sm font-bold text-[#016564]">قرار المدير</div>
-                <textarea
-                  value={adminNotes}
-                  onChange={(e) => setAdminNotes(e.target.value)}
-                  rows={4}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
-                  placeholder="اكتب ملاحظة القرار أو التوجيه"
-                />
+                <textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب ملاحظة القرار أو التوجيه" />
                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   {selected.status === 'PENDING' || selected.status === 'UNDER_REVIEW' ? (
                     <>
@@ -770,9 +680,7 @@ export default function SuggestionsPage() {
               </div>
             ) : null}
 
-            <div className="flex justify-end">
-              <Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">إغلاق</Button>
-            </div>
+            <div className="flex justify-end"><Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">إغلاق</Button></div>
           </div>
         ) : null}
       </Modal>

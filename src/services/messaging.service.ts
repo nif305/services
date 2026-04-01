@@ -1,6 +1,25 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+function getPrimaryRole(roles?: string[] | null) {
+  const normalized = Array.isArray(roles) ? roles.map((r) => String(r).toLowerCase()) : [];
+  if (normalized.includes('manager')) return 'manager';
+  if (normalized.includes('warehouse')) return 'warehouse';
+  return 'user';
+}
+
+const userSelect = {
+  id: true,
+  fullName: true,
+  roles: true,
+} as const;
+
+function mapMessage<T extends { sender?: any; receiver?: any }>(message: T) {
+  return {
+    ...message,
+    sender: message.sender ? { ...message.sender, role: getPrimaryRole(message.sender.roles) } : message.sender,
+    receiver: message.receiver ? { ...message.receiver, role: getPrimaryRole(message.receiver.roles) } : message.receiver,
+  };
+}
 
 export const MessagingService = {
   send: async (data: {
@@ -21,12 +40,8 @@ export const MessagingService = {
         relatedId: data.relatedId || null,
       },
       include: {
-        sender: {
-          select: { id: true, fullName: true, role: true },
-        },
-        receiver: {
-          select: { id: true, fullName: true, role: true },
-        },
+        sender: { select: userSelect },
+        receiver: { select: userSelect },
       },
     });
 
@@ -42,46 +57,30 @@ export const MessagingService = {
       },
     });
 
-    return message;
+    return mapMessage(message);
   },
 
-  getInbox: async (userId: string) =>
-    prisma.internalMessage.findMany({
+  getInbox: async (userId: string) => {
+    const rows = await prisma.internalMessage.findMany({
       where: { receiverId: userId },
-      include: {
-        sender: {
-          select: { id: true, fullName: true, role: true },
-        },
-        receiver: {
-          select: { id: true, fullName: true, role: true },
-        },
-      },
+      include: { sender: { select: userSelect }, receiver: { select: userSelect } },
       orderBy: { createdAt: 'desc' },
-    }),
+    });
+    return rows.map(mapMessage);
+  },
 
-  getSent: async (userId: string) =>
-    prisma.internalMessage.findMany({
+  getSent: async (userId: string) => {
+    const rows = await prisma.internalMessage.findMany({
       where: { senderId: userId },
-      include: {
-        sender: {
-          select: { id: true, fullName: true, role: true },
-        },
-        receiver: {
-          select: { id: true, fullName: true, role: true },
-        },
-      },
+      include: { sender: { select: userSelect }, receiver: { select: userSelect } },
       orderBy: { createdAt: 'desc' },
-    }),
+    });
+    return rows.map(mapMessage);
+  },
 
   markAsRead: async (messageId: string, userId: string) =>
     prisma.internalMessage.updateMany({
-      where: {
-        id: messageId,
-        receiverId: userId,
-      },
-      data: {
-        isRead: true,
-        readAt: new Date(),
-      },
+      where: { id: messageId, receiverId: userId },
+      data: { isRead: true, readAt: new Date() },
     }),
 };

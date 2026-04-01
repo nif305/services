@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 export const EmailService = {
   generateDraft: async (sourceType: 'maintenance' | 'purchase', sourceId: string) => {
     let subject = ''; let body = ''; let recipient = '';

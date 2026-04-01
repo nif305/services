@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
 
 const SUPPORT_SERVICES_TO = ['ssd@nauss.edu.sa', 'AAlosaimi@nauss.edu.sa'];
 const FINANCE_TO = ['finance@nauss.edu.sa', 'aalaraj@nauss.edu.sa', 'YAlqaoud@nauss.edu.sa', 'Procurement@nauss.edu.sa'];

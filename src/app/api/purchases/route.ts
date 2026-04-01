@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, PurchaseStatus, Role, Status } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PurchaseStatus, Role, Status } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
@@ -87,12 +86,14 @@ export async function GET(request: NextRequest) {
             ...(status ? { status: status as PurchaseStatus } : {}),
           };
 
-    const rows = await prisma.purchaseRequest.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
+    const [rows, stats] = await Promise.all([
+      prisma.purchaseRequest.findMany({ where, orderBy: { createdAt: 'desc' } }),
+      prisma.purchaseRequest.groupBy({ by: ['status'], _count: { _all: true } }),
+    ]);
 
-    return NextResponse.json({ data: rows });
+    const grouped = Object.fromEntries(stats.map((row) => [String(row.status).toLowerCase(), row._count._all]));
+
+    return NextResponse.json({ data: rows, stats: { total: rows.length, ...grouped } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'تعذر جلب طلبات الشراء' }, { status: 500 });
   }

@@ -1,5 +1,5 @@
-import { PrismaClient, MaintenanceStatus, Priority, Role, Status } from '@prisma/client';
-const prisma = new PrismaClient();
+import { MaintenanceStatus, Priority, Role, Status } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 export const MaintenanceService = {
   create: async (data: { requesterId: string; itemId?: string; category: string; description: string; priority: Priority; notes?: string; }) => {
@@ -22,7 +22,7 @@ export const MaintenanceService = {
     });
 
     const managers = await prisma.user.findMany({
-      where: { role: Role.MANAGER, status: Status.ACTIVE },
+      where: { roles: { has: Role.MANAGER }, status: Status.ACTIVE },
       select: { id: true },
     });
 
@@ -59,17 +59,12 @@ export const MaintenanceService = {
       data: { status, updatedAt: new Date(), notes: `Updated by ${managerId}` },
     });
 
-    const targetUserId = updated.requesterId;
-
     await prisma.notification.create({
       data: {
-        userId: targetUserId,
+        userId: updated.requesterId,
         type: status === MaintenanceStatus.APPROVED ? 'MAINTENANCE_APPROVED' : 'MAINTENANCE_UPDATED',
         title: status === MaintenanceStatus.APPROVED ? 'تم اعتماد طلب الصيانة' : 'تم تحديث طلب الصيانة',
-        message:
-          status === MaintenanceStatus.APPROVED
-            ? `تم اعتماد طلب الصيانة ${updated.code}.`
-            : `تم تحديث حالة طلب الصيانة ${updated.code}.`,
+        message: status === MaintenanceStatus.APPROVED ? `تم اعتماد طلب الصيانة ${updated.code}.` : `تم تحديث حالة طلب الصيانة ${updated.code}.`,
         link: `/notifications`,
         entityId: updated.id,
         entityType: 'MAINTENANCE',

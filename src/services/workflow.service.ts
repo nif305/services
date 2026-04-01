@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 const DEPARTMENT_EMAIL_MAP = {
   IT_MAINTENANCE: { name: 'سعادة مدير مركز تقنية المعلومات', email: 'it@training.edu.sa' },
   GENERAL_MAINTENANCE: { name: 'سعادة مدير إدارة الخدمات المساندة', email: 'services@training.edu.sa' },

@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  MaintenanceStatus,
-  PrismaClient,
-  Priority,
-  PurchaseStatus,
-  Role,
-  Status,
-  SuggestionStatus,
-} from '@prisma/client';
+import { Role, Status, SuggestionCategory, SuggestionPriority, SuggestionStatus } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
@@ -111,19 +104,25 @@ export async function GET(request: NextRequest) {
         id: true,
         fullName: true,
         department: true,
-        role: true,
+        roles: true,
         email: true,
       },
     });
 
     const usersMap = new Map(users.map((u) => [u.id, u]));
 
-    return NextResponse.json({
-      data: suggestions.map((item) => ({
+    const mapped = suggestions.map((item) => ({
         ...item,
-        requester: usersMap.get(item.requesterId) || null,
-      })),
-    });
+        requester: (() => { const u = usersMap.get(item.requesterId); return u ? { ...u, role: Array.isArray(u.roles) && u.roles.includes('MANAGER') ? 'manager' : Array.isArray(u.roles) && u.roles.includes('WAREHOUSE') ? 'warehouse' : 'user' } : null; })(),
+      }));
+
+    const stats = {
+      total: suggestions.length,
+      cleaning: suggestions.filter((s) => String(s.category).toUpperCase() === 'CLEANING' && isOpenStatus(s.status)).length,
+      other: suggestions.filter((s) => String(s.category).toUpperCase() !== 'CLEANING' && isOpenStatus(s.status)).length,
+    };
+
+    return NextResponse.json({ data: mapped, stats });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'تعذر جلب الطلبات' }, { status: 500 });
   }

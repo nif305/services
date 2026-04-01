@@ -1,5 +1,5 @@
-import { PrismaClient, PurchaseStatus, Role, Status } from '@prisma/client';
-const prisma = new PrismaClient();
+import { PurchaseStatus, Role, Status } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 export const PurchaseService = {
   create: async (data: { requesterId: string; items: string; reason: string; budgetNote?: string; estimatedValue?: number; }) => {
@@ -11,7 +11,7 @@ export const PurchaseService = {
     });
 
     const managers = await prisma.user.findMany({
-      where: { role: Role.MANAGER, status: Status.ACTIVE },
+      where: { roles: { has: Role.MANAGER }, status: Status.ACTIVE },
       select: { id: true },
     });
 
@@ -53,10 +53,7 @@ export const PurchaseService = {
         userId: updated.requesterId,
         type: status === PurchaseStatus.APPROVED ? 'PURCHASE_APPROVED' : 'PURCHASE_UPDATED',
         title: status === PurchaseStatus.APPROVED ? 'تم اعتماد طلب الشراء' : 'تم تحديث طلب الشراء',
-        message:
-          status === PurchaseStatus.APPROVED
-            ? `تم اعتماد طلب الشراء ${updated.code}.`
-            : `تم تحديث حالة طلب الشراء ${updated.code}.`,
+        message: status === PurchaseStatus.APPROVED ? `تم اعتماد طلب الشراء ${updated.code}.` : `تم تحديث حالة طلب الشراء ${updated.code}.`,
         link: `/notifications`,
         entityId: updated.id,
         entityType: 'PURCHASE',

@@ -308,21 +308,8 @@ function LatestUpdates({ items, loading }: { items: GenericItem[]; loading: bool
   );
 }
 
-function ManagerDashboard({
-  metrics,
-  inventoryStatusData,
-  requestFlowData,
-  servicesData,
-  latestUpdates,
-  loading,
-}: {
-  metrics: any;
-  inventoryStatusData: { name: string; value: number; color: string }[];
-  requestFlowData: { name: string; value: number }[];
-  servicesData: { name: string; value: number }[];
-  latestUpdates: GenericItem[];
-  loading: boolean;
-}) {
+function ManagerDashboard(props: any) {
+  const { metrics, inventoryStatusData, requestFlowData, servicesData, latestUpdates, loading } = props;
   const actions = [
     { title: 'طلبات صرف بانتظار التنفيذ', count: metrics.pendingRequests, hint: 'طلبات مواد تحتاج تدخلًا مباشرًا', href: '/requests', critical: metrics.pendingRequests > 0 },
     { title: 'إرجاعات بانتظار الاستلام', count: metrics.pendingReturns, hint: 'مواد عائدة لم تُستلم بعد', href: '/returns', critical: metrics.pendingReturns > 0 },
@@ -341,11 +328,7 @@ function ManagerDashboard({
 
   return (
     <div className="space-y-5">
-      <Hero
-        badge="لوحة المدير"
-        title="لوحة قيادة تشغيلية للمخزون والطلبات"
-        text="مخصصة للرقابة على حالة المخزون، الاختناقات التشغيلية، والطلبات التي تستدعي تدخلًا إداريًا مباشرًا."
-      >
+      <Hero badge="لوحة المدير" title="لوحة قيادة تشغيلية للمخزون والطلبات" text="مخصصة للرقابة على حالة المخزون، الاختناقات التشغيلية، والطلبات التي تستدعي تدخلًا إداريًا مباشرًا.">
         <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
           <SurfaceCard className="p-4 sm:p-5">
             <div className="text-[14px] font-bold text-[#016564]">مؤشر المخزون</div>
@@ -394,19 +377,8 @@ function ManagerDashboard({
   );
 }
 
-function WarehouseDashboard({
-  metrics,
-  inventoryStatusData,
-  requestFlowData,
-  latestUpdates,
-  loading,
-}: {
-  metrics: any;
-  inventoryStatusData: { name: string; value: number; color: string }[];
-  requestFlowData: { name: string; value: number }[];
-  latestUpdates: GenericItem[];
-  loading: boolean;
-}) {
+function WarehouseDashboard(props: any) {
+  const { metrics, inventoryStatusData, requestFlowData, latestUpdates, loading } = props;
   const actions = [
     { title: 'طلبات بانتظار الصرف', count: metrics.pendingRequests, hint: 'نفّذ الصرف للطلبات الجديدة', href: '/requests', critical: metrics.pendingRequests > 0 },
     { title: 'إرجاعات تنتظر الاستلام', count: metrics.pendingReturns, hint: 'أغلق عمليات الاستلام والتوثيق', href: '/returns', critical: metrics.pendingReturns > 0 },
@@ -425,11 +397,7 @@ function WarehouseDashboard({
 
   return (
     <div className="space-y-5">
-      <Hero
-        badge="لوحة مسؤول المخزن"
-        title="لوحة تنفيذ يومية لمسؤول المخزن"
-        text="مخصصة للتنفيذ اليومي: ما يجب صرفه واستلامه ومتابعته الآن، مع حالة الأصناف الأكثر تأثيرًا على الجاهزية."
-      >
+      <Hero badge="لوحة مسؤول المخزن" title="لوحة تنفيذ يومية لمسؤول المخزن" text="مخصصة للتنفيذ اليومي: ما يجب صرفه واستلامه ومتابعته الآن، مع حالة الأصناف الأكثر تأثيرًا على الجاهزية.">
         <div className="grid gap-4 xl:grid-cols-[320px_1fr]">
           <SurfaceCard className="p-4 sm:p-5">
             <div className="text-[14px] font-bold text-[#016564]">مؤشر المخزون</div>
@@ -470,7 +438,7 @@ function WarehouseDashboard({
 
       <div className="grid gap-5 xl:grid-cols-2">
         <MiniBarChart title="حركة الطلبات" subtitle="طلب جديد، صرف، رفض، إرجاع" data={requestFlowData} color="#016564" />
-        <MiniBarChart title="حالة المخزون" subtitle="متاح، منخفض، نافد" data={inventoryStatusData.map(i => ({ name: i.name, value: i.value }))} color="#7c1e3e" />
+        <MiniBarChart title="حالة المخزون" subtitle="متاح، منخفض، نافد" data={inventoryStatusData.map((i: any) => ({ name: i.name, value: i.value }))} color="#7c1e3e" />
       </div>
 
       <LatestUpdates items={latestUpdates} loading={loading} />
@@ -478,15 +446,8 @@ function WarehouseDashboard({
   );
 }
 
-function UserDashboard({
-  metrics,
-  latestUpdates,
-  loading,
-}: {
-  metrics: any;
-  latestUpdates: GenericItem[];
-  loading: boolean;
-}) {
+function UserDashboard(props: any) {
+  const { metrics, latestUpdates, loading } = props;
   const actions = [
     { title: 'طلباتي الجديدة', count: metrics.pendingRequests, hint: 'طلبات مواد ما زالت قيد الانتظار', href: '/requests' },
     { title: 'طلباتي المصروفة', count: metrics.issuedRequests, hint: 'طلبات تم صرفها لك بالفعل', href: '/requests' },
@@ -505,11 +466,7 @@ function UserDashboard({
 
   return (
     <div className="space-y-5">
-      <Hero
-        badge="لوحة الموظف"
-        title="لوحة متابعة الطلبات والعهدة"
-        text="مخصصة لمتابعة طلباتك وعهدتك وإرجاعاتك وتحديثاتك الأحدث بشكل مباشر وواضح."
-      >
+      <Hero badge="لوحة الموظف" title="لوحة متابعة الطلبات والعهدة" text="مخصصة لمتابعة طلباتك وعهدتك وإرجاعاتك وتحديثاتك الأحدث بشكل مباشر وواضح.">
         <div className="grid gap-3 sm:grid-cols-4">
           <StatCard title="طلباتي الجديدة" value={metrics.pendingRequests} note="ما زالت قيد الانتظار" tone="primary" />
           <StatCard title="طلبات مصروفة" value={metrics.issuedRequests} note="تم تنفيذها لك بالفعل" tone="success" />
@@ -638,7 +595,7 @@ function UnifiedDashboard() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [role]);
 
   const metrics = useMemo(() => {
     const inventory = data.inventory;

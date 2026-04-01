@@ -52,6 +52,10 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('ar-SA').format(value || 0);
 }
 
+function countRequestItems(requests: GenericItem[]) {
+  return requests.reduce((sum, req) => sum + (Array.isArray(req?.items) ? req.items.length : 0), 0);
+}
+
 function SurfaceCard({
   children,
   className = '',
@@ -263,7 +267,7 @@ function Hero({
     <section className="relative overflow-hidden rounded-[28px] border border-[#016564]/10 bg-[radial-gradient(circle_at_top_right,rgba(208,178,132,0.18),transparent_30%),linear-gradient(135deg,#ffffff_0%,#f8fbfb_48%,#f1f8f7_100%)] p-5 sm:p-6">
       <div className="absolute inset-y-0 left-0 w-32 bg-[linear-gradient(180deg,rgba(1,101,100,0.06),transparent)] blur-2xl" />
       <div className="relative space-y-4">
-        <div className="rounded-full border border-[#016564]/15 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-[#016564] inline-flex">
+        <div className="inline-flex rounded-full border border-[#016564]/15 bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-[#016564]">
           {badge}
         </div>
         <div>
@@ -309,11 +313,15 @@ function ManagerDashboard({
   inventoryStatusData,
   requestFlowData,
   servicesData,
+  latestUpdates,
+  loading,
 }: {
   metrics: any;
   inventoryStatusData: { name: string; value: number; color: string }[];
   requestFlowData: { name: string; value: number }[];
   servicesData: { name: string; value: number }[];
+  latestUpdates: GenericItem[];
+  loading: boolean;
 }) {
   const actions = [
     { title: 'طلبات صرف بانتظار التنفيذ', count: metrics.pendingRequests, hint: 'طلبات مواد تحتاج تدخلًا مباشرًا', href: '/requests', critical: metrics.pendingRequests > 0 },
@@ -348,12 +356,12 @@ function ManagerDashboard({
           </SurfaceCard>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <SmallStat title="إجمالي الأصناف" value={metrics.totalInventory} note="عدد المواد المعرفة في النظام" tone="primary" />
-            <SmallStat title="طلبات بانتظار الإجراء" value={metrics.pendingRequests + metrics.pendingReturns} note="صرف أو استلام" tone="danger" />
-            <SmallStat title="تنبيهات غير مقروءة" value={metrics.unreadNotifications} note="آخر ما وصلك داخل النظام" tone="gold" />
-            <SmallStat title="مواد منخفضة" value={metrics.lowStock} note="تحتاج متابعة قريبة" tone="gold" />
-            <SmallStat title="مواد نافدة" value={metrics.outOfStock} note="تؤثر على الجاهزية" tone="danger" />
-            <SmallStat title="عهد متأخرة" value={metrics.delayedCustody} note="مواد تجاوزت الموعد المحدد" tone="default" />
+            <StatCard title="إجمالي الأصناف" value={metrics.totalInventory} note="عدد المواد المعرفة في النظام" tone="primary" />
+            <StatCard title="طلبات بانتظار الإجراء" value={metrics.pendingRequests + metrics.pendingReturns} note="صرف أو استلام" tone="danger" />
+            <StatCard title="تنبيهات غير مقروءة" value={metrics.unreadNotifications} note="آخر ما وصلك داخل النظام" tone="gold" />
+            <StatCard title="مواد منخفضة" value={metrics.lowStock} note="تحتاج متابعة قريبة" tone="gold" />
+            <StatCard title="مواد نافدة" value={metrics.outOfStock} note="تؤثر على الجاهزية" tone="danger" />
+            <StatCard title="عهد متأخرة" value={metrics.delayedCustody} note="مواد تجاوزت الموعد المحدد" tone="default" />
           </div>
         </div>
       </Hero>
@@ -370,8 +378,8 @@ function ManagerDashboard({
             {links.map((link) => <QuickAction key={link.href} href={link.href} label={link.label} />)}
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <SmallStat title="الخدمات المفتوحة" value={metrics.openMaintenance + metrics.openPurchases + metrics.cleaningRequests + metrics.otherRequests} note="صيانة وشراء ونظافة وطلبات أخرى" tone="default" />
-            <SmallStat title="بنود الطلبات" value={metrics.requestItemsCount} note="إجمالي البنود المسجلة" tone="primary" />
+            <StatCard title="الخدمات المفتوحة" value={metrics.openMaintenance + metrics.openPurchases + metrics.cleaningRequests + metrics.otherRequests} note="صيانة وشراء ونظافة وطلبات أخرى" tone="default" />
+            <StatCard title="بنود الطلبات" value={metrics.requestItemsCount} note="إجمالي البنود المسجلة" tone="primary" />
           </div>
         </SectionCard>
       </div>
@@ -380,6 +388,8 @@ function ManagerDashboard({
         <MiniBarChart title="حركة الطلبات والإرجاعات" subtitle="قراءة سريعة للحالة الحالية" data={requestFlowData} color="#016564" />
         <MiniBarChart title="الخدمات التشغيلية المساندة" subtitle="صيانة وشراء ونظافة وطلبات أخرى" data={servicesData} color="#7c1e3e" />
       </div>
+
+      <LatestUpdates items={latestUpdates} loading={loading} />
     </div>
   );
 }
@@ -388,10 +398,14 @@ function WarehouseDashboard({
   metrics,
   inventoryStatusData,
   requestFlowData,
+  latestUpdates,
+  loading,
 }: {
   metrics: any;
   inventoryStatusData: { name: string; value: number; color: string }[];
   requestFlowData: { name: string; value: number }[];
+  latestUpdates: GenericItem[];
+  loading: boolean;
 }) {
   const actions = [
     { title: 'طلبات بانتظار الصرف', count: metrics.pendingRequests, hint: 'نفّذ الصرف للطلبات الجديدة', href: '/requests', critical: metrics.pendingRequests > 0 },
@@ -426,12 +440,12 @@ function WarehouseDashboard({
           </SurfaceCard>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <SmallStat title="طلبات تنتظر الصرف" value={metrics.pendingRequests} note="أولوية التنفيذ الأولى" tone="danger" />
-            <SmallStat title="إرجاعات تنتظر الاستلام" value={metrics.pendingReturns} note="تحتاج توثيقًا واستلامًا" tone="gold" />
-            <SmallStat title="مواد نافدة" value={metrics.outOfStock} note="قد تعطل الطلبات الجديدة" tone="danger" />
-            <SmallStat title="مواد منخفضة" value={metrics.lowStock} note="أصناف قريبة من حد الأمان" tone="gold" />
-            <SmallStat title="العهدة النشطة" value={metrics.activeCustody} note="مواد ما زالت لدى المستخدمين" tone="primary" />
-            <SmallStat title="مواد قابلة للإرجاع" value={metrics.returnableItems} note="مرتبطة بالإرجاع والمتابعة" tone="success" />
+            <StatCard title="طلبات تنتظر الصرف" value={metrics.pendingRequests} note="أولوية التنفيذ الأولى" tone="danger" />
+            <StatCard title="إرجاعات تنتظر الاستلام" value={metrics.pendingReturns} note="تحتاج توثيقًا واستلامًا" tone="gold" />
+            <StatCard title="مواد نافدة" value={metrics.outOfStock} note="قد تعطل الطلبات الجديدة" tone="danger" />
+            <StatCard title="مواد منخفضة" value={metrics.lowStock} note="أصناف قريبة من حد الأمان" tone="gold" />
+            <StatCard title="العهدة النشطة" value={metrics.activeCustody} note="مواد ما زالت لدى المستخدمين" tone="primary" />
+            <StatCard title="مواد قابلة للإرجاع" value={metrics.returnableItems} note="مرتبطة بالإرجاع والمتابعة" tone="success" />
           </div>
         </div>
       </Hero>
@@ -448,8 +462,8 @@ function WarehouseDashboard({
             {links.map((link) => <QuickAction key={link.href} href={link.href} label={link.label} />)}
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <SmallStat title="مواد استهلاكية" value={metrics.consumableItems} note="صرف مباشر واستهلاك" tone="default" />
-            <SmallStat title="بنود الطلبات" value={metrics.requestItemsCount} note="إجمالي البنود المطلوب تجهيزها" tone="primary" />
+            <StatCard title="مواد استهلاكية" value={metrics.consumableItems} note="صرف مباشر واستهلاك" tone="default" />
+            <StatCard title="بنود الطلبات" value={metrics.requestItemsCount} note="إجمالي البنود المطلوب تجهيزها" tone="primary" />
           </div>
         </SectionCard>
       </div>
@@ -458,6 +472,8 @@ function WarehouseDashboard({
         <MiniBarChart title="حركة الطلبات" subtitle="طلب جديد، صرف، رفض، إرجاع" data={requestFlowData} color="#016564" />
         <MiniBarChart title="حالة المخزون" subtitle="متاح، منخفض، نافد" data={inventoryStatusData.map(i => ({ name: i.name, value: i.value }))} color="#7c1e3e" />
       </div>
+
+      <LatestUpdates items={latestUpdates} loading={loading} />
     </div>
   );
 }
@@ -495,10 +511,10 @@ function UserDashboard({
         text="مخصصة لمتابعة طلباتك وعهدتك وإرجاعاتك وتحديثاتك الأحدث بشكل مباشر وواضح."
       >
         <div className="grid gap-3 sm:grid-cols-4">
-          <SmallStat title="طلباتي الجديدة" value={metrics.pendingRequests} note="ما زالت قيد الانتظار" tone="primary" />
-          <SmallStat title="طلبات مصروفة" value={metrics.issuedRequests} note="تم تنفيذها لك بالفعل" tone="success" />
-          <SmallStat title="عهدتي النشطة" value={metrics.activeCustody} note="مواد ما زالت مسجلة عليك" tone="gold" />
-          <SmallStat title="تنبيهات غير مقروءة" value={metrics.unreadNotifications} note="آخر ما وصلك داخل النظام" tone="danger" />
+          <StatCard title="طلباتي الجديدة" value={metrics.pendingRequests} note="ما زالت قيد الانتظار" tone="primary" />
+          <StatCard title="طلبات مصروفة" value={metrics.issuedRequests} note="تم تنفيذها لك بالفعل" tone="success" />
+          <StatCard title="عهدتي النشطة" value={metrics.activeCustody} note="مواد ما زالت مسجلة عليك" tone="gold" />
+          <StatCard title="تنبيهات غير مقروءة" value={metrics.unreadNotifications} note="آخر ما وصلك داخل النظام" tone="danger" />
         </div>
       </Hero>
 
@@ -514,8 +530,8 @@ function UserDashboard({
             {links.map((link) => <QuickAction key={link.href} href={link.href} label={link.label} />)}
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <SmallStat title="طلبات الإرجاع المفتوحة" value={metrics.pendingReturns} note="ما زالت بانتظار الاستلام" tone="gold" />
-            <SmallStat title="طلباتي المرفوضة" value={metrics.rejectedRequests} note="تحتاج مراجعة أو إعادة رفع" tone="default" />
+            <StatCard title="طلبات الإرجاع المفتوحة" value={metrics.pendingReturns} note="ما زالت بانتظار الاستلام" tone="gold" />
+            <StatCard title="طلباتي المرفوضة" value={metrics.rejectedRequests} note="تحتاج مراجعة أو إعادة رفع" tone="default" />
           </div>
         </SectionCard>
       </div>
@@ -544,28 +560,26 @@ function DashboardSwitcher({
 }) {
   if (role === 'manager') {
     return (
-      <>
-        <ManagerDashboard
-          metrics={metrics}
-          inventoryStatusData={inventoryStatusData}
-          requestFlowData={requestFlowData}
-          servicesData={servicesData}
-        />
-        <LatestUpdates items={latestUpdates} loading={loading} />
-      </>
+      <ManagerDashboard
+        metrics={metrics}
+        inventoryStatusData={inventoryStatusData}
+        requestFlowData={requestFlowData}
+        servicesData={servicesData}
+        latestUpdates={latestUpdates}
+        loading={loading}
+      />
     );
   }
 
   if (role === 'warehouse') {
     return (
-      <>
-        <WarehouseDashboard
-          metrics={metrics}
-          inventoryStatusData={inventoryStatusData}
-          requestFlowData={requestFlowData}
-        />
-        <LatestUpdates items={latestUpdates} loading={loading} />
-      </>
+      <WarehouseDashboard
+        metrics={metrics}
+        inventoryStatusData={inventoryStatusData}
+        requestFlowData={requestFlowData}
+        latestUpdates={latestUpdates}
+        loading={loading}
+      />
     );
   }
 
@@ -690,7 +704,7 @@ function UnifiedDashboard() {
       cleaningRequests,
       otherRequests,
       unreadNotifications,
-      requestItemsCount: getRequestItemsCount(requests),
+      requestItemsCount: countRequestItems(requests),
     };
   }, [data]);
 

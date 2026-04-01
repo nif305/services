@@ -5,36 +5,29 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 
 type GenericItem = Record<string, any>;
+type ApiPayload = Record<string, any> | GenericItem[] | null;
 
 type DashboardData = {
-  inventory: GenericItem[];
-  requests: GenericItem[];
-  returns: GenericItem[];
-  custody: GenericItem[];
-  maintenance: GenericItem[];
-  purchases: GenericItem[];
-  suggestions: GenericItem[];
-  notifications: GenericItem[];
+  inventoryRaw: ApiPayload;
+  requestsRaw: ApiPayload;
+  returnsRaw: ApiPayload;
+  custodyRaw: ApiPayload;
+  maintenanceRaw: ApiPayload;
+  purchasesRaw: ApiPayload;
+  suggestionsRaw: ApiPayload;
+  notificationsRaw: ApiPayload;
 };
 
 const EMPTY_DATA: DashboardData = {
-  inventory: [],
-  requests: [],
-  returns: [],
-  custody: [],
-  maintenance: [],
-  purchases: [],
-  suggestions: [],
-  notifications: [],
+  inventoryRaw: null,
+  requestsRaw: null,
+  returnsRaw: null,
+  custodyRaw: null,
+  maintenanceRaw: null,
+  purchasesRaw: null,
+  suggestionsRaw: null,
+  notificationsRaw: null,
 };
-
-function getArrayPayload(payload: any): GenericItem[] {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.items)) return payload.items;
-  if (Array.isArray(payload?.rows)) return payload.rows;
-  return [];
-}
 
 function normalizeRole(role?: string | null) {
   const value = String(role || '').toLowerCase();
@@ -50,6 +43,39 @@ function isOpenStatus(value: any) {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('ar-SA').format(value || 0);
+}
+
+function toNumber(value: any): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/[^\d.-]/g, '');
+    if (!cleaned) return null;
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function getArrayPayload(payload: ApiPayload): GenericItem[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray((payload as any)?.data)) return (payload as any).data;
+  if (Array.isArray((payload as any)?.items)) return (payload as any).items;
+  if (Array.isArray((payload as any)?.rows)) return (payload as any).rows;
+  if (Array.isArray((payload as any)?.results)) return (payload as any).results;
+  return [];
+}
+
+function getAtPath(obj: any, path: string): any {
+  if (!obj) return undefined;
+  return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
+}
+
+function pickStat(payload: ApiPayload, paths: string[], fallback: number): number {
+  for (const path of paths) {
+    const value = toNumber(getAtPath(payload, path));
+    if (value != null) return value;
+  }
+  return fallback;
 }
 
 function countRequestItems(requests: GenericItem[]) {
@@ -555,38 +581,37 @@ function UnifiedDashboard() {
     const fetchJson = async (url: string) => {
       try {
         const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
-        const json = await res.json().catch(() => ({}));
-        return getArrayPayload(json);
+        return await res.json().catch(() => ({}));
       } catch {
-        return [];
+        return {};
       }
     };
 
     const load = async () => {
       setLoading(true);
-      const [inventory, requests, returns, custody, maintenance, purchases, suggestions, notifications] =
+      const [inventoryRaw, requestsRaw, returnsRaw, custodyRaw, maintenanceRaw, purchasesRaw, suggestionsRaw, notificationsRaw] =
         await Promise.all([
-          fetchJson('/api/inventory'),
-          fetchJson('/api/requests'),
-          fetchJson('/api/returns'),
-          fetchJson('/api/custody'),
-          fetchJson('/api/maintenance'),
-          fetchJson('/api/purchases'),
-          fetchJson('/api/suggestions'),
-          fetchJson('/api/notifications'),
+          fetchJson('/api/inventory?limit=500'),
+          fetchJson('/api/requests?limit=500'),
+          fetchJson('/api/returns?limit=500'),
+          fetchJson('/api/custody?limit=500'),
+          fetchJson('/api/maintenance?limit=500'),
+          fetchJson('/api/purchases?limit=500'),
+          fetchJson('/api/suggestions?limit=500'),
+          fetchJson('/api/notifications?limit=200'),
         ]);
 
       if (!mounted) return;
 
       setData({
-        inventory,
-        requests,
-        returns,
-        custody,
-        maintenance,
-        purchases,
-        suggestions,
-        notifications,
+        inventoryRaw,
+        requestsRaw,
+        returnsRaw,
+        custodyRaw,
+        maintenanceRaw,
+        purchasesRaw,
+        suggestionsRaw,
+        notificationsRaw,
       });
       setLoading(false);
     };
@@ -598,78 +623,84 @@ function UnifiedDashboard() {
   }, [role]);
 
   const metrics = useMemo(() => {
-    const inventory = data.inventory;
-    const requests = data.requests;
-    const returns = data.returns;
-    const custody = data.custody;
-    const maintenance = data.maintenance;
-    const purchases = data.purchases;
-    const suggestions = data.suggestions;
-    const notifications = data.notifications;
+    const inventory = getArrayPayload(data.inventoryRaw);
+    const requests = getArrayPayload(data.requestsRaw);
+    const returns = getArrayPayload(data.returnsRaw);
+    const custody = getArrayPayload(data.custodyRaw);
+    const maintenance = getArrayPayload(data.maintenanceRaw);
+    const purchases = getArrayPayload(data.purchasesRaw);
+    const suggestions = getArrayPayload(data.suggestionsRaw);
+    const notifications = getArrayPayload(data.notificationsRaw);
 
-    const lowStock = inventory.filter((item) => {
+    const fallbackLowStock = inventory.filter((item) => {
       const qty = Number(item.availableQty ?? item.availableQuantity ?? item.qty ?? 0);
       return qty > 0 && qty <= 5;
     }).length;
 
-    const outOfStock = inventory.filter((item) => {
+    const fallbackOutOfStock = inventory.filter((item) => {
       const qty = Number(item.availableQty ?? item.availableQuantity ?? item.qty ?? 0);
       return qty <= 0;
     }).length;
 
-    const returnableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'RETURNABLE').length;
-    const consumableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'CONSUMABLE').length;
+    const fallbackReturnableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'RETURNABLE').length;
+    const fallbackConsumableItems = inventory.filter((item) => String(item.type || '').toUpperCase() === 'CONSUMABLE').length;
 
-    const pendingRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
-    const issuedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'ISSUED').length;
-    const rejectedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length;
+    const fallbackPendingRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
+    const fallbackIssuedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'ISSUED').length;
+    const fallbackRejectedRequests = requests.filter((item) => String(item.status || '').toUpperCase() === 'REJECTED').length;
 
-    const pendingReturns = returns.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
+    const fallbackPendingReturns = returns.filter((item) => String(item.status || '').toUpperCase() === 'PENDING').length;
 
-    const activeCustody = custody.filter((item) => String(item.status || '').toUpperCase() === 'ACTIVE').length;
-    const delayedCustody = custody.filter((item) => {
+    const fallbackActiveCustody = custody.filter((item) => String(item.status || '').toUpperCase() === 'ACTIVE').length;
+    const fallbackDelayedCustody = custody.filter((item) => {
       const due = item.expectedReturn || item.dueDate;
       if (!due) return false;
       return new Date(due).getTime() < Date.now() && String(item.status || '').toUpperCase() !== 'RETURNED';
     }).length;
 
-    const openMaintenance = maintenance.filter((item) => isOpenStatus(item.status)).length;
-    const openPurchases = purchases.filter((item) => isOpenStatus(item.status)).length;
-    const cleaningRequests = suggestions.filter(
+    const fallbackOpenMaintenance = maintenance.filter((item) => isOpenStatus(item.status)).length;
+    const fallbackOpenPurchases = purchases.filter((item) => isOpenStatus(item.status)).length;
+    const fallbackCleaningRequests = suggestions.filter(
       (item) => String(item.category || '').toUpperCase() === 'CLEANING' && isOpenStatus(item.status)
     ).length;
-    const otherRequests = suggestions.filter(
+    const fallbackOtherRequests = suggestions.filter(
       (item) => String(item.category || '').toUpperCase() !== 'CLEANING' && isOpenStatus(item.status)
     ).length;
 
-    const unreadNotifications = notifications.filter((item) => !item.isRead).length;
+    const fallbackUnreadNotifications = notifications.filter((item) => !item.isRead).length;
 
     return {
-      totalInventory: inventory.length,
-      lowStock,
-      outOfStock,
-      returnableItems,
-      consumableItems,
-      pendingRequests,
-      issuedRequests,
-      rejectedRequests,
-      pendingReturns,
-      activeCustody,
-      delayedCustody,
-      openMaintenance,
-      openPurchases,
-      cleaningRequests,
-      otherRequests,
-      unreadNotifications,
-      requestItemsCount: countRequestItems(requests),
+      totalInventory: pickStat(data.inventoryRaw, ['stats.totalItems', 'stats.total', 'pagination.total', 'total', 'count'], inventory.length),
+      lowStock: pickStat(data.inventoryRaw, ['stats.lowStock', 'stats.lowStockCount', 'stats.lowStockItems', 'stats.low', 'lowStock'], fallbackLowStock),
+      outOfStock: pickStat(data.inventoryRaw, ['stats.outOfStock', 'stats.outOfStockCount', 'stats.outOfStockItems', 'stats.out', 'outOfStock'], fallbackOutOfStock),
+      availableInventory: pickStat(data.inventoryRaw, ['stats.available', 'stats.availableItems', 'stats.totalAvailable', 'stats.availableQty', 'available'], Math.max(inventory.length - fallbackOutOfStock, 0)),
+      returnableItems: pickStat(data.inventoryRaw, ['stats.returnable', 'stats.returnableItems', 'stats.returnableCount'], fallbackReturnableItems),
+      consumableItems: pickStat(data.inventoryRaw, ['stats.consumable', 'stats.consumableItems', 'stats.consumableCount'], fallbackConsumableItems),
+
+      pendingRequests: pickStat(data.requestsRaw, ['stats.pending', 'stats.pendingRequests', 'stats.new', 'stats.open'], fallbackPendingRequests),
+      issuedRequests: pickStat(data.requestsRaw, ['stats.issued', 'stats.issuedRequests', 'stats.dispatched'], fallbackIssuedRequests),
+      rejectedRequests: pickStat(data.requestsRaw, ['stats.rejected', 'stats.rejectedRequests'], fallbackRejectedRequests),
+
+      pendingReturns: pickStat(data.returnsRaw, ['stats.pending', 'stats.pendingReturns', 'stats.awaitingReceipt'], fallbackPendingReturns),
+
+      activeCustody: pickStat(data.custodyRaw, ['stats.active', 'stats.activeCustody', 'stats.open'], fallbackActiveCustody),
+      delayedCustody: pickStat(data.custodyRaw, ['stats.delayed', 'stats.overdue', 'stats.late'], fallbackDelayedCustody),
+
+      openMaintenance: pickStat(data.maintenanceRaw, ['stats.open', 'stats.pending', 'stats.active'], fallbackOpenMaintenance),
+      openPurchases: pickStat(data.purchasesRaw, ['stats.open', 'stats.pending', 'stats.active'], fallbackOpenPurchases),
+      cleaningRequests: pickStat(data.suggestionsRaw, ['stats.cleaning', 'stats.cleaningRequests'], fallbackCleaningRequests),
+      otherRequests: pickStat(data.suggestionsRaw, ['stats.other', 'stats.otherRequests'], fallbackOtherRequests),
+
+      unreadNotifications: pickStat(data.notificationsRaw, ['stats.unread', 'stats.unreadCount', 'unread'], fallbackUnreadNotifications),
+      requestItemsCount: pickStat(data.requestsRaw, ['stats.items', 'stats.requestItems', 'stats.totalItems'], countRequestItems(requests)),
     };
   }, [data]);
 
   const inventoryStatusData = useMemo(
     () => [
-      { name: 'متاح', value: Math.max(metrics.totalInventory - metrics.lowStock - metrics.outOfStock, 0), color: '#016564' },
-      { name: 'منخفض', value: metrics.lowStock, color: '#d0b284' },
-      { name: 'نافد', value: metrics.outOfStock, color: '#7c1e3e' },
+      { name: 'متاح', value: Math.max(metrics.availableInventory, 0), color: '#016564' },
+      { name: 'منخفض', value: Math.max(metrics.lowStock, 0), color: '#d0b284' },
+      { name: 'نافد', value: Math.max(metrics.outOfStock, 0), color: '#7c1e3e' },
     ],
     [metrics]
   );
@@ -695,11 +726,12 @@ function UnifiedDashboard() {
   );
 
   const latestUpdates = useMemo(() => {
-    return (data.notifications || [])
+    const notifications = getArrayPayload(data.notificationsRaw);
+    return notifications
       .slice()
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
       .slice(0, 4);
-  }, [data.notifications]);
+  }, [data.notificationsRaw]);
 
   return (
     <DashboardSwitcher

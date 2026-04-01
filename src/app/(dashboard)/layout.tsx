@@ -277,6 +277,55 @@ const employeeGroups: NavGroup[] = [
         ),
       },
       {
+        href: '/suggestions?type=MAINTENANCE&new=1',
+        label: 'طلب صيانة',
+        roles: ['user'],
+        icon: (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none">
+            <path d="m14.7 6.3 3 3-8.4 8.4H6.3v-3L14.7 6.3Z" stroke="currentColor" strokeWidth="1.8" />
+            <path d="m13.3 7.7 3 3" stroke="currentColor" strokeWidth="1.8" />
+          </svg>
+        ),
+      },
+      {
+        href: '/suggestions?type=CLEANING&new=1',
+        label: 'طلب نظافة',
+        roles: ['user'],
+        icon: (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none">
+            <path d="M7 21h10" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M12 3v12" stroke="currentColor" strokeWidth="1.8" />
+            <path d="m8 7 4-4 4 4" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M8 15h8" stroke="currentColor" strokeWidth="1.8" />
+          </svg>
+        ),
+      },
+      {
+        href: '/suggestions?type=PURCHASE&new=1',
+        label: 'شراء مباشر',
+        roles: ['user'],
+        icon: (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none">
+            <path d="M6 7h13l-1.2 6.2a2 2 0 0 1-2 1.6H9.3a2 2 0 0 1-2-1.6L6 7Z" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M6 7 5.2 5.3A1.5 1.5 0 0 0 3.8 4.5H3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            <circle cx="10" cy="18.5" r="1.2" fill="currentColor" />
+            <circle cx="17" cy="18.5" r="1.2" fill="currentColor" />
+          </svg>
+        ),
+      },
+      {
+        href: '/suggestions?type=OTHER&new=1',
+        label: 'طلبات أخرى',
+        roles: ['user'],
+        icon: (
+          <svg className={iconClass} viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M9.5 9a2.5 2.5 0 1 1 4 2c-.8.6-1.5 1.1-1.5 2" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M12 17h.01" stroke="currentColor" strokeWidth="1.8" />
+          </svg>
+        ),
+      },
+      {
         href: '/messages',
         label: 'المراسلات الداخلية',
         roles: ['user'],
@@ -323,6 +372,12 @@ function isActive(pathname: string, href: string, searchCategory: string | null)
   if (href.startsWith('/suggestions?category=')) {
     const targetCategory = href.split('category=')[1] || '';
     return pathname === '/suggestions' && searchCategory === targetCategory;
+  }
+
+  if (href.startsWith('/suggestions?type=')) {
+    const targetType = href.split('type=')[1]?.split('&')[0] || '';
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    return pathname === '/suggestions' && params?.get('type') === targetType && params?.get('new') === '1';
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);

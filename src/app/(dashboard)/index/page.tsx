@@ -485,9 +485,9 @@ function UserDashboard(props: any) {
     { href: '/requests', label: 'طلب مواد' },
     { href: '/custody', label: 'عهدتي' },
     { href: '/returns', label: 'طلبات الإرجاع' },
-    { href: '/maintenance', label: 'طلبات الصيانة' },
+    { href: '/suggestions?type=MAINTENANCE&new=1', label: 'طلب صيانة' },
     { href: '/notifications', label: 'الإشعارات' },
-    { href: '/purchases', label: 'شراء مباشر' },
+    { href: '/suggestions?type=PURCHASE&new=1', label: 'شراء مباشر' },
   ];
 
   return (

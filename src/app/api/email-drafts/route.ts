@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 function sanitizeHeader(value?: string | null) {
-  return String(value || '').replace(//g, ' ').replace(/
-/g, ' ').trim();
+  return String(value || '').replace(/[\r\n]+/g, ' ').trim();
 }
 
 function htmlToPlainText(html: string) {

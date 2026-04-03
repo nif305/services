@@ -27,15 +27,12 @@ function stripHtmlToText(html?: string | null) {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await context.params;
 
-    const draft = await prisma.emailDraft.findUnique({
-      where: { id },
-    });
-
+    const draft = await prisma.emailDraft.findUnique({ where: { id } });
     if (!draft) {
       return NextResponse.json({ error: 'المسودة غير موجودة' }, { status: 404 });
     }
@@ -47,12 +44,23 @@ export async function GET(
 
     const eml = [
       `To: ${to}`,
-      'MIME-Version: 1.0',
       `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/alternative; boundary="boundary_123456"',
+      '',
+      '--boundary_123456',
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      textBody,
+      '',
+      '--boundary_123456',
       'Content-Type: text/html; charset=UTF-8',
       'Content-Transfer-Encoding: 8bit',
       '',
-      htmlBody || textBody,
+      htmlBody,
+      '',
+      '--boundary_123456--',
       '',
     ].join('\r\n');
 
@@ -64,7 +72,8 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': 'message/rfc822; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error: any) {

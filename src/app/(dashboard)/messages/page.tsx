@@ -5,23 +5,15 @@ import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
-import { createNotification, NOTIFICATION_TOAST_EVENT, type InventoryNotification } from '@/lib/notifications';
 
-type MessageBox = 'inbox' | 'sent';
+type RelatedType = 'REQUEST' | 'RETURN' | 'CUSTODY' | 'MAINTENANCE' | 'PURCHASE' | 'OTHER';
 
-type RelatedType =
-  | 'REQUEST'
-  | 'RETURN'
-  | 'CUSTODY'
-  | 'MAINTENANCE'
-  | 'PURCHASE'
-  | 'OTHER';
-
-type StoredMessage = {
+type MessageItem = {
   id: string;
-  threadId: string;
-  parentMessageId?: string | null;
   senderId: string;
   receiverId: string;
   subject: string;
@@ -30,29 +22,18 @@ type StoredMessage = {
   relatedId?: string | null;
   isRead: boolean;
   createdAt: string;
+  sender?: { id: string; fullName?: string; role?: string | null; email?: string | null } | null;
+  receiver?: { id: string; fullName?: string; role?: string | null; email?: string | null } | null;
 };
 
-type MessageItem = StoredMessage & {
-  senderName?: string;
-  receiverName?: string;
-  senderRole?: string;
-  receiverRole?: string;
-};
+function formatDate(date?: string) {
+  if (!date) return '-';
+  try { return new Date(date).toLocaleString('ar-SA'); } catch { return date; }
+}
 
-type ThreadSummary = {
-  threadId: string;
-  subject: string;
-  relatedType?: RelatedType | null;
-  relatedId?: string | null;
-  lastMessageAt: string;
-  unreadCount: number;
-  lastMessagePreview: string;
-  otherPartyName: string;
-  boxType: MessageBox;
-};
-
-const MESSAGES_STORAGE_KEY = 'inventory_internal_messages';
-const MESSAGES_UPDATED_EVENT = 'inventory-messages-updated';
+function normalizeArabic(value: string) {
+  return (value || '').toLowerCase().trim().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').replace(/ء/g, '').replace(/\s+/g, ' ');
+}
 
 const relatedTypeLabels: Record<RelatedType, string> = {
   REQUEST: 'طلب مواد',
@@ -63,674 +44,199 @@ const relatedTypeLabels: Record<RelatedType, string> = {
   OTHER: 'طلب آخر',
 };
 
-function formatDate(date?: string) {
-  if (!date) return '-';
-  try {
-    return new Date(date).toLocaleString('ar-SA');
-  } catch {
-    return date;
-  }
-}
-
-function relatedBadgeClass(type?: RelatedType | null) {
-  if (type === 'REQUEST') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-  if (type === 'RETURN') return 'bg-amber-100 text-amber-700 border-amber-200';
-  if (type === 'CUSTODY') return 'bg-blue-100 text-blue-700 border-blue-200';
-  if (type === 'MAINTENANCE') return 'bg-red-100 text-red-700 border-red-200';
-  if (type === 'PURCHASE') return 'bg-amber-100 text-amber-700 border-amber-200';
-  return 'bg-gray-100 text-gray-700 border-gray-200';
-}
-
-function loadMessages(): StoredMessage[] {
-  if (typeof window === 'undefined') return [];
-  const raw = localStorage.getItem(MESSAGES_STORAGE_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveMessages(messages: StoredMessage[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(messages));
-  window.dispatchEvent(new CustomEvent(MESSAGES_UPDATED_EVENT));
-}
-
-function pushMessageNotification(
-  userId: string,
-  title: string,
-  message: string,
-  threadId: string,
-  dedupeKey: string,
-) {
-  const notification = createNotification({
-    userId,
-    kind: 'alert',
-    severity: 'critical',
-    title,
-    message,
-    link: `/messages?open=${threadId}`,
-    entityType: 'message',
-    entityId: threadId,
-    dedupeKey,
-  });
-
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(
-      new CustomEvent<InventoryNotification>(NOTIFICATION_TOAST_EVENT, {
-        detail: notification,
-      }),
-    );
-  }
-}
-
 export default function MessagesPage() {
   const searchParams = useSearchParams();
   const { user, allUsers } = useAuth();
-
-  const [activeBox, setActiveBox] = useState<MessageBox>('inbox');
-  const [threads, setThreads] = useState<ThreadSummary[]>([]);
-  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-  const [threadMessages, setThreadMessages] = useState<MessageItem[]>([]);
-  const [isComposeOpen, setIsComposeOpen] = useState(false);
-
+  const [activeBox, setActiveBox] = useState<'inbox' | 'sent'>('inbox');
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<MessageItem | null>(null);
+  const [search, setSearch] = useState('');
+  const [composeOpen, setComposeOpen] = useState(false);
   const [receiverId, setReceiverId] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [relatedType, setRelatedType] = useState<RelatedType | ''>('');
   const [relatedId, setRelatedId] = useState('');
   const [error, setError] = useState('');
-  const [replyBody, setReplyBody] = useState('');
-  const [replyError, setReplyError] = useState('');
 
-  const recipients = useMemo(() => {
-    const seen = new Set<string>();
-    return allUsers.filter((item) => {
-      if (item.id === user?.id || item.status !== 'active') return false;
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
-  }, [allUsers, user?.id]);
-
-  const hydrateThreadMessages = (threadId: string) => {
+  const fetchMessages = async (box = activeBox) => {
     if (!user?.id) return;
-
-    const stored = loadMessages()
-      .filter((msg) => msg.threadId === threadId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-
-    const hydrated: MessageItem[] = stored.map((msg) => {
-      const sender = allUsers.find((u) => u.id === msg.senderId);
-      const receiver = allUsers.find((u) => u.id === msg.receiverId);
-
-      return {
-        ...msg,
-        senderName: sender?.fullName || 'مستخدم غير معروف',
-        receiverName: receiver?.fullName || 'مستخدم غير معروف',
-        senderRole: sender?.role || '',
-        receiverRole: receiver?.role || '',
-      };
-    });
-
-    const updated = loadMessages().map((msg) => {
-      if (msg.threadId === threadId && msg.receiverId === user.id && !msg.isRead) {
-        return { ...msg, isRead: true };
-      }
-      return msg;
-    });
-
-    saveMessages(updated);
-    setThreadMessages(hydrated);
-    setSelectedThreadId(threadId);
-  };
-
-  const hydrateThreads = () => {
-    if (!user?.id) return;
-
-    const stored = loadMessages();
-    const visible =
-      activeBox === 'inbox'
-        ? stored.filter((msg) => msg.receiverId === user.id)
-        : stored.filter((msg) => msg.senderId === user.id);
-
-    const map = new Map<string, StoredMessage[]>();
-
-    for (const msg of visible) {
-      const arr = map.get(msg.threadId) || [];
-      arr.push(msg);
-      map.set(msg.threadId, arr);
-    }
-
-    const summaries: ThreadSummary[] = Array.from(map.entries()).map(([threadId, msgs]) => {
-      const sorted = [...msgs].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      const latest = sorted[0];
-      const unreadCount =
-        activeBox === 'inbox'
-          ? msgs.filter((m) => !m.isRead && m.receiverId === user.id).length
-          : 0;
-
-      const otherPartyId = activeBox === 'inbox' ? latest.senderId : latest.receiverId;
-      const otherParty = allUsers.find((u) => u.id === otherPartyId);
-
-      return {
-        threadId,
-        subject: latest.subject,
-        relatedType: latest.relatedType || null,
-        relatedId: latest.relatedId || null,
-        lastMessageAt: latest.createdAt,
-        unreadCount,
-        lastMessagePreview: latest.body,
-        otherPartyName: otherParty?.fullName || 'مستخدم غير معروف',
-        boxType: activeBox,
-      };
-    });
-
-    summaries.sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt));
-    setThreads(summaries);
-
-    if (selectedThreadId) {
-      const exists = summaries.some((t) => t.threadId === selectedThreadId);
-      if (!exists) {
-        setSelectedThreadId(null);
-        setThreadMessages([]);
-      }
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/messages?box=${box}`, {
+        cache: 'no-store',
+        headers: { 'x-user-id': user.id },
+      });
+      const json = await response.json().catch(() => null);
+      setMessages(Array.isArray(json?.data) ? json.data : []);
+    } catch {
+      setMessages([]);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => { fetchMessages(activeBox); }, [user?.id, activeBox]);
 
   useEffect(() => {
-    hydrateThreads();
+    const openId = searchParams.get('open');
+    if (!openId || !messages.length) return;
+    const match = messages.find((message) => message.id === openId);
+    if (match) setSelected(match);
+  }, [searchParams, messages]);
 
-    const refresh = () => hydrateThreads();
-    window.addEventListener(MESSAGES_UPDATED_EVENT, refresh);
-    window.addEventListener('storage', refresh);
+  const recipients = useMemo(() => allUsers.filter((item) => item.id !== user?.id && item.status === 'active'), [allUsers, user?.id]);
 
-    return () => {
-      window.removeEventListener(MESSAGES_UPDATED_EVENT, refresh);
-      window.removeEventListener('storage', refresh);
-    };
-  }, [activeBox, user?.id, allUsers.length]);
-
-  useEffect(() => {
-    const openThreadId = searchParams.get('open');
-    if (!openThreadId || !user?.id) return;
-
-    const stored = loadMessages();
-    const canOpen = stored.some(
-      (msg) =>
-        msg.threadId === openThreadId &&
-        (msg.receiverId === user.id || msg.senderId === user.id),
-    );
-
-    if (!canOpen) return;
-
-    const isInboxThread = stored.some(
-      (msg) => msg.threadId === openThreadId && msg.receiverId === user.id,
-    );
-
-    const nextBox: MessageBox = isInboxThread ? 'inbox' : 'sent';
-    setActiveBox(nextBox);
-    setSelectedThreadId(openThreadId);
-
-    setTimeout(() => {
-      hydrateThreadMessages(openThreadId);
-    }, 0);
-  }, [searchParams, user?.id, allUsers.length]);
-
-  const unreadCount = useMemo(() => {
-    return threads.reduce((sum, thread) => sum + thread.unreadCount, 0);
-  }, [threads]);
-
-  const selectedThreadSummary = useMemo(
-    () => threads.find((t) => t.threadId === selectedThreadId) || null,
-    [threads, selectedThreadId],
-  );
-
-  const handleSendNew = () => {
-    setError('');
-
-    if (!user?.id) {
-      setError('تعذر تحديد المستخدم الحالي.');
-      return;
-    }
-
-    if (!receiverId || !subject.trim() || !body.trim()) {
-      setError('يرجى استكمال المستلم والموضوع ونص الرسالة.');
-      return;
-    }
-
-    const receiver = allUsers.find((u) => u.id === receiverId && u.status === 'active');
-    if (!receiver) {
-      setError('المستلم غير صالح أو غير نشط.');
-      return;
-    }
-
-    const threadId = `thr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-    const newMessage: StoredMessage = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      threadId,
-      parentMessageId: null,
-      senderId: user.id,
-      receiverId,
-      subject: subject.trim(),
-      body: body.trim(),
-      relatedType: relatedType || null,
-      relatedId: relatedId.trim() || null,
-      isRead: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    saveMessages([newMessage, ...loadMessages()]);
-
-    pushMessageNotification(
-      receiverId,
-      'رسالة داخلية جديدة',
-      `وردتك رسالة جديدة بعنوان: ${subject.trim()}`,
-      threadId,
-      `message:new:${threadId}:${receiverId}`,
-    );
-
-    setReceiverId('');
-    setSubject('');
-    setBody('');
-    setRelatedType('');
-    setRelatedId('');
-    setError('');
-    setIsComposeOpen(false);
-    setActiveBox('sent');
-    setSelectedThreadId(threadId);
-    hydrateThreads();
-    hydrateThreadMessages(threadId);
-  };
-
-  const handleReply = () => {
-    setReplyError('');
-
-    if (!user?.id) {
-      setReplyError('تعذر تحديد المستخدم الحالي.');
-      return;
-    }
-
-    if (!selectedThreadId) {
-      setReplyError('تعذر تحديد المحادثة.');
-      return;
-    }
-
-    if (!replyBody.trim()) {
-      setReplyError('اكتب نص الرد أولًا.');
-      return;
-    }
-
-    const stored = loadMessages()
-      .filter((msg) => msg.threadId === selectedThreadId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-
-    const lastMessage = stored[stored.length - 1];
-
-    if (!lastMessage) {
-      setReplyError('تعذر العثور على الرسالة الأصلية.');
-      return;
-    }
-
-    const targetReceiverId =
-      lastMessage.senderId === user.id ? lastMessage.receiverId : lastMessage.senderId;
-
-    const receiver = allUsers.find((u) => u.id === targetReceiverId && u.status === 'active');
-    if (!receiver) {
-      setReplyError('المستلم غير صالح أو غير نشط.');
-      return;
-    }
-
-    const replyMessage: StoredMessage = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      threadId: selectedThreadId,
-      parentMessageId: lastMessage.id,
-      senderId: user.id,
-      receiverId: targetReceiverId,
-      subject: lastMessage.subject,
-      body: replyBody.trim(),
-      relatedType: lastMessage.relatedType || null,
-      relatedId: lastMessage.relatedId || null,
-      isRead: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    saveMessages([replyMessage, ...loadMessages()]);
-
-    pushMessageNotification(
-      targetReceiverId,
-      'رد جديد على مراسلة داخلية',
-      `وردك رد جديد بعنوان: ${lastMessage.subject}`,
-      selectedThreadId,
-      `message:reply:${replyMessage.id}:${targetReceiverId}`,
-    );
-
-    setReplyBody('');
-    setReplyError('');
-    hydrateThreads();
-    hydrateThreadMessages(selectedThreadId);
-  };
+  const filtered = useMemo(() => {
+    const q = normalizeArabic(search);
+    return messages.filter((message) => {
+      const otherName = activeBox === 'inbox' ? message.sender?.fullName : message.receiver?.fullName;
+      const haystack = normalizeArabic([message.subject, message.body, message.relatedId, message.relatedType, otherName].filter(Boolean).join(' '));
+      return q ? haystack.includes(q) : true;
+    });
+  }, [messages, search, activeBox]);
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="rounded-[24px] border border-surface-border bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">
-              المراسلات الداخلية
-            </h1>
-            <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
-              تواصل داخلي تفاعلي موثّق بين المدير ومسؤول المخزن والموظفين، مع الرد المباشر داخل نفس المحادثة.
-            </p>
+    <div className="space-y-4 sm:space-y-5">
+      <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">المراسلات الداخلية</h1>
+            <p className="mt-2 text-[13px] leading-7 text-[#61706f] sm:text-sm">مراسلات داخلية حقيقية بين مستخدمي المنصة، مرتبطة بالطلبات والعمليات عند الحاجة.</p>
           </div>
-
-          <Button
-            onClick={() => {
-              setIsComposeOpen(true);
-              setError('');
-            }}
-            className="w-full sm:w-auto"
-          >
-            رسالة جديدة
-          </Button>
+          <Button onClick={() => setComposeOpen(true)}>رسالة جديدة</Button>
         </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-3 sm:mt-5 sm:gap-4">
-          <div className="rounded-[20px] border border-surface-border bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
-            <div className="text-[12px] text-surface-subtle sm:text-[13px]">إجمالي المحادثات</div>
-            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
-              {threads.length}
-            </div>
-          </div>
-
-          <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-3 sm:rounded-[22px] sm:p-4">
-            <div className="text-[12px] text-emerald-700 sm:text-[13px]">غير المقروء</div>
-            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
-              {activeBox === 'inbox' ? unreadCount : '-'}
-            </div>
-          </div>
-
-          <div className="rounded-[20px] border border-surface-border bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
-            <div className="text-[12px] text-surface-subtle sm:text-[13px]">الصندوق الحالي</div>
-            <div className="mt-2 text-[18px] leading-none text-slate-900">
-              {activeBox === 'inbox' ? 'الوارد' : 'المرسل'}
-            </div>
-          </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button type="button" onClick={() => setActiveBox('inbox')} className={`rounded-full px-4 py-2 text-sm ${activeBox === 'inbox' ? 'bg-[#016564] text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>الوارد</button>
+          <button type="button" onClick={() => setActiveBox('sent')} className={`rounded-full px-4 py-2 text-sm ${activeBox === 'sent' ? 'bg-[#016564] text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>الصادر</button>
         </div>
+      </section>
 
-        <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
-          <button
-            onClick={() => {
-              setActiveBox('inbox');
-              setSelectedThreadId(null);
-              setThreadMessages([]);
-            }}
-            className={`min-h-[42px] rounded-full px-4 py-2 text-sm transition ${
-              activeBox === 'inbox'
-                ? 'bg-[#016564] text-white'
-                : 'border border-slate-200 bg-white text-slate-700'
-            }`}
-          >
-            الوارد
-          </button>
+      <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
+        <Input label="بحث" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="العنوان، النص، الرقم المرجعي، أو اسم الطرف الآخر" />
+      </section>
 
-          <button
-            onClick={() => {
-              setActiveBox('sent');
-              setSelectedThreadId(null);
-              setThreadMessages([]);
-            }}
-            className={`min-h-[42px] rounded-full px-4 py-2 text-sm transition ${
-              activeBox === 'sent'
-                ? 'bg-[#016564] text-white'
-                : 'border border-slate-200 bg-white text-slate-700'
-            }`}
-          >
-            المرسل
-          </button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <Card className="rounded-[24px] border border-surface-border p-4 shadow-soft sm:rounded-[28px]">
-          <div className="mb-3 text-[18px] text-primary">المحادثات</div>
-
-          <div className="space-y-3">
-            {threads.length === 0 ? (
-              <div className="rounded-[18px] bg-slate-50 p-6 text-center text-sm text-slate-500">
-                لا توجد محادثات في هذا الصندوق
-              </div>
-            ) : (
-              threads.map((thread, index) => (
-                <button
-                  key={`${thread.threadId}-${thread.boxType}-${index}`}
-                  onClick={() => hydrateThreadMessages(thread.threadId)}
-                  className={`w-full rounded-[20px] border p-4 text-right transition ${
-                    selectedThreadId === thread.threadId
-                      ? 'border-primary bg-surface'
-                      : 'border-surface-border bg-white hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    {thread.relatedType ? (
-                      <span
-                        className={`rounded-full border px-3 py-1 text-[11px] leading-none ${relatedBadgeClass(thread.relatedType)}`}
-                      >
-                        {relatedTypeLabels[thread.relatedType]}
-                      </span>
-                    ) : null}
-
-                    {thread.unreadCount > 0 ? (
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] leading-none text-amber-700">
-                        {thread.unreadCount} جديدة
-                      </span>
-                    ) : null}
+      <section className="space-y-3">
+        {loading ? (
+          <div className="space-y-3">{[1,2,3].map((item) => <Skeleton key={item} className="h-28 w-full rounded-[24px]" />)}</div>
+        ) : filtered.length === 0 ? (
+          <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد مراسلات مطابقة</Card>
+        ) : filtered.map((message) => {
+          const otherParty = activeBox === 'inbox' ? message.sender : message.receiver;
+          return (
+            <Card key={message.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!message.isRead && activeBox === 'inbox' ? <span className="rounded-full bg-[#7c1e3e]/10 px-3 py-1 text-[11px] text-[#7c1e3e]">غير مقروءة</span> : null}
+                    {message.relatedType ? <span className="rounded-full bg-[#016564]/10 px-3 py-1 text-[11px] text-[#016564]">{relatedTypeLabels[message.relatedType]}</span> : null}
+                    {message.relatedId ? <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-700">{message.relatedId}</span> : null}
                   </div>
-
-                  <div className="break-words text-[15px] text-slate-900">{thread.subject}</div>
-                  <div className="mt-1 break-words text-[12px] text-slate-500">
-                    {activeBox === 'inbox'
-                      ? `من: ${thread.otherPartyName}`
-                      : `إلى: ${thread.otherPartyName}`}
+                  <h3 className="text-lg font-bold text-[#152625]">{message.subject}</h3>
+                  <p className="text-sm leading-7 text-[#61706f] line-clamp-2">{message.body}</p>
+                  <div className="grid gap-2 text-sm text-[#425554] sm:grid-cols-2 xl:grid-cols-3">
+                    <div><span className="font-semibold text-[#016564]">{activeBox === 'inbox' ? 'من' : 'إلى'}: </span>{otherParty?.fullName || '—'}</div>
+                    <div><span className="font-semibold text-[#016564]">الدور: </span>{otherParty?.role || '—'}</div>
+                    <div><span className="font-semibold text-[#016564]">التاريخ: </span>{formatDate(message.createdAt)}</div>
                   </div>
-                  <div className="mt-2 line-clamp-2 text-[13px] leading-6 text-slate-600">
-                    {thread.lastMessagePreview}
-                  </div>
-                  <div className="mt-2 text-[11px] text-slate-400">
-                    {formatDate(thread.lastMessageAt)}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </Card>
-
-        <Card className="rounded-[24px] border border-surface-border p-4 shadow-soft sm:rounded-[28px]">
-          {!selectedThreadSummary ? (
-            <div className="flex min-h-[320px] items-center justify-center text-center text-slate-500 sm:min-h-[420px]">
-              اختر محادثة من القائمة لعرض الرسائل والرد عليها مباشرة
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="rounded-[20px] border border-surface-border bg-slate-50 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  {selectedThreadSummary.relatedType ? (
-                    <span
-                      className={`rounded-full border px-3 py-1 text-[11px] leading-none ${relatedBadgeClass(selectedThreadSummary.relatedType)}`}
-                    >
-                      {relatedTypeLabels[selectedThreadSummary.relatedType]}
-                    </span>
-                  ) : null}
-
-                  {selectedThreadSummary.relatedId ? (
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] leading-none text-gray-700 break-all">
-                      {selectedThreadSummary.relatedId}
-                    </span>
-                  ) : null}
                 </div>
-
-                <div className="mt-3 break-words text-[18px] text-primary sm:text-[20px]">
-                  {selectedThreadSummary.subject}
+                <div className="flex w-full flex-col gap-2 lg:w-auto">
+                  <Button className="w-full lg:w-36" onClick={async () => {
+                    setSelected(message);
+                    if (activeBox === 'inbox' && !message.isRead && user?.id) {
+                      await fetch('/api/messages', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'x-user-id': user.id },
+                        body: JSON.stringify({ id: message.id }),
+                      }).catch(() => null);
+                      fetchMessages(activeBox);
+                    }
+                  }}>فتح الرسالة</Button>
                 </div>
               </div>
+            </Card>
+          );
+        })}
+      </section>
 
-              <div className="max-h-[360px] space-y-3 overflow-y-auto rounded-[20px] border border-surface-border bg-white p-3 sm:max-h-[420px]">
-                {threadMessages.map((msg) => {
-                  const mine = msg.senderId === user?.id;
-                  return (
-                    <div key={msg.id} className={`flex ${mine ? 'justify-start' : 'justify-end'}`}>
-                      <div
-                        className={`w-full max-w-full sm:max-w-[78%] rounded-[20px] px-4 py-3 text-right ${
-                          mine
-                            ? 'bg-[#016564] text-white'
-                            : 'border border-surface-border bg-slate-50 text-slate-800'
-                        }`}
-                      >
-                        <div className={`break-words text-[12px] ${mine ? 'text-white/80' : 'text-slate-500'}`}>
-                          {msg.senderName} — {formatDate(msg.createdAt)}
-                        </div>
-                        <div className="mt-2 whitespace-pre-wrap break-words text-[14px] leading-8">
-                          {msg.body}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="rounded-[20px] border border-surface-border bg-slate-50 p-4">
-                <label className="mb-2 block text-sm text-primary">رد سريع</label>
-                <textarea
-                  rows={4}
-                  value={replyBody}
-                  onChange={(e) => setReplyBody(e.target.value)}
-                  className="w-full rounded-xl border border-surface-border bg-white p-3"
-                  placeholder="اكتب ردك هنا"
-                />
-
-                {replyError ? (
-                  <div className="mt-3 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {replyError}
-                  </div>
-                ) : null}
-
-                <div className="mt-3 flex justify-end">
-                  <Button onClick={handleReply} className="w-full sm:w-auto">
-                    إرسال الرد
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      <Modal
-        isOpen={isComposeOpen}
-        onClose={() => {
-          setIsComposeOpen(false);
-          setError('');
-        }}
-        title="رسالة داخلية جديدة"
-        size="lg"
-      >
+      <Modal isOpen={composeOpen} onClose={() => setComposeOpen(false)} title="رسالة داخلية جديدة" maxWidth="3xl">
         <div className="space-y-4">
+          {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
           <div>
-            <label className="mb-2 block text-sm text-primary">المستلم</label>
-            <select
-              value={receiverId}
-              onChange={(e) => setReceiverId(e.target.value)}
-              className="w-full rounded-xl border border-surface-border bg-white p-3"
-            >
+            <label className="mb-2 block text-sm font-semibold text-[#425554]">إلى</label>
+            <select value={receiverId} onChange={(e) => setReceiverId(e.target.value)} className="w-full rounded-2xl border border-[#d6d7d4] bg-white px-4 py-3 text-sm outline-none focus:border-[#016564]">
               <option value="">اختر المستلم</option>
-              {recipients.map((item, index) => (
-                <option key={`${item.id}-${index}`} value={item.id}>
-                  {item.fullName} —{' '}
-                  {item.role === 'manager'
-                    ? 'مدير'
-                    : item.role === 'warehouse'
-                    ? 'مسؤول مخزن'
-                    : 'موظف'}
-                </option>
-              ))}
+              {recipients.map((item) => <option key={item.id} value={item.id}>{item.fullName} — {item.role}</option>)}
             </select>
           </div>
-
-          <div>
-            <label className="mb-2 block text-sm text-primary">نوع الارتباط</label>
-            <select
-              value={relatedType}
-              onChange={(e) => setRelatedType(e.target.value as RelatedType | '')}
-              className="w-full rounded-xl border border-surface-border bg-white p-3"
-            >
-              <option value="">بدون ربط</option>
-              <option value="REQUEST">طلب مواد</option>
-              <option value="RETURN">إرجاع</option>
-              <option value="CUSTODY">عهدة</option>
-              <option value="MAINTENANCE">صيانة</option>
-              <option value="PURCHASE">شراء مباشر</option>
-              <option value="OTHER">طلب آخر</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm text-primary">الرقم المرجعي</label>
-            <input
-              value={relatedId}
-              onChange={(e) => setRelatedId(e.target.value)}
-              className="w-full rounded-xl border border-surface-border bg-white p-3"
-              placeholder="مثال: REQ-4012"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm text-primary">الموضوع</label>
-            <input
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="w-full rounded-xl border border-surface-border bg-white p-3"
-              placeholder="اكتب موضوع الرسالة"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm text-primary">نص الرسالة</label>
-            <textarea
-              rows={6}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="w-full rounded-xl border border-surface-border p-3"
-              placeholder="اكتب نص الرسالة"
-            />
-          </div>
-
-          {error ? (
-            <div className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
+          <Input label="الموضوع" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="عنوان مختصر وواضح" />
+          <Textarea label="نص الرسالة" value={body} onChange={(e) => setBody(e.target.value)} placeholder="اكتب الرسالة هنا" rows={7} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[#425554]">النوع المرتبط</label>
+              <select value={relatedType} onChange={(e) => setRelatedType(e.target.value as RelatedType | '')} className="w-full rounded-2xl border border-[#d6d7d4] bg-white px-4 py-3 text-sm outline-none focus:border-[#016564]">
+                <option value="">بدون ربط</option>
+                {Object.entries(relatedTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
             </div>
-          ) : null}
-
-          <div className="flex flex-col-reverse justify-end gap-2 border-t pt-4 sm:flex-row">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setIsComposeOpen(false);
-                setError('');
-              }}
-              className="w-full sm:w-auto"
-            >
-              إلغاء
-            </Button>
-            <Button type="button" onClick={handleSendNew} className="w-full sm:w-auto">
-              إرسال
-            </Button>
+            <Input label="الرقم المرجعي" value={relatedId} onChange={(e) => setRelatedId(e.target.value)} placeholder="مثال: MNT-2026-0004" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setComposeOpen(false)}>إلغاء</Button>
+            <Button onClick={async () => {
+              setError('');
+              if (!user?.id || !receiverId || !subject.trim() || !body.trim()) {
+                setError('يرجى تعبئة المستلم والموضوع ونص الرسالة');
+                return;
+              }
+              const response = await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': user.id },
+                body: JSON.stringify({ receiverId, subject: subject.trim(), body: body.trim(), relatedType: relatedType || undefined, relatedId: relatedId.trim() || undefined }),
+              });
+              const json = await response.json().catch(() => null);
+              if (!response.ok) {
+                setError(json?.error || 'تعذر إرسال الرسالة');
+                return;
+              }
+              setComposeOpen(false);
+              setReceiverId('');
+              setSubject('');
+              setBody('');
+              setRelatedType('');
+              setRelatedId('');
+              setActiveBox('sent');
+              fetchMessages('sent');
+            }}>إرسال الرسالة</Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.subject || 'تفاصيل الرسالة'} maxWidth="4xl">
+        {selected ? (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                [activeBox === 'inbox' ? 'من' : 'إلى', activeBox === 'inbox' ? selected.sender?.fullName || '—' : selected.receiver?.fullName || '—'],
+                ['التاريخ', formatDate(selected.createdAt)],
+                ['البريد الإلكتروني', activeBox === 'inbox' ? selected.sender?.email || '—' : selected.receiver?.email || '—'],
+                ['النوع المرتبط', selected.relatedType ? relatedTypeLabels[selected.relatedType] : '—'],
+                ['الرقم المرجعي', selected.relatedId || '—'],
+                ['حالة القراءة', selected.isRead ? 'مقروءة' : 'غير مقروءة'],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] p-3">
+                  <div className="text-xs font-bold text-[#016564]">{label}</div>
+                  <div className="mt-1 text-sm text-[#425554]">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] p-4">
+              <div className="text-xs font-bold text-[#016564]">نص الرسالة</div>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-[#425554]">{selected.body}</div>
+            </div>
+          </div>
+        ) : null}
       </Modal>
     </div>
   );

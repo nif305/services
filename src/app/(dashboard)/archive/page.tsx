@@ -2,100 +2,37 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { Skeleton } from '@/components/ui/Skeleton';
-
-type ArchiveRequest = {
-  id: string;
-  code: string;
-  purpose?: string;
-  notes?: string | null;
-  status: 'REJECTED' | 'ISSUED' | 'RETURNED' | 'PENDING' | string;
-  createdAt: string;
-  rejectionReason?: string | null;
-  requester?: {
-    fullName?: string;
-    department?: string;
-    email?: string;
-  };
-  items?: Array<{
-    id: string;
-    quantity: number;
-    item?: {
-      name?: string;
-      code?: string;
-      unit?: string | null;
-    };
-  }>;
-};
-
-type SuggestionArchive = {
-  id: string;
-  code?: string | null;
-  title?: string | null;
-  description?: string | null;
-  status?: 'APPROVED' | 'IMPLEMENTED' | 'REJECTED' | string;
-  createdAt?: string;
-  requester?: {
-    fullName?: string;
-    department?: string;
-    email?: string;
-  } | null;
-  category?: string | null;
-};
+import { useAuth } from '@/context/AuthContext';
 
 type ArchiveRow = {
   id: string;
-  type: 'materials' | 'service';
-  code: string;
+  source: 'materials' | 'service';
   title: string;
-  description: string;
+  code: string;
   status: string;
-  createdAt: string;
   requesterName: string;
   requesterDepartment: string;
-  requesterEmail: string;
-  details: string[];
-};
-
-const STATUS_MAP: Record<string, { label: string; variant: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = {
-  REJECTED: { label: 'ملغي / مرفوض', variant: 'danger' },
-  ISSUED: { label: 'تم الصرف', variant: 'success' },
-  RETURNED: { label: 'تمت الإعادة', variant: 'neutral' },
-  APPROVED: { label: 'معتمد', variant: 'success' },
-  IMPLEMENTED: { label: 'أُحيل للمراسلات', variant: 'info' },
+  description: string;
+  createdAt?: string;
+  extra?: string;
 };
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
   try {
-    return new Intl.DateTimeFormat('ar-SA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(new Date(value));
-  } catch {
-    return '—';
-  }
+    return new Intl.DateTimeFormat('ar-SA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+  } catch { return '—'; }
 }
 
 function normalizeArabic(value: string) {
-  return (value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/ؤ/g, 'و')
-    .replace(/ئ/g, 'ي')
-    .replace(/ء/g, '')
-    .replace(/\s+/g, ' ');
+  return (value || '').toLowerCase().trim().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي').replace(/ء/g, '').replace(/\s+/g, ' ');
 }
 
 export default function ArchivePage() {
+  const { user } = useAuth();
   const [rows, setRows] = useState<ArchiveRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -104,235 +41,187 @@ export default function ArchivePage() {
 
   useEffect(() => {
     let mounted = true;
-
-    async function fetchArchive() {
+    (async () => {
       setLoading(true);
       try {
-        const [requestsRes, suggestionsRes] = await Promise.all([
-          fetch('/api/requests', { cache: 'no-store' }),
-          fetch('/api/suggestions', { cache: 'no-store' }).catch(() => null),
+        const [requestsRes, returnsRes, suggestionsRes, draftsRes] = await Promise.all([
+          fetch('/api/requests?limit=200', { cache: 'no-store' }),
+          fetch('/api/returns?limit=200', { cache: 'no-store' }),
+          fetch('/api/suggestions', { cache: 'no-store' }),
+          fetch('/api/email-drafts', { cache: 'no-store' }),
+        ]);
+        const [requestsJson, returnsJson, suggestionsJson, draftsJson] = await Promise.all([
+          requestsRes.json().catch(() => null),
+          returnsRes.json().catch(() => null),
+          suggestionsRes.json().catch(() => null),
+          draftsRes.json().catch(() => null),
         ]);
 
-        const requestsJson = await requestsRes.json().catch(() => null);
-        const suggestionsJson = suggestionsRes ? await suggestionsRes.json().catch(() => null) : null;
+        const materialRows: ArchiveRow[] = [
+          ...(Array.isArray(requestsJson?.data) ? requestsJson.data : []).filter((item: any) => ['ISSUED', 'RETURNED', 'REJECTED'].includes(String(item.status || ''))).map((item: any) => ({
+            id: `request-${item.id}`,
+            source: 'materials' as const,
+            title: item.purpose || 'طلب مواد',
+            code: item.code || item.id,
+            status: item.status || '—',
+            requesterName: item.requester?.fullName || '—',
+            requesterDepartment: item.requester?.department || item.department || '—',
+            description: item.notes || item.purpose || '—',
+            createdAt: item.createdAt,
+            extra: Array.isArray(item.items) ? `عدد البنود: ${item.items.length}` : undefined,
+          })),
+          ...(Array.isArray(returnsJson?.data) ? returnsJson.data : []).filter((item: any) => ['APPROVED', 'REJECTED'].includes(String(item.status || ''))).map((item: any) => ({
+            id: `return-${item.id}`,
+            source: 'materials' as const,
+            title: 'طلب إرجاع',
+            code: item.code || item.id,
+            status: item.status || '—',
+            requesterName: item.requester?.fullName || '—',
+            requesterDepartment: item.requester?.department || '—',
+            description: item.conditionNote || item.rejectionReason || '—',
+            createdAt: item.createdAt,
+            extra: item.sourceType ? `المصدر: ${item.sourceType}` : undefined,
+          })),
+        ];
 
-        const requestRows: ArchiveRow[] = (Array.isArray(requestsJson?.data) ? requestsJson.data : [])
-          .filter((row: ArchiveRequest) => ['ISSUED', 'RETURNED', 'REJECTED'].includes(row.status))
-          .map((row: ArchiveRequest) => ({
-            id: row.id,
-            type: 'materials',
-            code: row.code,
-            title: row.purpose || 'طلب مواد',
-            description: row.notes || row.rejectionReason || '—',
-            status: row.status,
-            createdAt: row.createdAt,
-            requesterName: row.requester?.fullName || '—',
-            requesterDepartment: row.requester?.department || '—',
-            requesterEmail: row.requester?.email || '',
-            details: (row.items || []).map((item) => `${item.item?.name || 'صنف'} × ${item.quantity}`),
-          }));
+        const serviceRows: ArchiveRow[] = [
+          ...(Array.isArray(suggestionsJson?.data) ? suggestionsJson.data : []).filter((item: any) => ['IMPLEMENTED', 'REJECTED'].includes(String(item.status || ''))).map((item: any) => ({
+            id: `suggestion-${item.id}`,
+            source: 'service' as const,
+            title: item.title || 'طلب خدمي',
+            code: item.code || item.id,
+            status: item.status || '—',
+            requesterName: item.requester?.fullName || '—',
+            requesterDepartment: item.requester?.department || '—',
+            description: item.description || '—',
+            createdAt: item.createdAt,
+            extra: item.category ? `النوع: ${item.category}` : undefined,
+          })),
+          ...(Array.isArray(draftsJson?.data) ? draftsJson.data : []).filter((item: any) => ['COPIED', 'SENT'].includes(String(item.status || ''))).map((item: any) => ({
+            id: `draft-${item.id}`,
+            source: 'service' as const,
+            title: item.subject || 'مراسلة خارجية',
+            code: item.code || item.id,
+            status: item.status || '—',
+            requesterName: item.requester?.fullName || '—',
+            requesterDepartment: item.requester?.department || '—',
+            description: item.summary || '—',
+            createdAt: item.createdAt,
+            extra: item.categoryLabel ? `المسار: ${item.categoryLabel}` : undefined,
+          })),
+        ];
 
-        const suggestionRows: ArchiveRow[] = (Array.isArray(suggestionsJson?.data) ? suggestionsJson.data : [])
-          .filter((row: SuggestionArchive) => ['APPROVED', 'IMPLEMENTED', 'REJECTED'].includes(String(row.status || '')))
-          .map((row: SuggestionArchive) => ({
-            id: row.id,
-            type: 'service',
-            code: row.code || `SRV-${String(row.id).slice(-6).toUpperCase()}`,
-            title: row.title || 'طلب خدمي',
-            description: row.description || '—',
-            status: String(row.status || ''),
-            createdAt: row.createdAt || new Date().toISOString(),
-            requesterName: row.requester?.fullName || '—',
-            requesterDepartment: row.requester?.department || '—',
-            requesterEmail: row.requester?.email || '',
-            details: [String(row.category || '—')],
-          }));
-
-        const merged = [...requestRows, ...suggestionRows].sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        });
-
-        if (mounted) setRows(merged);
+        if (mounted) setRows([...serviceRows, ...materialRows].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))));
       } catch {
         if (mounted) setRows([]);
       } finally {
         if (mounted) setLoading(false);
       }
-    }
-
-    fetchArchive();
-    return () => {
-      mounted = false;
-    };
+    })();
+    return () => { mounted = false; };
   }, []);
 
   const filteredRows = useMemo(() => {
     const q = normalizeArabic(search);
-
     return rows.filter((row) => {
-      const matchesType = typeFilter === 'ALL' ? true : row.type === typeFilter;
-      const haystack = normalizeArabic(
-        [row.code, row.title, row.description, row.requesterName, row.requesterDepartment, ...row.details]
-          .filter(Boolean)
-          .join(' ')
-      );
-      const matchesSearch = q ? haystack.includes(q) : true;
-      return matchesType && matchesSearch;
+      const byType = typeFilter === 'ALL' ? true : row.source === typeFilter;
+      if (!byType) return false;
+      const haystack = normalizeArabic([row.title, row.code, row.status, row.requesterName, row.requesterDepartment, row.description, row.extra].filter(Boolean).join(' '));
+      return q ? haystack.includes(q) : true;
     });
   }, [rows, search, typeFilter]);
 
-  const grouped = useMemo(() => {
-    return {
-      materials: filteredRows.filter((row) => row.type === 'materials'),
-      service: filteredRows.filter((row) => row.type === 'service'),
-    };
-  }, [filteredRows]);
+  const stats = useMemo(() => ({
+    total: rows.length,
+    materials: rows.filter((r) => r.source === 'materials').length,
+    service: rows.filter((r) => r.source === 'service').length,
+    rejected: rows.filter((r) => String(r.status).toUpperCase().includes('REJECT')).length,
+  }), [rows]);
 
-  const stats = useMemo(() => {
-    return {
-      total: rows.length,
-      materials: rows.filter((row) => row.type === 'materials').length,
-      service: rows.filter((row) => row.type === 'service').length,
-      rejected: rows.filter((row) => row.status === 'REJECTED').length,
-    };
-  }, [rows]);
+  if (user?.role !== 'manager') {
+    return <div className="rounded-[22px] border border-red-200 bg-red-50 p-6 text-center text-red-700">غير مصرح لك بالوصول لهذه الصفحة</div>;
+  }
 
   return (
     <div className="space-y-4 sm:space-y-5">
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="space-y-2">
           <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">الأرشيف</h1>
-          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">
-            مرجع موحد للطلبات المنتهية، مع فصل واضح بين أرشيف المواد والأرشيف الخدمي.
-          </p>
+          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">أرشيف موحد يضم طلبات المواد المقفلة والطلبات الخدمية المنفذة أو المرفوضة، مع المراسلات التي تم تنزيلها أو إرسالها.</p>
         </div>
-
         <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
-            <div className="text-[12px] text-[#6f7b7a]">إجمالي السجلات</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564]">{stats.total}</div>
-          </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
-            <div className="text-[12px] text-[#6f7b7a]">أرشيف المواد</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#498983]">{stats.materials}</div>
-          </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
-            <div className="text-[12px] text-[#6f7b7a]">الأرشيف الخدمي</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284]">{stats.service}</div>
-          </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
-            <div className="text-[12px] text-[#6f7b7a]">المرفوضة</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e]">{stats.rejected}</div>
-          </Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي السجلات</div><div className="mt-1 text-[22px] font-extrabold text-[#016564]">{stats.total}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">أرشيف المواد</div><div className="mt-1 text-[22px] font-extrabold text-[#498983]">{stats.materials}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">الأرشيف الخدمي</div><div className="mt-1 text-[22px] font-extrabold text-[#d0b284]">{stats.service}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المرفوضة</div><div className="mt-1 text-[22px] font-extrabold text-[#7c1e3e]">{stats.rejected}</div></Card>
         </div>
       </section>
 
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
         <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-          <Input
-            label="بحث"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="الرمز، العنوان، مقدم الطلب، أو الأصناف"
-          />
-
+          <Input label="بحث" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="الرمز، العنوان، مقدم الطلب، أو وصف الحالة" />
           <div className="flex flex-wrap gap-2 self-end">
             {[
               ['ALL', 'الكل'],
               ['materials', 'أرشيف المواد'],
               ['service', 'الأرشيف الخدمي'],
             ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTypeFilter(key as 'ALL' | 'materials' | 'service')}
-                className={`rounded-full px-4 py-2 text-xs transition ${
-                  typeFilter === key
-                    ? 'bg-[#016564] text-white'
-                    : 'border border-slate-200 bg-white text-slate-600'
-                }`}
-              >
-                {label}
-              </button>
+              <button key={key} type="button" onClick={() => setTypeFilter(key as any)} className={`rounded-full px-4 py-2 text-xs transition ${typeFilter === key ? 'bg-[#016564] text-white' : 'border border-slate-200 bg-white text-slate-600'}`}>{label}</button>
             ))}
           </div>
         </div>
       </section>
 
-      {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((item) => (
-            <Skeleton key={item} className="h-28 w-full rounded-[24px] sm:rounded-3xl" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {[
-            { key: 'materials', title: 'أرشيف المواد', rows: grouped.materials },
-            { key: 'service', title: 'الأرشيف الخدمي', rows: grouped.service },
-          ].map((section) => (
-            <section key={section.key} className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
-              <div className="text-lg font-extrabold text-[#016564]">{section.title}</div>
-              <div className="mt-4 space-y-3">
-                {section.rows.length ? section.rows.map((row) => {
-                  const status = STATUS_MAP[row.status] || { label: row.status, variant: 'warning' as const };
-                  return (
-                    <Card key={row.id} className="rounded-[20px] border border-[#d6d7d4] p-4 shadow-none sm:rounded-2xl">
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="space-y-2 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant={status.variant}>{status.label}</Badge>
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700">{row.code}</span>
-                          </div>
-                          <div className="text-sm font-bold text-[#152625]">{row.title}</div>
-                          <div className="text-sm leading-7 text-[#304342]">{row.description}</div>
-                          <div className="text-xs text-[#61706f]">مقدم الطلب: {row.requesterName} · {row.requesterDepartment}</div>
-                        </div>
-                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                          <Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>فتح التفاصيل</Button>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                }) : <div className="rounded-2xl border border-dashed border-[#d6d7d4] p-6 text-center text-sm text-[#61706f]">لا توجد سجلات مطابقة</div>}
-              </div>
-            </section>
-          ))}
-        </div>
-      )}
-
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل السجل: ${selected.code}` : 'تفاصيل السجل'}>
-        {selected ? (
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                ['الرمز', selected.code],
-                ['نوع السجل', selected.type === 'materials' ? 'مواد' : 'خدمي'],
-                ['التاريخ', formatDate(selected.createdAt)],
-                ['مقدم الطلب', selected.requesterName],
-                ['الإدارة', selected.requesterDepartment],
-                ['البريد الإلكتروني', selected.requesterEmail || '—'],
-              ].map(([label, value], index) => (
-                <div key={`${label}-${index}`} className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
-                  <div className="text-xs font-bold text-[#016564]">{label}</div>
-                  <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{value}</div>
+      <section className="space-y-3">
+        {loading ? (
+          <div className="space-y-3">{[1,2,3].map((item) => <Skeleton key={item} className="h-32 w-full rounded-[24px]" />)}</div>
+        ) : filteredRows.length === 0 ? (
+          <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد سجلات مطابقة</Card>
+        ) : filteredRows.map((row) => (
+          <Card key={row.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-[11px] ${row.source === 'materials' ? 'bg-[#498983]/10 text-[#498983]' : 'bg-[#d0b284]/15 text-[#8a6a28]'}`}>{row.source === 'materials' ? 'مواد' : 'خدمي'}</span>
+                  <span className="rounded-full bg-[#016564]/10 px-3 py-1 text-[11px] text-[#016564]">{row.code}</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-700">{row.status}</span>
                 </div>
-              ))}
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">الوصف</div>
-                <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.description}</div>
-              </div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">التفاصيل</div>
-                <div className="mt-1 space-y-2 text-sm leading-7 text-[#304342]">
-                  {selected.details.length ? selected.details.map((item, index) => <div key={`${selected.id}-detail-${index}`}>{item}</div>) : <div>—</div>}
+                <h3 className="text-lg font-bold text-[#152625]">{row.title}</h3>
+                <p className="text-sm leading-7 text-[#61706f]">{row.description}</p>
+                <div className="grid gap-2 text-sm text-[#425554] sm:grid-cols-2 xl:grid-cols-3">
+                  <div><span className="font-semibold text-[#016564]">مقدم الطلب: </span>{row.requesterName}</div>
+                  <div><span className="font-semibold text-[#016564]">الإدارة: </span>{row.requesterDepartment}</div>
+                  <div><span className="font-semibold text-[#016564]">التاريخ: </span>{formatDate(row.createdAt)}</div>
+                  {row.extra ? <div className="sm:col-span-2 xl:col-span-3"><span className="font-semibold text-[#016564]">معلومة إضافية: </span>{row.extra}</div> : null}
                 </div>
               </div>
+              <div className="flex w-full flex-col gap-2 lg:w-auto"><button type="button" onClick={() => setSelected(row)} className="rounded-full bg-[#016564] px-5 py-2 text-sm font-bold text-white">فتح التفاصيل</button></div>
             </div>
-            <div className="flex justify-end">
-              <Button variant="ghost" onClick={() => setSelected(null)}>إغلاق</Button>
+          </Card>
+        ))}
+      </section>
+
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل الأرشيف: ${selected.code}` : 'تفاصيل الأرشيف'} maxWidth="4xl">
+        {selected ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              ['النوع', selected.source === 'materials' ? 'أرشيف المواد' : 'أرشيف خدمي'],
+              ['الرمز', selected.code],
+              ['العنوان', selected.title],
+              ['الحالة', selected.status],
+              ['مقدم الطلب', selected.requesterName],
+              ['الإدارة', selected.requesterDepartment],
+              ['التاريخ', formatDate(selected.createdAt)],
+              ['معلومة إضافية', selected.extra || '—'],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] p-3">
+                <div className="text-xs font-bold text-[#016564]">{label}</div>
+                <div className="mt-1 text-sm text-[#425554]">{value}</div>
+              </div>
+            ))}
+            <div className="sm:col-span-2 rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] p-3">
+              <div className="text-xs font-bold text-[#016564]">الوصف</div>
+              <div className="mt-1 text-sm leading-7 text-[#425554]">{selected.description || '—'}</div>
             </div>
           </div>
         ) : null}

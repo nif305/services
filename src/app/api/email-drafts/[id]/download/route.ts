@@ -4,6 +4,17 @@ import { prisma } from '@/lib/prisma';
 
 type JsonObject = Record<string, any>;
 
+function parseJsonObject(value: any): JsonObject {
+  if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function sanitizeHeader(value?: string | null) {
   return String(value || '').replace(/[\r\n]+/g, ' ').trim();
 }
@@ -28,46 +39,6 @@ function stripHtmlToText(html?: string | null) {
     .trim();
 }
 
-function parseJsonObject(value: any): JsonObject {
-  if (!value) return {};
-  if (typeof value === 'object' && !Array.isArray(value)) return value;
-  try {
-    const parsed = JSON.parse(String(value));
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function buildDraftEml(params: { to: string; cc?: string; subject: string; htmlBody: string; textBody: string }) {
-  const boundary = `----=_Draft_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  const lines = [
-    'X-Unsent: 1',
-    `To: ${sanitizeHeader(params.to)}`,
-    params.cc ? `Cc: ${sanitizeHeader(params.cc)}` : '',
-    `Subject: ${sanitizeHeader(params.subject)}`,
-    'MIME-Version: 1.0',
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/plain; charset=UTF-8',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    params.textBody,
-    '',
-    `--${boundary}`,
-    'Content-Type: text/html; charset=UTF-8',
-    'Content-Transfer-Encoding: 8bit',
-    '',
-    params.htmlBody,
-    '',
-    `--${boundary}--`,
-    '',
-  ].filter(Boolean);
-
-  return lines.join('\r\n');
-}
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -83,64 +54,69 @@ export async function GET(
       return NextResponse.json({ error: 'المسودة غير موجودة' }, { status: 404 });
     }
 
-    const relatedSuggestion = await prisma.suggestion.findFirst({
-      where: {
-        OR: [
-          { id: draft.sourceId },
-          { adminNotes: { contains: draft.id } },
-        ],
-      },
-    });
+    const suggestion = await prisma.suggestion.findFirst({ where: { id: draft.sourceId } });
 
+    const boundary = `----=_NAUSS_${Date.now()}`;
     const subject = sanitizeHeader(draft.subject || 'مسودة مراسلة');
     const to = sanitizeHeader(draft.recipient || '');
     const htmlBody = String(draft.body || '');
     const textBody = stripHtmlToText(htmlBody);
-    const cc = relatedSuggestion
-      ? await prisma.user
-          .findUnique({
-            where: { id: relatedSuggestion.requesterId },
-            select: { email: true },
-          })
-          .then((user) => String(user?.email || '').trim())
-      : '';
 
-    const eml = buildDraftEml({ to, cc, subject, htmlBody, textBody });
+    const eml = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      'X-Unsent: 1',
+      `Date: ${new Date().toUTCString()}`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      textBody,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      htmlBody,
+      '',
+      `--${boundary}--`,
+      '',
+    ].join('\r\n');
+
+    await prisma.emailDraft.update({
+      where: { id: draft.id },
+      data: {
+        status: DraftStatus.COPIED,
+        copiedAt: new Date(),
+      },
+    });
+
+    if (suggestion) {
+      const justification = parseJsonObject(suggestion.justification);
+      if (Array.isArray(justification.attachments) && justification.attachments.length > 0) {
+        justification.attachments = [];
+      }
+      await prisma.suggestion.update({
+        where: { id: suggestion.id },
+        data: {
+          status: SuggestionStatus.IMPLEMENTED,
+          justification: JSON.stringify(justification),
+        },
+      });
+    }
 
     const filename = `${subject || 'email-draft'}.eml`
       .replace(/[\\/:*?"<>|]+/g, '-')
       .slice(0, 120);
-
-    await prisma.$transaction(async (tx) => {
-      await tx.emailDraft.update({
-        where: { id: draft.id },
-        data: {
-          status: DraftStatus.COPIED,
-          copiedAt: new Date(),
-        },
-      });
-
-      if (relatedSuggestion) {
-        const justificationData = parseJsonObject(relatedSuggestion.justification);
-        await tx.suggestion.update({
-          where: { id: relatedSuggestion.id },
-          data: {
-            status: SuggestionStatus.IMPLEMENTED,
-            justification: JSON.stringify({
-              ...justificationData,
-              attachments: [],
-            }),
-          },
-        });
-      }
-    });
 
     return new NextResponse(eml, {
       status: 200,
       headers: {
         'Content-Type': 'message/rfc822; charset=utf-8',
         'Content-Disposition': `attachment; filename="${filename}"`,
-        'Cache-Control': 'no-store',
       },
     });
   } catch (error: any) {

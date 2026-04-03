@@ -73,13 +73,16 @@ export default function SuggestionsPage() {
   const canManage = user?.role === 'manager';
   const requestedType = (searchParams.get('type') || '').toUpperCase() as SuggestionType;
   const isCreateMode = searchParams.get('new') === '1';
-  const hasRequestedType = ['MAINTENANCE','CLEANING','PURCHASE','OTHER'].includes(requestedType);
-  const activeType: SuggestionType = hasRequestedType ? requestedType : 'OTHER';
+  const activeType: SuggestionType = ['MAINTENANCE','CLEANING','PURCHASE','OTHER'].includes(requestedType) ? requestedType : 'OTHER';
 
   async function fetchRows() {
     setLoading(true);
     try {
-      const query = hasRequestedType ? `?type=${activeType}` : '';
+      const params = new URLSearchParams();
+      if (requestedType && ['MAINTENANCE','CLEANING','PURCHASE','OTHER'].includes(requestedType)) {
+        params.set('type', activeType);
+      }
+      const query = params.toString() ? `?${params.toString()}` : '';
       const res = await fetch(`/api/suggestions${query}`, { cache: 'no-store' });
       const data = await res.json();
       setRows(Array.isArray(data?.data) ? data.data : []);
@@ -88,7 +91,7 @@ export default function SuggestionsPage() {
   useEffect(() => { fetchRows(); }, [searchParams.toString()]);
   useEffect(() => { if (!selected) { setAdminNotes(''); return; } setAdminNotes(parseAdminNotes((selected as any).adminNotes).note || ''); }, [selected]);
 
-  const stats = useMemo(() => ({ total: rows.length, pending: rows.filter((r)=>r.status==='PENDING').length, approved: rows.filter((r)=>r.status==='APPROVED'||r.status==='IMPLEMENTED').length, rejected: rows.filter((r)=>r.status==='REJECTED').length }), [rows]);
+  const stats = useMemo(() => ({ total: rows.length, pending: rows.filter((r)=>r.status==='PENDING' || r.status==='UNDER_REVIEW').length, approved: rows.filter((r)=>r.status==='APPROVED'||r.status==='IMPLEMENTED').length, rejected: rows.filter((r)=>r.status==='REJECTED').length }), [rows]);
   const filteredRows = useMemo(() => { const q=normalizeArabic(search); return rows.filter((row)=>{ const type=resolveType(row); const haystack=normalizeArabic([row.code,row.title,row.description,row.requester?.fullName,row.requester?.department,typeMeta(type).label,statusMeta(row.status).label].filter(Boolean).join(' ')); return q ? haystack.includes(q) : true; }); }, [rows, search]);
   const pendingRows = useMemo(() => filteredRows.filter((r)=>r.status==='PENDING' || r.status==='UNDER_REVIEW'), [filteredRows]);
   const processedRows = useMemo(() => filteredRows.filter((r)=>!(r.status==='PENDING' || r.status==='UNDER_REVIEW')), [filteredRows]);
@@ -155,6 +158,31 @@ export default function SuggestionsPage() {
     return <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{items.map((item)=><Button key={item.type} variant={activeType===item.type && isCreateMode ? 'primary' : 'ghost'} className="w-full" onClick={()=>router.push(`/suggestions?type=${item.type}&new=1`)}>{item.label}</Button>)}</div>;
   }
 
+
+  const managerHeading = canManage
+    ? activeType === 'MAINTENANCE'
+      ? 'طلبات الصيانة المرفوعة'
+      : activeType === 'CLEANING'
+      ? 'طلبات النظافة المرفوعة'
+      : activeType === 'PURCHASE'
+      ? 'طلبات الشراء المباشر المرفوعة'
+      : activeType === 'OTHER'
+      ? 'الطلبات الأخرى المرفوعة'
+      : 'الطلبات المرفوعة'
+    : 'الطلبات المرفوعة';
+
+  const managerDescription = canManage
+    ? activeType === 'MAINTENANCE'
+      ? 'متابعة واعتماد طلبات الصيانة وربطها بالمراسلات الخارجية.'
+      : activeType === 'CLEANING'
+      ? 'متابعة واعتماد طلبات النظافة وربطها بالمراسلات الخارجية.'
+      : activeType === 'PURCHASE'
+      ? 'متابعة واعتماد طلبات الشراء المباشر وربطها بالمراسلات الخارجية.'
+      : activeType === 'OTHER'
+      ? 'متابعة واعتماد الطلبات الأخرى وربطها بالمراسلات الخارجية.'
+      : 'متابعة طلبات الصيانة، النظافة، الشراء المباشر، والطلبات الأخرى بعد رفعها.'
+    : 'متابعة طلبات الصيانة، النظافة، الشراء المباشر، والطلبات الأخرى بعد رفعها.';
+
   function renderRow(row: SuggestionRow) {
     const type = resolveType(row); const typeBadge = typeMeta(type); const statusBadge = statusMeta(row.status);
     return <Card key={row.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 space-y-3"><div className="flex flex-wrap items-center gap-2"><div className="font-mono text-sm font-bold text-[#016564]">{row.code || row.id}</div><Badge variant={typeBadge.variant}>{typeBadge.label}</Badge><Badge variant={statusBadge.variant}>{statusBadge.label}</Badge></div><div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">{row.title}</div>{row.description ? <div className="break-words text-sm leading-7 text-[#304342]">{row.description}</div> : null}<div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs"><div>التاريخ: {formatDateTime(row.createdAt)}</div><div className="break-words">مقدم الطلب: {row.requester?.fullName || '—'}</div></div></div><div className="flex w-full flex-col gap-2 sm:w-auto"><Button className="w-full sm:w-auto" onClick={()=>setSelected(row)}>فتح التفاصيل</Button>{row.linkedDraftId && canManage ? <Button variant="ghost" className="w-full sm:w-auto" onClick={()=>router.push('/email-drafts')}>فتح المراسلات</Button> : null}</div></div></Card>;
@@ -163,14 +191,14 @@ export default function SuggestionsPage() {
   return <div className="space-y-4 sm:space-y-5">
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2"><h2 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">الطلبات المرفوعة</h2><p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">متابعة طلبات الصيانة، النظافة، الشراء المباشر، والطلبات الأخرى بعد رفعها.</p></div>
+          <div className="space-y-2"><h2 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">{managerHeading}</h2><p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">{managerDescription}</p></div>
           {!canManage ? <Button className="w-full sm:w-auto" onClick={()=>router.push('/suggestions?new=1&type=MAINTENANCE')}>طلب جديد</Button> : null}
         </div>
         {!canManage ? <div className="mt-4"><ServiceButtons /></div> : null}
         <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4"><Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي الطلبات</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564]">{stats.total}</div></Card><Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">بانتظار المدير</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284]">{stats.pending}</div></Card><Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المعالجة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#498983]">{stats.approved}</div></Card><Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المرفوضة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e]">{stats.rejected}</div></Card></div>
       </section>
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5"><Input label="بحث" value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="ابحث برقم الطلب أو العنوان أو اسم مقدم الطلب" /></section>
-      {canManage ? <section className="space-y-6"><div><div className="mb-3 text-lg font-bold text-[#016564]">طلبات تحتاج اعتماد</div><div className="space-y-3">{loading ? [1,2].map((i)=><Skeleton key={i} className="h-32 w-full rounded-[24px]" />) : pendingRows.length ? pendingRows.map(renderRow) : <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد طلبات بانتظار الاعتماد</Card>}</div></div><div><div className="mb-3 text-lg font-bold text-[#016564]">طلبات تمت معالجتها</div><div className="space-y-3">{loading ? null : processedRows.length ? processedRows.map(renderRow) : <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد طلبات معالجة</Card>}</div></div></section> : <section className="space-y-3">{loading ? [1,2,3].map((i)=><Skeleton key={i} className="h-32 w-full rounded-[24px]" />) : filteredRows.length ? filteredRows.map(renderRow) : <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد طلبات مطابقة</Card>}</section>}
+      {canManage ? <section className="grid gap-6 xl:grid-cols-2 xl:items-start"><div><div className="mb-3 text-lg font-bold text-[#016564]">طلبات تحتاج اعتماد</div><div className="space-y-3">{loading ? [1,2].map((i)=><Skeleton key={i} className="h-32 w-full rounded-[24px]" />) : pendingRows.length ? pendingRows.map(renderRow) : <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد طلبات بانتظار الاعتماد</Card>}</div></div><div><div className="mb-3 text-lg font-bold text-[#016564]">طلبات تمت معالجتها</div><div className="space-y-3">{loading ? [1,2].map((i)=><Skeleton key={`processed-${i}`} className="h-32 w-full rounded-[24px]" />) : processedRows.length ? processedRows.map(renderRow) : <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد طلبات معالجة</Card>}</div></div></section> : <section className="space-y-3">{loading ? [1,2,3].map((i)=><Skeleton key={i} className="h-32 w-full rounded-[24px]" />) : filteredRows.length ? filteredRows.map(renderRow) : <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد طلبات مطابقة</Card>}</section>}
       <Modal isOpen={isCreateMode} onClose={closeCreateMode} title={buildPageTitle(activeType)} size="2xl" bodyClassName="overflow-visible">
         <form onSubmit={handleCreate} className="space-y-4">
           {feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type==='error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{feedback.message}</div> : null}

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 import { CriticalAlertCenter } from '@/components/layout/CriticalAlertCenter';
@@ -360,32 +360,14 @@ function canAccess(item: NavItem, role?: string) {
   return item.roles.includes((role as AppRole) || 'user');
 }
 
-function getCurrentCategory() {
-  if (typeof window === 'undefined') return null;
-  const params = new URLSearchParams(window.location.search);
-  return params.get('category');
-}
-
-function isActive(pathname: string, href: string, searchCategory: string | null) {
+function isActive(pathname: string, href: string, searchType: string | null, isCreateMode: boolean) {
   if (href === '/dashboard') return pathname === '/dashboard';
 
-  if (href.startsWith('/suggestions?category=')) {
-    const targetCategory = href.split('category=')[1] || '';
-    return pathname === '/suggestions' && searchCategory === targetCategory;
-  }
-
   if (href.startsWith('/suggestions?type=')) {
-    const hrefQuery = href.split('?')[1] || '';
-    const hrefParams = new URLSearchParams(hrefQuery);
-    const targetType = hrefParams.get('type') || '';
-    const targetNew = hrefParams.get('new');
-    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-    const currentType = params?.get('type') || '';
-    const currentNew = params?.get('new');
-
-    if (pathname !== '/suggestions' || currentType !== targetType) return false;
-    if (targetNew != null) return currentNew === targetNew;
-    return true;
+    const params = new URLSearchParams(href.split('?')[1] || '');
+    const targetType = params.get('type') || '';
+    const targetIsCreate = params.get('new') === '1';
+    return pathname === '/suggestions' && searchType === targetType && (targetIsCreate ? isCreateMode : true);
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -432,14 +414,16 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user, logout, switchViewRole, originalUser, canUseRoleSwitch } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchCategory, setSearchCategory] = useState<string | null>(null);
+
+  const searchType = searchParams.get('type');
+  const isCreateMode = searchParams.get('new') === '1';
 
   useEffect(() => {
-    setSearchCategory(getCurrentCategory());
     setMobileOpen(false);
-  }, [pathname]);
+  }, [pathname, searchParams]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -499,7 +483,7 @@ export default function DashboardLayout({
 
               <div className="space-y-2">
                 {group.items.map((item) => {
-                  const active = isActive(pathname, item.href, searchCategory);
+                  const active = isActive(pathname, item.href, searchType, isCreateMode);
 
                   return (
                     <Link

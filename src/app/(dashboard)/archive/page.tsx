@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useAuth } from '@/context/AuthContext';
 
 type ArchiveRequest = {
   id: string;
@@ -62,10 +61,7 @@ type ArchiveRow = {
   details: string[];
 };
 
-const STATUS_MAP: Record<
-  string,
-  { label: string; variant: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }
-> = {
+const STATUS_MAP: Record<string, { label: string; variant: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = {
   REJECTED: { label: 'ملغي / مرفوض', variant: 'danger' },
   ISSUED: { label: 'تم الصرف', variant: 'success' },
   RETURNED: { label: 'تمت الإعادة', variant: 'neutral' },
@@ -100,14 +96,11 @@ function normalizeArabic(value: string) {
 }
 
 export default function ArchivePage() {
-  const { user } = useAuth();
   const [rows, setRows] = useState<ArchiveRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'materials' | 'service'>('ALL');
   const [selected, setSelected] = useState<ArchiveRow | null>(null);
-
-  const canViewAll = user?.role === 'manager' || user?.role === 'warehouse';
 
   useEffect(() => {
     let mounted = true;
@@ -190,6 +183,13 @@ export default function ArchivePage() {
     });
   }, [rows, search, typeFilter]);
 
+  const grouped = useMemo(() => {
+    return {
+      materials: filteredRows.filter((row) => row.type === 'materials'),
+      service: filteredRows.filter((row) => row.type === 'service'),
+    };
+  }, [filteredRows]);
+
   const stats = useMemo(() => {
     return {
       total: rows.length,
@@ -203,11 +203,9 @@ export default function ArchivePage() {
     <div className="space-y-4 sm:space-y-5">
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="space-y-2">
-          <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">
-            الأرشيف
-          </h1>
+          <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">الأرشيف</h1>
           <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">
-            مرجع موحد للطلبات المنتهية: طلبات المواد والإرجاعات من جهة، والطلبات الخدمية التي أغلقت أو أُحيلت من جهة أخرى.
+            مرجع موحد للطلبات المنتهية، مع فصل واضح بين أرشيف المواد والأرشيف الخدمي.
           </p>
         </div>
 
@@ -263,91 +261,78 @@ export default function ArchivePage() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((item) => (
-              <Skeleton key={item} className="h-32 w-full rounded-[24px] sm:rounded-3xl" />
-            ))}
-          </div>
-        ) : filteredRows.length === 0 ? (
-          <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">
-            لا توجد سجلات أرشيف مطابقة
-          </Card>
-        ) : (
-          filteredRows.map((row) => (
-            <Card
-              key={`${row.type}-${row.id}`}
-              className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"
-            >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="break-all font-mono text-sm font-bold text-[#016564]">{row.code}</div>
-                    <Badge variant={STATUS_MAP[row.status]?.variant || 'neutral'}>
-                      {STATUS_MAP[row.status]?.label || row.status}
-                    </Badge>
-                    <Badge variant={row.type === 'materials' ? 'info' : 'warning'}>
-                      {row.type === 'materials' ? 'مواد' : 'خدمي'}
-                    </Badge>
-                  </div>
-
-                  <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">
-                    {row.title}
-                  </div>
-
-                  <div className="break-words text-sm leading-7 text-[#304342]">{row.description}</div>
-
-                  <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
-                    <div>التاريخ: {formatDate(row.createdAt)}</div>
-                    <div className="break-words">مقدم الطلب: {row.requesterName}</div>
-                    {canViewAll ? <div className="break-words">الإدارة: {row.requesterDepartment}</div> : null}
-                  </div>
-                </div>
-
-                <div className="flex w-full flex-col gap-2 sm:w-auto">
-                  <Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>
-                    فتح التفاصيل
-                  </Button>
-                </div>
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((item) => (
+            <Skeleton key={item} className="h-28 w-full rounded-[24px] sm:rounded-3xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {[
+            { key: 'materials', title: 'أرشيف المواد', rows: grouped.materials },
+            { key: 'service', title: 'الأرشيف الخدمي', rows: grouped.service },
+          ].map((section) => (
+            <section key={section.key} className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
+              <div className="text-lg font-extrabold text-[#016564]">{section.title}</div>
+              <div className="mt-4 space-y-3">
+                {section.rows.length ? section.rows.map((row) => {
+                  const status = STATUS_MAP[row.status] || { label: row.status, variant: 'warning' as const };
+                  return (
+                    <Card key={row.id} className="rounded-[20px] border border-[#d6d7d4] p-4 shadow-none sm:rounded-2xl">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant={status.variant}>{status.label}</Badge>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] leading-none text-slate-700">{row.code}</span>
+                          </div>
+                          <div className="text-sm font-bold text-[#152625]">{row.title}</div>
+                          <div className="text-sm leading-7 text-[#304342]">{row.description}</div>
+                          <div className="text-xs text-[#61706f]">مقدم الطلب: {row.requesterName} · {row.requesterDepartment}</div>
+                        </div>
+                        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                          <Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>فتح التفاصيل</Button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                }) : <div className="rounded-2xl border border-dashed border-[#d6d7d4] p-6 text-center text-sm text-[#61706f]">لا توجد سجلات مطابقة</div>}
               </div>
-            </Card>
-          ))
-        )}
-      </section>
+            </section>
+          ))}
+        </div>
+      )}
 
-      <Modal
-        isOpen={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected ? `تفاصيل السجل ${selected.code}` : 'تفاصيل السجل'}
-      >
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل السجل: ${selected.code}` : 'تفاصيل السجل'}>
         {selected ? (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3">
-                <div className="text-xs font-bold text-[#016564]">النوع</div>
-                <div className="mt-1 text-sm leading-7 text-[#304342]">{selected.type === 'materials' ? 'أرشيف المواد' : 'الأرشيف الخدمي'}</div>
-              </div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3">
-                <div className="text-xs font-bold text-[#016564]">الحالة</div>
-                <div className="mt-1 text-sm leading-7 text-[#304342]">{STATUS_MAP[selected.status]?.label || selected.status}</div>
-              </div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2">
+              {[
+                ['الرمز', selected.code],
+                ['نوع السجل', selected.type === 'materials' ? 'مواد' : 'خدمي'],
+                ['التاريخ', formatDate(selected.createdAt)],
+                ['مقدم الطلب', selected.requesterName],
+                ['الإدارة', selected.requesterDepartment],
+                ['البريد الإلكتروني', selected.requesterEmail || '—'],
+              ].map(([label, value], index) => (
+                <div key={`${label}-${index}`} className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
+                  <div className="text-xs font-bold text-[#016564]">{label}</div>
+                  <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{value}</div>
+                </div>
+              ))}
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
                 <div className="text-xs font-bold text-[#016564]">الوصف</div>
                 <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.description}</div>
               </div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2">
-                <div className="text-xs font-bold text-[#016564]">التفاصيل المرتبطة</div>
-                <div className="mt-2 space-y-2 text-sm leading-7 text-[#304342]">
-                  {selected.details.length ? selected.details.map((detail, idx) => <div key={idx}>• {detail}</div>) : '—'}
+              <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
+                <div className="text-xs font-bold text-[#016564]">التفاصيل</div>
+                <div className="mt-1 space-y-2 text-sm leading-7 text-[#304342]">
+                  {selected.details.length ? selected.details.map((item, index) => <div key={`${selected.id}-detail-${index}`}>{item}</div>) : <div>—</div>}
                 </div>
               </div>
             </div>
-
             <div className="flex justify-end">
-              <Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">
-                إغلاق
-              </Button>
+              <Button variant="ghost" onClick={() => setSelected(null)}>إغلاق</Button>
             </div>
           </div>
         ) : null}

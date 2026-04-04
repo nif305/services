@@ -92,7 +92,6 @@ function buildEmailHtml(params: {
   categoryLabel: string;
   createdAt: Date | string;
   requesterName: string;
-  requesterDepartment: string;
   requesterEmail: string;
   requesterMobile: string;
   requesterJobTitle: string;
@@ -179,7 +178,7 @@ export async function GET(_request: NextRequest) {
     const users = requesterIds.length
       ? await prisma.user.findMany({
           where: { id: { in: requesterIds } },
-          select: { id: true, fullName: true, department: true, email: true, phone: true, position: true },
+          select: { id: true, fullName: true, department: true, email: true, mobile: true, jobTitle: true },
         })
       : [];
     const requesterMap = new Map(users.map((user) => [user.id, user]));
@@ -200,10 +199,9 @@ export async function GET(_request: NextRequest) {
         categoryLabel: requestTypeLabel,
         createdAt: suggestion?.createdAt || draft.createdAt,
         requesterName: requester?.fullName || '—',
-        requesterDepartment: 'إدارة عمليات التدريب',
         requesterEmail: requester?.email || '—',
-        requesterMobile: requester?.phone || '—',
-        requesterJobTitle: requester?.position || '—',
+        requesterMobile: requester?.mobile || '—',
+        requesterJobTitle: requester?.jobTitle || '—',
         location: String(justification.location || '—'),
         itemName: String(justification.itemName || suggestion?.title || '—'),
         description: String(suggestion?.description || '—'),
@@ -223,8 +221,8 @@ export async function GET(_request: NextRequest) {
         requesterName: requester?.fullName || '—',
         requesterDepartment: 'إدارة عمليات التدريب',
         requesterEmail: requester?.email || '—',
-        requesterMobile: requester?.phone || '—',
-        requesterJobTitle: requester?.position || '—',
+        requesterMobile: requester?.mobile || '—',
+        requesterJobTitle: requester?.jobTitle || '—',
         location: String(justification.location || '—'),
         itemName: String(justification.itemName || suggestion?.title || '—'),
         description: String(suggestion?.description || '—'),

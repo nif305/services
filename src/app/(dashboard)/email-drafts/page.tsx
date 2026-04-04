@@ -11,8 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 type EmailDraftRow = {
   id: string;
   subject: string;
-  to: string;
-  body?: string | null;
+  recipient: string;
   status: 'DRAFT' | 'COPIED' | 'SENT';
   createdAt?: string;
   copiedAt?: string | null;
@@ -22,11 +21,11 @@ type EmailDraftRow = {
   requesterEmail?: string;
   requesterMobile?: string;
   requesterDepartment?: string;
-  requesterJobTitle?: string;
   location?: string;
   itemName?: string;
   description?: string;
-  attachments?: string[];
+  attachmentLabels?: string[];
+  body?: string | null;
 };
 
 function formatDate(value?: string | null) {
@@ -57,7 +56,7 @@ function normalizeArabic(value: string) {
 
 function statusMeta(status: EmailDraftRow['status']) {
   if (status === 'DRAFT') return { label: 'مسودة', tone: 'bg-slate-100 text-slate-700' };
-  if (status === 'COPIED') return { label: 'أرشفت بعد التنزيل', tone: 'bg-[#016564]/10 text-[#016564]' };
+  if (status === 'COPIED') return { label: 'أُرشفت بعد التنزيل', tone: 'bg-[#d0b284]/15 text-[#8a6a28]' };
   return { label: 'مرسلة', tone: 'bg-emerald-100 text-emerald-700' };
 }
 
@@ -67,23 +66,17 @@ export default function EmailDraftsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<EmailDraftRow | null>(null);
-  const [errorMessage, setErrorMessage] = useState('');
 
   const isManager = user?.role === 'manager';
 
   async function fetchRows() {
     setLoading(true);
-    setErrorMessage('');
     try {
       const res = await fetch('/api/email-drafts', { cache: 'no-store' });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'تعذر جلب المراسلات الخارجية');
-      }
       setRows(Array.isArray(data?.data) ? data.data : []);
-    } catch (error: any) {
+    } catch {
       setRows([]);
-      setErrorMessage(error?.message || 'تعذر جلب المراسلات الخارجية');
     } finally {
       setLoading(false);
     }
@@ -95,18 +88,21 @@ export default function EmailDraftsPage() {
 
   const filteredRows = useMemo(() => {
     const q = normalizeArabic(search);
+
     return rows.filter((row) => {
       const haystack = normalizeArabic(
         [
           row.subject,
-          row.to,
+          row.recipient,
           row.requestCode,
           row.requestType,
           row.requesterName,
+          row.requesterEmail,
           row.requesterDepartment,
           row.location,
           row.itemName,
           row.description,
+          ...(row.attachmentLabels || []),
         ]
           .filter(Boolean)
           .join(' ')
@@ -136,7 +132,9 @@ export default function EmailDraftsPage() {
     <div className="space-y-4 sm:space-y-5">
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="space-y-2">
-          <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">المراسلات الخارجية</h1>
+          <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">
+            المراسلات الخارجية
+          </h1>
           <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">
             استعراض المسودات الخارجية الجاهزة للتنزيل بصيغة بريد قابلة للتعديل.
           </p>
@@ -153,7 +151,7 @@ export default function EmailDraftsPage() {
           </Card>
           <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
             <div className="text-[12px] text-[#6f7b7a]">المؤرشفة بعد التنزيل</div>
-            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564] sm:text-xl">{stats.copied}</div>
+            <div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284] sm:text-xl">{stats.copied}</div>
           </Card>
           <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
             <div className="text-[12px] text-[#6f7b7a]">المرسلة</div>
@@ -171,12 +169,6 @@ export default function EmailDraftsPage() {
         />
       </section>
 
-      {errorMessage ? (
-        <Card className="rounded-[24px] border border-red-200 bg-red-50 p-4 text-sm text-red-700 shadow-sm sm:rounded-[28px]">
-          {errorMessage}
-        </Card>
-      ) : null}
-
       <section className="space-y-3">
         {loading ? (
           <div className="space-y-3">
@@ -191,28 +183,45 @@ export default function EmailDraftsPage() {
         ) : (
           filteredRows.map((row) => {
             const status = statusMeta(row.status);
+
             return (
-              <Card key={row.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5">
+              <Card
+                key={row.id}
+                className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"
+              >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-3 py-1 text-[11px] leading-none ${status.tone}`}>{status.label}</span>
-                      <span className="font-mono text-sm font-bold text-[#016564]">{row.requestCode || '—'}</span>
+                      <span className={`rounded-full px-3 py-1 text-[11px] leading-none ${status.tone}`}>
+                        {status.label}
+                      </span>
+                      <span className="rounded-full bg-[#016564]/8 px-3 py-1 text-[11px] leading-none text-[#016564]">
+                        {row.requestType || 'مراسلة خارجية'}
+                      </span>
+                      <span className="text-sm font-bold text-[#016564]">{row.requestCode || '—'}</span>
                     </div>
 
-                    <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">{row.requestType || row.subject}</div>
-                    <div className="break-words text-sm leading-7 text-[#304342]">{row.description || '—'}</div>
+                    <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">
+                      {row.subject}
+                    </div>
 
                     <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
                       <div>مقدم الطلب: {row.requesterName || '—'}</div>
                       <div>الإدارة: {row.requesterDepartment || '—'}</div>
                       <div>الموقع: {row.location || '—'}</div>
                       <div>العنصر المطلوب: {row.itemName || '—'}</div>
+                      <div className="sm:col-span-2 break-all">إلى: {row.recipient || '—'}</div>
+                      <div>الإنشاء: {formatDate(row.createdAt)}</div>
+                      <div>الأرشفة بعد التنزيل: {formatDate(row.copiedAt)}</div>
                     </div>
+
+                    <div className="text-sm leading-7 text-[#304342]">{row.description || '—'}</div>
                   </div>
 
                   <div className="flex w-full flex-col gap-2 sm:w-auto">
-                    <Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>فتح التفاصيل</Button>
+                    <Button className="w-full sm:w-auto" onClick={() => setSelected(row)}>
+                      فتح التفاصيل
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -221,7 +230,11 @@ export default function EmailDraftsPage() {
         )}
       </section>
 
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل المراسلة: ${selected.requestType || selected.subject}` : 'تفاصيل المراسلة'}>
+      <Modal
+        isOpen={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected ? `تفاصيل المراسلة: ${selected.subject}` : 'تفاصيل المراسلة'}
+      >
         {selected ? (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -239,7 +252,7 @@ export default function EmailDraftsPage() {
               </div>
               <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
                 <div className="text-xs font-bold text-[#016564]">إلى</div>
-                <div className="mt-1 break-all text-sm leading-7 text-[#304342]">{selected.to}</div>
+                <div className="mt-1 break-all text-sm leading-7 text-[#304342]">{selected.recipient || '—'}</div>
               </div>
               <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:rounded-2xl">
                 <div className="text-xs font-bold text-[#016564]">مقدم الطلب</div>
@@ -267,11 +280,19 @@ export default function EmailDraftsPage() {
               </div>
               <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
                 <div className="text-xs font-bold text-[#016564]">المرفقات المرفوعة</div>
-                <div className="mt-1 text-sm leading-7 text-[#304342]">{selected.attachments?.length ? selected.attachments.join('، ') : '—'}</div>
+                <div className="mt-1 text-sm leading-7 text-[#304342]">
+                  {selected.attachmentLabels && selected.attachmentLabels.length
+                    ? selected.attachmentLabels.join('، ')
+                    : 'لا توجد مرفقات'}
+                </div>
               </div>
               <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2 sm:rounded-2xl">
-                <div className="text-xs font-bold text-[#016564]">المذكرة</div>
-                <div dir="rtl" className="mt-3 overflow-x-auto rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] p-4" dangerouslySetInnerHTML={{ __html: selected.body || '<div>—</div>' }} />
+                <div className="text-xs font-bold text-[#016564]">المذكرة الجاهزة للإرسال</div>
+                <div
+                  dir="rtl"
+                  className="mt-3 overflow-x-auto rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] p-4"
+                  dangerouslySetInnerHTML={{ __html: selected.body || '<div>—</div>' }}
+                />
               </div>
             </div>
 
@@ -293,13 +314,13 @@ export default function EmailDraftsPage() {
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `${selected.requestCode || selected.subject}.eml`;
+                    a.download = `${selected.requestCode || 'email-draft'}.eml`;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
                     window.URL.revokeObjectURL(url);
                     setSelected(null);
-                    await fetchRows();
+                    fetchRows();
                   } catch (error: any) {
                     alert(error?.message || 'تعذر تنزيل ملف المراسلة حاليًا');
                   }
@@ -307,7 +328,10 @@ export default function EmailDraftsPage() {
               >
                 تنزيل .eml
               </Button>
-              <Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">إغلاق</Button>
+
+              <Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">
+                إغلاق
+              </Button>
             </div>
           </div>
         ) : null}

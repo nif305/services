@@ -135,21 +135,21 @@ async function generateLinkedCode(category: SuggestionCategory) {
   for (const row of suggestionRows) {
     const parsed = parseJsonObject(row.adminNotes);
     const code = String(parsed.linkedCode || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(new RegExp(`^${prefix}-${year}-(\\d{4})$`));
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
   const maintenanceRows = await prisma.maintenanceRequest.findMany({ select: { code: true } });
   for (const row of maintenanceRows) {
     const code = String(row.code || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(new RegExp(`^${prefix}-${year}-(\\d{4})$`));
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
   const purchaseRows = await prisma.purchaseRequest.findMany({ select: { code: true } });
   for (const row of purchaseRows) {
     const code = String(row.code || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(new RegExp(`^${prefix}-${year}-(\\d{4})$`));
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
@@ -184,12 +184,13 @@ function buildExternalEmailHtml(params: {
 }) {
   const rows = [
     ['رقم الطلب', params.requestCode],
-    ['نوع الطلب', params.requestTitle],
+    ['عنوان الطلب', params.requestTitle],
     ['التاريخ', new Intl.DateTimeFormat('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(params.createdAt))],
     ['مقدم الطلب', params.requesterName],
-    ['الإدارة', 'إدارة عمليات التدريب'],
+    ['الإدارة', params.requesterDepartment || '—'],
     ['البريد الإلكتروني', params.requesterEmail || '—'],
     ['الموقع', params.location || '—'],
+    ['الكمية', params.quantity ? String(params.quantity) : '—'],
     ['العنصر المطلوب', params.itemName || '—'],
     ['سبب الطلب', params.description || '—'],
   ];
@@ -199,13 +200,12 @@ function buildExternalEmailHtml(params: {
   const tableRows = rows.map(([label, value]) => `<tr><td style="padding:10px 12px;border:1px solid #d6d7d4;font-weight:700;background:#f8fbfb;width:180px;">${label}</td><td style="padding:10px 12px;border:1px solid #d6d7d4;">${value}</td></tr>`).join('');
 
   return `
-  <div dir="rtl" style="font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937;line-height:2;">
+  <div dir="rtl" style="font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937;line-height:1.9;">
     <div style="font-size:18px;font-weight:700;margin-bottom:12px;">${params.recipientLabel}</div>
     <div style="margin-bottom:12px;">السلام عليكم ورحمة الله وبركاته،</div>
-    <div style="margin-bottom:12px;">تحية طيبة وبعد،</div>
-    <div style="margin-bottom:12px;">نفيد سعادتكم بأن الموظف <strong>${params.requesterName || 'مقدم الطلب'}</strong> من <strong>إدارة عمليات التدريب</strong> رفع ${params.requestTitle}، ونأمل من سعادتكم التكرم بالاطلاع على التفاصيل الآتية واتخاذ ما يلزم حيال المعالجة في أقرب وقت ممكن.</div>
+    <div style="margin-bottom:12px;">تهديكم إدارة عمليات التدريب أطيب التحيات، وبناءً على إفادة الموظف الموضح اسمه أدناه، نأمل التكرم بالاطلاع على الطلب التالي واتخاذ ما يلزم حيال معالجته:</div>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">${tableRows}</table>
-    <div style="margin-top:14px;">وتفضلوا بقبول خالص التحية والتقدير.</div>
+    <div style="margin-top:14px;">نأمل منكم التكرم بتوجيه من يلزم لمعالجة المطلوب، وتقبلوا خالص التحية.</div>
     <div style="margin-top:18px;font-weight:700;">فريق عمل إدارة عمليات التدريب<br/>وكالة الجامعة للتدريب</div>
   </div>`;
 }
@@ -536,7 +536,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const recipient = buildRecipients(category, externalRecipient);
-    const recipientLabel = category === 'PURCHASE' ? 'سعادة الأستاذ نواف المحارب سلمه الله' : (category === 'MAINTENANCE' || category === 'CLEANING') ? 'سعادة مدير إدارة الخدمات المساندة سلمه الله' : 'إلى من يهمه الأمر';
+    const recipientLabel = category === 'PURCHASE' ? 'سعادة الأستاذ نواف المحارب سلمه الله' : 'سعادة مدير الإدارة المختصة سلمه الله';
 
     let linkedDraftId = String(adminData.linkedDraftId || '');
     let draft = null as any;

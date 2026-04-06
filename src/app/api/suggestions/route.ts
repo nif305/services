@@ -172,10 +172,9 @@ function buildExternalEmailHtml(params: {
   requestTitle: string;
   createdAt: Date;
   requesterName: string;
-  requesterDepartment: string;
   requesterEmail: string;
   requesterMobile?: string;
-  requesterJobTitle?: string;
+  requesterExtension?: string;
   location?: string;
   itemName?: string;
   description: string;
@@ -183,43 +182,34 @@ function buildExternalEmailHtml(params: {
   adminNotes?: string;
   attachments?: string[];
 }) {
-  const createdAtLabel = new Intl.DateTimeFormat('ar-SA', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'Asia/Riyadh',
-  }).format(new Date(params.createdAt));
-
   const rows = [
     ['رقم الطلب', params.requestCode],
-    ['نوع الطلب', params.requestTitle],
-    ['تاريخ الرفع', createdAtLabel],
-    ['مقدم الطلب', params.requesterName || '—'],
+    ['عنوان الطلب', params.requestTitle],
+    ['التاريخ', new Intl.DateTimeFormat('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(params.createdAt))],
+    ['مقدم الطلب', params.requesterName],
     ['الإدارة', 'إدارة عمليات التدريب'],
     ['البريد الإلكتروني', params.requesterEmail || '—'],
+    ['رقم التحويلة', params.requesterExtension || '—'],
     ['الجوال', params.requesterMobile || '—'],
-    ['الصفة الوظيفية', params.requesterJobTitle || '—'],
     ['الموقع', params.location || '—'],
     ['العنصر المطلوب', params.itemName || '—'],
-    ['بيان الطلب', params.description || '—'],
+    ['سبب الطلب', params.description || '—'],
   ];
   if (params.justification) rows.push(['إيضاحات إضافية', params.justification]);
-  if (params.adminNotes) rows.push(['ملاحظات الاعتماد', params.adminNotes]);
-  if (params.attachments?.length) rows.push(['المرفقات المرفوعة', params.attachments.join('، ')]);
+  if (params.adminNotes) rows.push(['توجيه المدير', params.adminNotes]);
+  if (params.attachments?.length) rows.push(['المرفقات', params.attachments.join('، ')]);
 
-  const tableRows = rows
-    .map(([label, value]) => `<tr><td style="padding:10px 12px;border:1px solid #d6d7d4;font-weight:700;background:#f8fbfb;width:180px;vertical-align:top;">${label}</td><td style="padding:10px 12px;border:1px solid #d6d7d4;">${value}</td></tr>`)
-    .join('');
+  const tableRows = rows.map(([label, value]) => `<tr><td style="padding:10px 12px;border:1px solid #d6d7d4;font-weight:700;background:#f8fbfb;width:180px;">${label}</td><td style="padding:10px 12px;border:1px solid #d6d7d4;">${value}</td></tr>`).join('');
 
   return `
   <div dir="rtl" style="font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937;line-height:2;">
     <div style="font-size:18px;font-weight:700;margin-bottom:12px;">${params.recipientLabel}</div>
     <div style="margin-bottom:12px;">السلام عليكم ورحمة الله وبركاته،</div>
-    <div style="margin-bottom:12px;">وبعد،</div>
-    <div style="margin-bottom:12px;">أرفع إلى سعادتكم هذا الطلب المقدم من الموظف <strong>${params.requesterName || 'مقدم الطلب'}</strong> التابع لـ<strong>إدارة عمليات التدريب</strong>، بشأن <strong>${params.requestTitle}</strong>، آملين التكرم بالاطلاع على البيانات الواردة أدناه واتخاذ ما ترونه مناسبًا حيال المعالجة والمتابعة.</div>
-    <div style="margin-bottom:12px;">وقد أُرفقت المستندات أو الملفات المؤيدة للطلب متى كانت متاحة، دعمًا لاستكمال الإجراء بالوجه المطلوب.</div>
+    <div style="margin-bottom:12px;">أما بعد،</div>
+    <div style="margin-bottom:12px;">تهديكم إدارة عمليات التدريب أطيب التحايا، وتحيط سعادتكم علمًا بأن الموظف/ <strong>${params.requesterName || 'مقدم الطلب'}</strong> قد رفع <strong>${params.requestTitle}</strong>، ونأمل من سعادتكم التكرم بالاطلاع على البيانات الموضحة أدناه واتخاذ ما يلزم حيال المعالجة بالسرعة المناسبة.</div>
+    ${params.attachments?.length ? `<div style="margin-bottom:12px;">كما نود الإحاطة بأن الطلب مرفق به ${params.attachments.length === 1 ? 'مرفق داعم واحد' : `عدد (${params.attachments.length}) من المرفقات الداعمة`} لتيسير التحقق والمعالجة.</div>` : ''}
     <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">${tableRows}</table>
-    <div style="margin-top:14px;">وتفضلوا بقبول فائق التقدير والاحترام.</div>
+    <div style="margin-top:14px;">وتفضلوا بقبول خالص التحية والتقدير.</div>
     <div style="margin-top:18px;font-weight:700;">فريق عمل إدارة عمليات التدريب<br/>وكالة الجامعة للتدريب</div>
   </div>`;
 }
@@ -261,6 +251,16 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
   const justificationData = parseJsonObject(item.justification);
   const adminData = parseJsonObject(item.adminNotes);
   const requester = requesterMap.get(item.requesterId) || null;
+  const attachments = Array.isArray(justificationData.attachments)
+    ? justificationData.attachments.map((file: any, index: number) => {
+        const type = String(file?.contentType || file?.type || '').toLowerCase();
+        const name = String(file?.filename || file?.name || '').toLowerCase();
+        if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `صورة مرفقة ${index + 1}`;
+        if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `فيديو مرفق ${index + 1}`;
+        if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ملف PDF مرفق ${index + 1}`;
+        return `مرفق ${index + 1}`;
+      })
+    : [];
   return {
     ...item,
     code: justificationData.publicCode || adminData.linkedCode || item.id,
@@ -268,9 +268,12 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
     itemName: justificationData.itemName || '',
     quantity: justificationData.quantity || null,
     location: justificationData.location || '',
+    requestSource: justificationData.requestSource || '',
+    attachments,
     targetDepartment: adminData.targetDepartment || justificationData.targetDepartment || null,
     linkedDraftId: adminData.linkedDraftId || null,
     linkedCode: adminData.linkedCode || null,
+    adminNotesText: adminData.adminNotes || '',
   };
 }
 
@@ -288,7 +291,7 @@ export async function GET(request: NextRequest) {
     const suggestions = await prisma.suggestion.findMany({ where, orderBy: { createdAt: 'desc' } });
     const users = await prisma.user.findMany({
       where: { id: { in: [...new Set(suggestions.map((s) => s.requesterId))] } },
-      select: { id: true, fullName: true, department: true, email: true, roles: true },
+      select: { id: true, fullName: true, department: true, email: true, mobile: true, jobTitle: true, roles: true },
     });
     const requesterMap = new Map(users.map((u) => [u.id, { ...u, role: u.roles?.[0] || Role.USER }]));
     const rows = suggestions.map((item) => mapSuggestionRow(item, requesterMap));
@@ -408,7 +411,7 @@ export async function PATCH(request: NextRequest) {
 
     const requester = await prisma.user.findUnique({
       where: { id: suggestion.requesterId },
-      select: { id: true, fullName: true, department: true, email: true },
+      select: { id: true, fullName: true, department: true, email: true, mobile: true, jobTitle: true },
     });
 
     const justificationData = parseJsonObject(suggestion.justification);
@@ -416,7 +419,6 @@ export async function PATCH(request: NextRequest) {
     const category = normalizeCategory(suggestion.category);
     const publicCode = String(justificationData.publicCode || adminData.publicCode || await generatePublicCode(category));
     const itemName = String(justificationData.itemName || '').trim();
-    const quantity = Math.max(1, Number(justificationData.quantity || 1));
     const location = String(justificationData.location || '').trim();
     const externalRecipient = String(justificationData.externalRecipient || '').trim();
 
@@ -568,33 +570,27 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
-    const attachmentLabels = Array.isArray(justification.attachments)
-      ? justification.attachments.map((file: any, index: number) => {
-          const type = String(file?.contentType || file?.type || '').toLowerCase();
-          const name = String(file?.filename || file?.name || '').toLowerCase();
-          if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `صورة مرفقة ${index + 1}`;
-          if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `فيديو مرفق ${index + 1}`;
-          if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ملف PDF مرفق ${index + 1}`;
-          return `مرفق ${index + 1}`;
-        })
-      : [];
-
     const draftBody = buildExternalEmailHtml({
       recipientLabel,
       requestCode: linkedCode,
       requestTitle: suggestion.title,
       createdAt: suggestion.createdAt,
       requesterName: requester?.fullName || '—',
-      requesterDepartment: requester?.department || '—',
       requesterEmail: requester?.email || '—',
       requesterMobile: requester?.mobile || '—',
-      requesterJobTitle: requester?.jobTitle || '—',
+      requesterExtension: requester?.jobTitle || '—',
       location,
       itemName,
       description: suggestion.description,
-      justification: String(justification.justification || justification.reason || '').trim() || undefined,
       adminNotes,
-      attachments: attachmentLabels,
+      attachments: Array.isArray(justificationData.attachments) ? justificationData.attachments.map((file: any, index: number) => {
+        const type = String(file?.contentType || file?.type || '').toLowerCase();
+        const name = String(file?.filename || file?.name || '').toLowerCase();
+        if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `صورة مرفقة ${index + 1}`;
+        if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `فيديو مرفق ${index + 1}`;
+        if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ملف PDF مرفق ${index + 1}`;
+        return `مرفق ${index + 1}`;
+      }) : [],
     });
 
     if (draft) {

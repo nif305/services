@@ -181,7 +181,7 @@ export default function EmailDraftsPage() {
                     <div className="text-[15px] font-bold leading-7 text-[#152625] sm:text-base break-words">{row.subject}</div>
                     <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
                       <div>مقدم الطلب: {row.requesterName}</div>
-                      <div>الإدارة: {row.requesterDepartment}</div>
+                      <div>الإدارة: إدارة عمليات التدريب</div>
                       <div>الموقع: {row.location}</div>
                       <div>العنصر المطلوب: {row.itemName}</div>
                     </div>
@@ -198,16 +198,16 @@ export default function EmailDraftsPage() {
         )}
       </section>
 
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل المراسلة: ${selected.subject}` : 'تفاصيل المراسلة'} size="full" bodyClassName="overflow-visible">
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل المراسلة: ${selected.subject}` : 'تفاصيل المراسلة'} size="full">
         {selected ? (
-          <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
+          <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   ['الموضوع', selected.subject],
                   ['رقم الطلب', selected.requestCode],
                   ['نوع الطلب', selected.requestTypeLabel],
-                  ['الجهة الموجه إليها', selected.to || '—'],
+                  ['الجهة الموجّه إليها', selected.to || '—'],
                   ['مقدم الطلب', selected.requesterName],
                   ['الإدارة', 'إدارة عمليات التدريب'],
                   ['البريد الإلكتروني', selected.requesterEmail],

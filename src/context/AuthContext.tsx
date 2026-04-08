@@ -309,6 +309,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(nextUser);
       saveStoredUser(AUTH_STORAGE_KEY, nextUser);
+
+      if (typeof window !== 'undefined') {
+        const targetPath = role === 'manager' ? '/dashboard' : role === 'warehouse' ? '/inventory' : '/dashboard';
+        window.location.assign(targetPath);
+      }
     },
     [originalUser]
   );

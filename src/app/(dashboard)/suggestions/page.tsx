@@ -25,17 +25,19 @@ type SuggestionRow = {
   category?: SuggestionType;
   status: SuggestionStatus;
   createdAt?: string;
-  itemName?: string | null;
-  quantity?: number | null;
-  location?: string | null;
-  requestSource?: string | null;
+  itemName?: string;
+  location?: string;
+  requestSource?: string;
+  programName?: string;
+  area?: string;
   attachments?: string[];
+  adminNotes?: string;
   requester?: {
     fullName?: string;
     department?: string;
     email?: string;
     mobile?: string;
-    jobTitle?: string;
+    extension?: string;
   } | null;
 };
 
@@ -63,11 +65,9 @@ function normalizeArabic(value: string) { return (value || '').toLowerCase().tri
 function resolveType(row: SuggestionRow): SuggestionType { return (row.type || row.category || 'OTHER') as SuggestionType; }
 function typeMeta(type: SuggestionType) { if (type==='MAINTENANCE') return {label:'طلب صيانة',variant:'danger' as const}; if (type==='CLEANING') return {label:'طلب نظافة',variant:'info' as const}; if (type==='PURCHASE') return {label:'طلب شراء مباشر',variant:'warning' as const}; return {label:'طلبات أخرى',variant:'neutral' as const}; }
 function statusMeta(status: SuggestionStatus) { if (status==='PENDING') return {label:'بانتظار المدير',variant:'warning' as const}; if (status==='UNDER_REVIEW') return {label:'قيد المراجعة',variant:'info' as const}; if (status==='APPROVED') return {label:'معتمد',variant:'success' as const}; if (status==='REJECTED') return {label:'مرفوض',variant:'danger' as const}; return {label:'تمت المعالجة',variant:'neutral' as const}; }
-function buildPageTitle(type: SuggestionType) { if (type==='MAINTENANCE') return 'طلبات الصيانة المرفوعة'; if (type==='CLEANING') return 'طلبات النظافة المرفوعة'; if (type==='PURCHASE') return 'طلبات الشراء المباشر المرفوعة'; return 'الطلبات الأخرى المرفوعة'; }
+function buildPageTitle(type: SuggestionType) { if (type==='MAINTENANCE') return 'طلب صيانة'; if (type==='CLEANING') return 'طلب نظافة'; if (type==='PURCHASE') return 'طلب شراء مباشر'; return 'طلب آخر'; }
 function buildDefaultRecipient(type: SuggestionType) { if (type==='PURCHASE') return 'wa.n1@nauss.edu.sa'; if (type==='MAINTENANCE' || type==='CLEANING') return 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa'; return ''; }
 function parseAdminNotes(value?: string | null) { if (!value) return { note:'', linkedCode:'', linkedDraftId:'' }; try { const parsed = JSON.parse(value); return { note: parsed?.adminNotes || '', linkedCode: parsed?.linkedCode || parsed?.publicCode || '', linkedDraftId: parsed?.linkedDraftId || '' }; } catch { return { note:String(value), linkedCode:'', linkedDraftId:'' }; } }
-
-function attachmentText(values?: string[] | null) { return Array.isArray(values) && values.length ? values.join('، ') : 'لا توجد مرفقات'; }
 
 export default function SuggestionsPage() {
   const { user } = useAuth();
@@ -106,7 +106,7 @@ export default function SuggestionsPage() {
   useEffect(() => { if (!selected) { setAdminNotes(''); return; } setAdminNotes(parseAdminNotes((selected as any).adminNotes).note || ''); }, [selected]);
 
   const stats = useMemo(() => ({ total: rows.length, pending: rows.filter((r)=>r.status==='PENDING' || r.status==='UNDER_REVIEW').length, approved: rows.filter((r)=>r.status==='APPROVED'||r.status==='IMPLEMENTED').length, rejected: rows.filter((r)=>r.status==='REJECTED').length }), [rows]);
-  const filteredRows = useMemo(() => { const q=normalizeArabic(search); return rows.filter((row)=>{ const type=resolveType(row); const haystack=normalizeArabic([row.code,row.title,row.description,row.requester?.fullName,row.requester?.department,typeMeta(type).label,statusMeta(row.status).label].filter(Boolean).join(' ')); return q ? haystack.includes(q) : true; }); }, [rows, search]);
+  const filteredRows = useMemo(() => { const q=normalizeArabic(search); return rows.filter((row)=>{ const type=resolveType(row); const haystack=normalizeArabic([row.code,row.title,row.description,row.requester?.fullName,row.requester?.department,row.itemName,row.location,row.requestSource,typeMeta(type).label,statusMeta(row.status).label].filter(Boolean).join(' ')); return q ? haystack.includes(q) : true; }); }, [rows, search]);
   const pendingRows = useMemo(() => filteredRows.filter((r)=>r.status==='PENDING' || r.status==='UNDER_REVIEW'), [filteredRows]);
   const processedRows = useMemo(() => filteredRows.filter((r)=>!(r.status==='PENDING' || r.status==='UNDER_REVIEW')), [filteredRows]);
 
@@ -231,13 +231,13 @@ export default function SuggestionsPage() {
       </Modal>
       <Modal isOpen={!!selected} onClose={()=>setSelected(null)} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="full" bodyClassName="overflow-visible">
         {selected ? <div className="space-y-5">{feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type==='error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{feedback.message}</div> : null}
-          <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
-            <div className="space-y-4 rounded-[24px] border border-[#d6d7d4] bg-[#f8fbfb] p-4 sm:p-5">
-              <div className="text-base font-extrabold text-[#016564]">بيانات الطلب قبل الاعتماد</div>
+          <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="space-y-4 rounded-[22px] border border-[#e7ebea] bg-white p-4 sm:p-5">
+              <div className="text-sm font-extrabold text-[#016564]">بيانات الطلب الأساسية</div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
-                  ['رقم الطلب', selected.code || selected.id],
-                  ['نوع الطلب', typeMeta(resolveType(selected)).label],
+                  ['الرمز', selected.code || selected.id],
+                  ['النوع', typeMeta(resolveType(selected)).label],
                   ['الحالة', statusMeta(selected.status).label],
                   ['التاريخ', formatDateTime(selected.createdAt)],
                   ['العنوان', selected.title],
@@ -246,28 +246,27 @@ export default function SuggestionsPage() {
                   ['الإدارة', 'إدارة عمليات التدريب'],
                   ['البريد الإلكتروني', selected.requester?.email || '—'],
                   ['الجوال', selected.requester?.mobile || '—'],
-                  ['رقم التحويلة', selected.requester?.jobTitle || '—'],
+                  ['رقم التحويلة', selected.requester?.extension || '—'],
                   ['الموقع', selected.location || '—'],
-                  ['العنصر المطلوب', selected.itemName || '—'],
+                  ['العنصر المطلوب', selected.itemName || selected.area || '—'],
                   ['مصدر الحاجة', selected.requestSource || '—'],
                 ].map(([label, value]) => (
-                  <div key={label} className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3">
+                  <div key={label} className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3">
                     <div className="text-xs font-bold text-[#016564]">{label}</div>
                     <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{value || '—'}</div>
                   </div>
                 ))}
-                <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2">
+                <div className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 sm:col-span-2">
                   <div className="text-xs font-bold text-[#016564]">المرفقات المرفوعة</div>
-                  <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{attachmentText(selected.attachments)}</div>
+                  <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{Array.isArray(selected.attachments) && selected.attachments.length ? selected.attachments.join('، ') : 'لا توجد مرفقات'}</div>
                 </div>
               </div>
             </div>
-            {canManage && (selected.status==='PENDING' || selected.status==='UNDER_REVIEW') ? <div className="space-y-3 rounded-[24px] border border-[#d6d7d4] bg-white p-4 sm:p-5">
-              <div className="text-base font-extrabold text-[#016564]">قرار المدير</div>
-              <div className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm leading-7 text-[#304342]">بعد مراجعة بيانات الطلب كاملة ومرفقاته – عند وجودها – يمكن اعتماد الطلب أو رفضه مع تدوين التوجيه الإداري المناسب.</div>
-              <textarea value={adminNotes} onChange={(e)=>setAdminNotes(e.target.value)} rows={6} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-8 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب ملاحظة القرار أو التوجيه الإداري" />
-              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button variant="danger" className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('reject')}>رفض الطلب</Button><Button className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('approve')}>اعتماد الطلب</Button></div>
-            </div> : <div className="space-y-3 rounded-[24px] border border-[#d6d7d4] bg-white p-4 sm:p-5"><div className="text-base font-extrabold text-[#016564]">حالة الطلب</div><div className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm leading-7 text-[#304342]">تمت معالجة هذا الطلب مسبقًا، ويمكنكم مراجعة المراسلات الخارجية المرتبطة به عند الحاجة.</div></div>}
+            <div className="space-y-3 rounded-[22px] border border-[#e7ebea] bg-[#f8fbfb] p-4 sm:p-5">
+              <div className="text-sm font-extrabold text-[#016564]">قرار المدير</div>
+              <textarea value={adminNotes} onChange={(e)=>setAdminNotes(e.target.value)} rows={8} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب ملاحظة القرار أو التوجيه" />
+              {canManage && (selected.status==='PENDING' || selected.status==='UNDER_REVIEW') ? <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button variant="danger" className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('reject')}>رفض الطلب</Button><Button className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('approve')}>اعتماد الطلب</Button></div> : null}
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">{selected.linkedDraftId && canManage ? <Button className="w-full sm:w-auto" onClick={()=>router.push('/email-drafts')}>فتح المراسلات الخارجية</Button> : null}<Button variant="ghost" onClick={()=>setSelected(null)} className="w-full sm:w-auto">إغلاق</Button></div>
         </div> : null}

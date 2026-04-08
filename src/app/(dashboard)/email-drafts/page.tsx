@@ -198,18 +198,18 @@ export default function EmailDraftsPage() {
         )}
       </section>
 
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل المراسلة: ${selected.subject}` : 'تفاصيل المراسلة'} size="full">
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل المراسلة: ${selected.subject}` : 'تفاصيل المراسلة'} size="full" bodyClassName="overflow-visible">
         {selected ? (
-          <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
+          <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   ['الموضوع', selected.subject],
                   ['رقم الطلب', selected.requestCode],
                   ['نوع الطلب', selected.requestTypeLabel],
-                  ['الجهة الموجّه إليها', selected.to || '—'],
+                  ['الجهة الموجه إليها', selected.to || '—'],
                   ['مقدم الطلب', selected.requesterName],
-                  ['الإدارة', selected.requesterDepartment],
+                  ['الإدارة', 'إدارة عمليات التدريب'],
                   ['البريد الإلكتروني', selected.requesterEmail],
                   ['الجوال', selected.requesterMobile],
                   ['رقم التحويلة', selected.requesterJobTitle],

@@ -18,18 +18,25 @@ type SuggestionRow = {
   id: string;
   code?: string;
   linkedDraftId?: string | null;
+  linkedCode?: string | null;
   title: string;
   description?: string | null;
   type?: SuggestionType;
   category?: SuggestionType;
   status: SuggestionStatus;
   createdAt?: string;
-  requester?: { fullName?: string; department?: string; email?: string; mobile?: string; jobTitle?: string } | null;
   itemName?: string | null;
+  quantity?: number | null;
   location?: string | null;
-  attachments?: string[];
-  adminNotesText?: string | null;
   requestSource?: string | null;
+  attachments?: string[];
+  requester?: {
+    fullName?: string;
+    department?: string;
+    email?: string;
+    mobile?: string;
+    jobTitle?: string;
+  } | null;
 };
 
 type FormState = {
@@ -56,9 +63,11 @@ function normalizeArabic(value: string) { return (value || '').toLowerCase().tri
 function resolveType(row: SuggestionRow): SuggestionType { return (row.type || row.category || 'OTHER') as SuggestionType; }
 function typeMeta(type: SuggestionType) { if (type==='MAINTENANCE') return {label:'طلب صيانة',variant:'danger' as const}; if (type==='CLEANING') return {label:'طلب نظافة',variant:'info' as const}; if (type==='PURCHASE') return {label:'طلب شراء مباشر',variant:'warning' as const}; return {label:'طلبات أخرى',variant:'neutral' as const}; }
 function statusMeta(status: SuggestionStatus) { if (status==='PENDING') return {label:'بانتظار المدير',variant:'warning' as const}; if (status==='UNDER_REVIEW') return {label:'قيد المراجعة',variant:'info' as const}; if (status==='APPROVED') return {label:'معتمد',variant:'success' as const}; if (status==='REJECTED') return {label:'مرفوض',variant:'danger' as const}; return {label:'تمت المعالجة',variant:'neutral' as const}; }
-function buildPageTitle(type: SuggestionType) { if (type==='MAINTENANCE') return 'طلب صيانة'; if (type==='CLEANING') return 'طلب نظافة'; if (type==='PURCHASE') return 'طلب شراء مباشر'; return 'طلب آخر'; }
+function buildPageTitle(type: SuggestionType) { if (type==='MAINTENANCE') return 'طلبات الصيانة المرفوعة'; if (type==='CLEANING') return 'طلبات النظافة المرفوعة'; if (type==='PURCHASE') return 'طلبات الشراء المباشر المرفوعة'; return 'الطلبات الأخرى المرفوعة'; }
 function buildDefaultRecipient(type: SuggestionType) { if (type==='PURCHASE') return 'wa.n1@nauss.edu.sa'; if (type==='MAINTENANCE' || type==='CLEANING') return 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa'; return ''; }
 function parseAdminNotes(value?: string | null) { if (!value) return { note:'', linkedCode:'', linkedDraftId:'' }; try { const parsed = JSON.parse(value); return { note: parsed?.adminNotes || '', linkedCode: parsed?.linkedCode || parsed?.publicCode || '', linkedDraftId: parsed?.linkedDraftId || '' }; } catch { return { note:String(value), linkedCode:'', linkedDraftId:'' }; } }
+
+function attachmentText(values?: string[] | null) { return Array.isArray(values) && values.length ? values.join('، ') : 'لا توجد مرفقات'; }
 
 export default function SuggestionsPage() {
   const { user } = useAuth();
@@ -221,7 +230,47 @@ export default function SuggestionsPage() {
         </form>
       </Modal>
       <Modal isOpen={!!selected} onClose={()=>setSelected(null)} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="full" bodyClassName="overflow-visible">
-        {selected ? <div className="space-y-5">{feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type==='error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{feedback.message}</div> : null}<div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]"><div className="space-y-4 rounded-[22px] border border-[#d6d7d4] bg-[#f8fbfb] p-4"><div className="text-sm font-bold text-[#016564]">موجز الطلب قبل الاعتماد</div><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">الرمز</div><div className="mt-1 text-sm leading-7 text-[#304342]">{selected.code || selected.id}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">النوع</div><div className="mt-1 text-sm leading-7 text-[#304342]">{typeMeta(resolveType(selected)).label}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">الحالة</div><div className="mt-1 text-sm leading-7 text-[#304342]">{statusMeta(selected.status).label}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">التاريخ</div><div className="mt-1 text-sm leading-7 text-[#304342]">{formatDateTime(selected.createdAt)}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2"><div className="text-xs font-bold text-[#016564]">العنوان</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.title}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2"><div className="text-xs font-bold text-[#016564]">الوصف</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.description || '—'}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">مقدم الطلب</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requester?.fullName || '—'}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">الإدارة</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">إدارة عمليات التدريب</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">البريد الإلكتروني</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requester?.email || '—'}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">رقم التحويلة</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requester?.jobTitle || '—'}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">الجوال</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requester?.mobile || '—'}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3"><div className="text-xs font-bold text-[#016564]">الموقع</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.location || '—'}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2"><div className="text-xs font-bold text-[#016564]">العنصر المطلوب</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.itemName || '—'}</div></div><div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2"><div className="text-xs font-bold text-[#016564]">المرفقات المرفوعة</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.attachments?.length ? selected.attachments.join('، ') : 'لا توجد مرفقات'}</div></div>{selected.requestSource ? <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2"><div className="text-xs font-bold text-[#016564]">مصدر الحاجة</div><div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.requestSource}</div></div> : null}</div></div>{canManage && (selected.status==='PENDING' || selected.status==='UNDER_REVIEW') ? <div className="space-y-3 rounded-[22px] border border-[#e7ebea] bg-white p-4"><div className="text-sm font-bold text-[#016564]">قرار المدير</div><textarea value={adminNotes} onChange={(e)=>setAdminNotes(e.target.value)} rows={6} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-8 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب ملاحظة القرار أو التوجيه الإداري" /><div className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm leading-8 text-[#304342]">سيتم عند الاعتماد إنشاء مسودة مراسلة خارجية موجّهة تلقائيًا إلى الجهة المعنية بحسب نوع الطلب.</div><div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button variant="danger" className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('reject')}>رفض الطلب</Button><Button className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('approve')}>اعتماد الطلب</Button></div></div> : null}</div><div className="flex flex-col gap-2 sm:flex-row sm:justify-end">{selected.linkedDraftId && canManage ? <Button className="w-full sm:w-auto" onClick={()=>router.push('/email-drafts')}>فتح المراسلات الخارجية</Button> : null}<Button variant="ghost" onClick={()=>setSelected(null)} className="w-full sm:w-auto">إغلاق</Button></div></div> : null}</div> : null}
+        {selected ? <div className="space-y-5">{feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type==='error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{feedback.message}</div> : null}
+          <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr] xl:items-start">
+            <div className="space-y-4 rounded-[24px] border border-[#d6d7d4] bg-[#f8fbfb] p-4 sm:p-5">
+              <div className="text-base font-extrabold text-[#016564]">بيانات الطلب قبل الاعتماد</div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['رقم الطلب', selected.code || selected.id],
+                  ['نوع الطلب', typeMeta(resolveType(selected)).label],
+                  ['الحالة', statusMeta(selected.status).label],
+                  ['التاريخ', formatDateTime(selected.createdAt)],
+                  ['العنوان', selected.title],
+                  ['الوصف', selected.description || '—'],
+                  ['مقدم الطلب', selected.requester?.fullName || '—'],
+                  ['الإدارة', 'إدارة عمليات التدريب'],
+                  ['البريد الإلكتروني', selected.requester?.email || '—'],
+                  ['الجوال', selected.requester?.mobile || '—'],
+                  ['رقم التحويلة', selected.requester?.jobTitle || '—'],
+                  ['الموقع', selected.location || '—'],
+                  ['العنصر المطلوب', selected.itemName || '—'],
+                  ['مصدر الحاجة', selected.requestSource || '—'],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3">
+                    <div className="text-xs font-bold text-[#016564]">{label}</div>
+                    <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{value || '—'}</div>
+                  </div>
+                ))}
+                <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2">
+                  <div className="text-xs font-bold text-[#016564]">المرفقات المرفوعة</div>
+                  <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{attachmentText(selected.attachments)}</div>
+                </div>
+              </div>
+            </div>
+            {canManage && (selected.status==='PENDING' || selected.status==='UNDER_REVIEW') ? <div className="space-y-3 rounded-[24px] border border-[#d6d7d4] bg-white p-4 sm:p-5">
+              <div className="text-base font-extrabold text-[#016564]">قرار المدير</div>
+              <div className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm leading-7 text-[#304342]">بعد مراجعة بيانات الطلب كاملة ومرفقاته – عند وجودها – يمكن اعتماد الطلب أو رفضه مع تدوين التوجيه الإداري المناسب.</div>
+              <textarea value={adminNotes} onChange={(e)=>setAdminNotes(e.target.value)} rows={6} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-8 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب ملاحظة القرار أو التوجيه الإداري" />
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button variant="danger" className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('reject')}>رفض الطلب</Button><Button className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('approve')}>اعتماد الطلب</Button></div>
+            </div> : <div className="space-y-3 rounded-[24px] border border-[#d6d7d4] bg-white p-4 sm:p-5"><div className="text-base font-extrabold text-[#016564]">حالة الطلب</div><div className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm leading-7 text-[#304342]">تمت معالجة هذا الطلب مسبقًا، ويمكنكم مراجعة المراسلات الخارجية المرتبطة به عند الحاجة.</div></div>}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">{selected.linkedDraftId && canManage ? <Button className="w-full sm:w-auto" onClick={()=>router.push('/email-drafts')}>فتح المراسلات الخارجية</Button> : null}<Button variant="ghost" onClick={()=>setSelected(null)} className="w-full sm:w-auto">إغلاق</Button></div>
+        </div> : null}
       </Modal>
     </div>;
 }

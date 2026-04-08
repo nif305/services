@@ -92,6 +92,15 @@ async function resolveSessionUser(request: NextRequest) {
   return { ...user, role: activeRole };
 }
 
+function attachmentLabel(file: any, index: number) {
+  const type = String(file?.contentType || file?.type || '').toLowerCase();
+  const name = String(file?.filename || file?.name || '').toLowerCase();
+  if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `صورة مرفقة ${index + 1}`;
+  if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `فيديو مرفق ${index + 1}`;
+  if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ملف PDF مرفق ${index + 1}`;
+  return `مرفق ${index + 1}`;
+}
+
 function categoryMeta(category: SuggestionCategory) {
   switch (category) {
     case 'MAINTENANCE':
@@ -135,21 +144,21 @@ async function generateLinkedCode(category: SuggestionCategory) {
   for (const row of suggestionRows) {
     const parsed = parseJsonObject(row.adminNotes);
     const code = String(parsed.linkedCode || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(new RegExp(`^${prefix}-${year}-(\\d{4})$`));
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
   const maintenanceRows = await prisma.maintenanceRequest.findMany({ select: { code: true } });
   for (const row of maintenanceRows) {
     const code = String(row.code || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(new RegExp(`^${prefix}-${year}-(\\d{4})$`));
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
   const purchaseRows = await prisma.purchaseRequest.findMany({ select: { code: true } });
   for (const row of purchaseRows) {
     const code = String(row.code || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(new RegExp(`^${prefix}-${year}-(\\d{4})$`));
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
@@ -186,33 +195,33 @@ function buildExternalEmailHtml(params: {
     ['رقم الطلب', params.requestCode],
     ['عنوان الطلب', params.requestTitle],
     ['التاريخ', new Intl.DateTimeFormat('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(params.createdAt))],
-    ['مقدم الطلب', params.requesterName],
+    ['مقدم الطلب', params.requesterName || '—'],
     ['الإدارة', 'إدارة عمليات التدريب'],
     ['البريد الإلكتروني', params.requesterEmail || '—'],
-    ['رقم التحويلة', params.requesterExtension || '—'],
     ['الجوال', params.requesterMobile || '—'],
+    ['رقم التحويلة', params.requesterExtension || '—'],
     ['الموقع', params.location || '—'],
     ['العنصر المطلوب', params.itemName || '—'],
     ['سبب الطلب', params.description || '—'],
   ];
   if (params.justification) rows.push(['إيضاحات إضافية', params.justification]);
   if (params.adminNotes) rows.push(['توجيه المدير', params.adminNotes]);
-  if (params.attachments?.length) rows.push(['المرفقات', params.attachments.join('، ')]);
+  if (params.attachments?.length) rows.push(['المرفقات المرفوعة', params.attachments.join('، ')]);
 
   const tableRows = rows.map(([label, value]) => `<tr><td style="padding:10px 12px;border:1px solid #d6d7d4;font-weight:700;background:#f8fbfb;width:180px;">${label}</td><td style="padding:10px 12px;border:1px solid #d6d7d4;">${value}</td></tr>`).join('');
 
   return `
-  <div dir="rtl" style="font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937;line-height:2;">
-    <div style="font-size:18px;font-weight:700;margin-bottom:12px;">${params.recipientLabel}</div>
+  <div dir="rtl" style="font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937;line-height:2.15; font-size:15px;">
+    <div style="font-size:20px;font-weight:700;margin-bottom:14px;">${params.recipientLabel}</div>
     <div style="margin-bottom:12px;">السلام عليكم ورحمة الله وبركاته،</div>
-    <div style="margin-bottom:12px;">أما بعد،</div>
-    <div style="margin-bottom:12px;">تهديكم إدارة عمليات التدريب أطيب التحايا، وتحيط سعادتكم علمًا بأن الموظف/ <strong>${params.requesterName || 'مقدم الطلب'}</strong> قد رفع <strong>${params.requestTitle}</strong>، ونأمل من سعادتكم التكرم بالاطلاع على البيانات الموضحة أدناه واتخاذ ما يلزم حيال المعالجة بالسرعة المناسبة.</div>
-    ${params.attachments?.length ? `<div style="margin-bottom:12px;">كما نود الإحاطة بأن الطلب مرفق به ${params.attachments.length === 1 ? 'مرفق داعم واحد' : `عدد (${params.attachments.length}) من المرفقات الداعمة`} لتيسير التحقق والمعالجة.</div>` : ''}
+    <div style="margin-bottom:12px;">تحية طيبة وبعد،</div>
+    <div style="margin-bottom:14px;">نفيد سعادتكم بأن الموظف/ <strong>${params.requesterName || 'مقدم الطلب'}</strong> من <strong>إدارة عمليات التدريب</strong> قد رفع <strong>${params.requestTitle}</strong>، بشأن <strong>${params.description || 'الموضوع الموضح أدناه'}</strong>، ونأمل من سعادتكم التكرم بالاطلاع على بيانات الطلب المرفقة والتوجيه بما يلزم حيال معالجته في أقرب وقت ممكن.</div>
+    ${params.attachments?.length ? `<div style="margin-bottom:12px;">كما نود الإحاطة بأن مع الطلب ملفات مرفقة بعدد (<strong>${params.attachments.length}</strong>) لدعم المعالجة والمتابعة.</div>` : ''}
     <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">${tableRows}</table>
-    <div style="margin-top:14px;">وتفضلوا بقبول خالص التحية والتقدير.</div>
+    <div style="margin-top:16px;">وتفضلوا بقبول خالص التحية والتقدير.</div>
     <div style="margin-top:18px;font-weight:700;">فريق عمل إدارة عمليات التدريب<br/>وكالة الجامعة للتدريب</div>
   </div>`;
-}
+}}
 
 async function notifyManagersAboutSuggestion(params: { suggestionId: string; category: SuggestionCategory; title: string; requesterName: string; code: string; }) {
   const managers = await prisma.user.findMany({
@@ -251,16 +260,6 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
   const justificationData = parseJsonObject(item.justification);
   const adminData = parseJsonObject(item.adminNotes);
   const requester = requesterMap.get(item.requesterId) || null;
-  const attachments = Array.isArray(justificationData.attachments)
-    ? justificationData.attachments.map((file: any, index: number) => {
-        const type = String(file?.contentType || file?.type || '').toLowerCase();
-        const name = String(file?.filename || file?.name || '').toLowerCase();
-        if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `صورة مرفقة ${index + 1}`;
-        if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `فيديو مرفق ${index + 1}`;
-        if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ملف PDF مرفق ${index + 1}`;
-        return `مرفق ${index + 1}`;
-      })
-    : [];
   return {
     ...item,
     code: justificationData.publicCode || adminData.linkedCode || item.id,
@@ -269,11 +268,10 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
     quantity: justificationData.quantity || null,
     location: justificationData.location || '',
     requestSource: justificationData.requestSource || '',
-    attachments,
+    attachments: Array.isArray(justificationData.attachments) ? justificationData.attachments.map((file: any, index: number) => attachmentLabel(file, index)) : [],
     targetDepartment: adminData.targetDepartment || justificationData.targetDepartment || null,
     linkedDraftId: adminData.linkedDraftId || null,
     linkedCode: adminData.linkedCode || null,
-    adminNotesText: adminData.adminNotes || '',
   };
 }
 
@@ -419,6 +417,7 @@ export async function PATCH(request: NextRequest) {
     const category = normalizeCategory(suggestion.category);
     const publicCode = String(justificationData.publicCode || adminData.publicCode || await generatePublicCode(category));
     const itemName = String(justificationData.itemName || '').trim();
+    const quantity = Math.max(1, Number(justificationData.quantity || 1));
     const location = String(justificationData.location || '').trim();
     const externalRecipient = String(justificationData.externalRecipient || '').trim();
 
@@ -583,14 +582,7 @@ export async function PATCH(request: NextRequest) {
       itemName,
       description: suggestion.description,
       adminNotes,
-      attachments: Array.isArray(justificationData.attachments) ? justificationData.attachments.map((file: any, index: number) => {
-        const type = String(file?.contentType || file?.type || '').toLowerCase();
-        const name = String(file?.filename || file?.name || '').toLowerCase();
-        if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `صورة مرفقة ${index + 1}`;
-        if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `فيديو مرفق ${index + 1}`;
-        if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ملف PDF مرفق ${index + 1}`;
-        return `مرفق ${index + 1}`;
-      }) : [],
+      attachments: Array.isArray(justificationData.attachments) ? justificationData.attachments.map((file: any, index: number) => attachmentLabel(file, index)) : [],
     });
 
     if (draft) {

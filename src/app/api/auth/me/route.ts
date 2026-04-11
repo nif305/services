@@ -2,17 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 function normalizeRoles(roleOrRoles: unknown): string[] {
-  if (Array.isArray(roleOrRoles)) {
-    return roleOrRoles
-      .map((role) => String(role).toLowerCase())
-      .filter(Boolean);
-  }
+  const raw = Array.isArray(roleOrRoles)
+    ? roleOrRoles
+    : typeof roleOrRoles === 'string' && roleOrRoles.trim()
+      ? [roleOrRoles]
+      : [];
 
-  if (typeof roleOrRoles === 'string' && roleOrRoles.trim()) {
-    return [roleOrRoles.toLowerCase()];
-  }
-
-  return ['user'];
+  const normalized = Array.from(new Set(raw.map((role) => String(role).toLowerCase()).filter(Boolean)));
+  return normalized.includes('user') ? normalized : ['user', ...normalized];
 }
 
 function getPrimaryRole(roles: string[]): string {
@@ -32,16 +29,9 @@ function clearSessionResponse() {
     expires: new Date(0),
   };
 
-  response.cookies.set('inventory_platform_session', '', cookieOptions);
-  response.cookies.set('user_id', '', cookieOptions);
-  response.cookies.set('user_role', '', cookieOptions);
-  response.cookies.set('user_roles', '', cookieOptions);
-  response.cookies.set('user_status', '', cookieOptions);
-  response.cookies.set('user_email', '', cookieOptions);
-  response.cookies.set('user_name', '', cookieOptions);
-  response.cookies.set('user_department', '', cookieOptions);
-  response.cookies.set('user_employee_id', '', cookieOptions);
-  response.cookies.set('active_role', '', cookieOptions);
+  for (const name of ['inventory_platform_session','user_id','user_role','user_roles','user_status','user_email','user_name','user_department','user_employee_id','active_role','server_active_role','server_user_roles']) {
+    response.cookies.set(name, '', cookieOptions);
+  }
 
   return response;
 }
@@ -66,7 +56,7 @@ export async function GET(request: NextRequest) {
       return clearSessionResponse();
     }
 
-    const roles = normalizeRoles((user as { roles?: string[]; role?: string }).roles ?? user.role);
+    const roles = normalizeRoles((user as { roles?: string[] }).roles);
     const primaryRole = getPrimaryRole(roles);
     const activeRole = activeRoleFromCookie && roles.includes(activeRoleFromCookie)
       ? activeRoleFromCookie
@@ -112,6 +102,8 @@ export async function GET(request: NextRequest) {
     response.cookies.set('user_role', activeRole, cookieOptions);
     response.cookies.set('user_roles', JSON.stringify(roles), cookieOptions);
     response.cookies.set('active_role', activeRole, cookieOptions);
+    response.cookies.set('server_active_role', activeRole, cookieOptions);
+    response.cookies.set('server_user_roles', JSON.stringify(roles), cookieOptions);
     response.cookies.set('user_status', user.status.toLowerCase(), cookieOptions);
     response.cookies.set('user_email', user.email, cookieOptions);
     response.cookies.set('user_name', user.fullName, cookieOptions);

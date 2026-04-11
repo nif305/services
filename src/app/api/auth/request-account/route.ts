@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { hashPassword } from '@/lib/security/password';
 
 function normalizeText(value?: string | null) {
   return (value || '').trim();
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
       mobile,
       department: operationalProject || 'لا ينطبق',
       jobTitle: extension || '',
-      passwordHash: password,
+      passwordHash: hashPassword(password),
       status: 'ACTIVE',
       avatar: null,
       undertaking: {

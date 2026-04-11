@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { hashPassword, isHashedPassword, verifyPassword } from '@/lib/security/password';
 
 function normalizeRoles(roleOrRoles: unknown): string[] {
-  if (Array.isArray(roleOrRoles)) {
-    const roles = roleOrRoles.map((role) => String(role).toLowerCase()).filter(Boolean);
-    return roles.includes('user') ? Array.from(new Set(roles)) : ['user', ...Array.from(new Set(roles))];
-  }
+  const source = Array.isArray(roleOrRoles)
+    ? roleOrRoles
+    : typeof roleOrRoles === 'string' && roleOrRoles.trim()
+      ? [roleOrRoles]
+      : [];
 
-  if (typeof roleOrRoles === 'string' && roleOrRoles.trim()) {
-    const role = roleOrRoles.toLowerCase();
-    return role === 'user' ? ['user'] : ['user', role];
-  }
-
-  return ['user'];
+  const roles = Array.from(new Set(source.map((role) => String(role).toLowerCase()).filter(Boolean)));
+  return roles.includes('user') ? roles : ['user', ...roles];
 }
 
 function getPrimaryRole(roles: string[]): string {
@@ -47,19 +45,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'بيانات الدخول غير صحيحة' }, { status: 401 });
     }
 
-    const passwordFields = [
-      (user as any).password,
-      (user as any).passwordHash,
-      (user as any).hashedPassword,
-    ].filter(Boolean);
-
-    const isValidPassword = passwordFields.some((value) => String(value) === password);
+    const storedPassword = (user as any).passwordHash || (user as any).password || (user as any).hashedPassword;
+    const isValidPassword = verifyPassword(password, storedPassword);
 
     if (!isValidPassword) {
       return NextResponse.json({ error: 'بيانات الدخول غير صحيحة' }, { status: 401 });
     }
 
-    const roles = normalizeRoles((user as any).roles ?? (user as any).role);
+    if (storedPassword && !isHashedPassword(storedPassword)) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: hashPassword(password) },
+      });
+    }
+
+    const roles = normalizeRoles((user as any).roles);
     const primaryRole = getPrimaryRole(roles);
 
     const response = NextResponse.json({

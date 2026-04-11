@@ -66,8 +66,7 @@ export default function MessagesPage() {
     try {
       const response = await fetch(`/api/messages?box=${box}`, {
         cache: 'no-store',
-        headers: { 'x-user-id': user.id },
-      });
+              });
       const json = await response.json().catch(() => null);
       setMessages(Array.isArray(json?.data) ? json.data : []);
     } catch {
@@ -147,7 +146,7 @@ export default function MessagesPage() {
                     if (activeBox === 'inbox' && !message.isRead && user?.id) {
                       await fetch('/api/messages', {
                         method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json', 'x-user-id': user.id },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ id: message.id }),
                       }).catch(() => null);
                       fetchMessages(activeBox);
@@ -160,7 +159,7 @@ export default function MessagesPage() {
         })}
       </section>
 
-      <Modal isOpen={composeOpen} onClose={() => setComposeOpen(false)} title="رسالة داخلية جديدة" maxWidth="3xl">
+      <Modal isOpen={composeOpen} onClose={() => setComposeOpen(false)} title="رسالة داخلية جديدة" size="lg">
         <div className="space-y-4">
           {error ? <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
           <div>
@@ -192,7 +191,7 @@ export default function MessagesPage() {
               }
               const response = await fetch('/api/messages', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-user-id': user.id },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ receiverId, subject: subject.trim(), body: body.trim(), relatedType: relatedType || undefined, relatedId: relatedId.trim() || undefined }),
               });
               const json = await response.json().catch(() => null);
@@ -213,7 +212,7 @@ export default function MessagesPage() {
         </div>
       </Modal>
 
-      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.subject || 'تفاصيل الرسالة'} maxWidth="4xl">
+      <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected?.subject || 'تفاصيل الرسالة'} size="xl">
         {selected ? (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">

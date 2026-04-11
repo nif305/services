@@ -58,39 +58,10 @@ export default function ApprovalsPage() {
 
   const handleAction = async (
     id: string,
-    action: 'approve' | 'reject' | 'approve_and_issue'
+    action: 'approve' | 'reject'
   ) => {
     setProcessingId(id);
     try {
-      if (action === 'approve_and_issue') {
-        const approveRes = await fetch(`/api/requests/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'approve',
-          }),
-        });
-
-        if (!approveRes.ok) {
-          await fetchPending();
-          return;
-        }
-
-        const issueRes = await fetch(`/api/requests/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'issue',
-          }),
-        });
-
-        if (issueRes.ok) {
-          await fetchPending();
-        }
-
-        return;
-      }
-
       const res = await fetch(`/api/requests/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -125,7 +96,7 @@ export default function ApprovalsPage() {
               مركز الاعتمادات
             </h1>
             <p className="mt-2 text-[13px] leading-7 text-slate-500 sm:text-[14px]">
-              الطلبات التي ما زالت بانتظار قرارك الإداري.
+              الطلبات التي تنتظر الاعتماد الإداري قبل انتقالها للمستودع للصرف.
             </p>
           </div>
 
@@ -180,22 +151,13 @@ export default function ApprovalsPage() {
                   </ul>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Button
                     className="w-full"
                     onClick={() => handleAction(req.id, 'approve')}
                     disabled={processingId === req.id}
                   >
                     اعتماد
-                  </Button>
-
-                  <Button
-                    className="w-full"
-                    variant="secondary"
-                    onClick={() => handleAction(req.id, 'approve_and_issue')}
-                    disabled={processingId === req.id}
-                  >
-                    اعتماد وصرف
                   </Button>
 
                   <Button

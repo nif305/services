@@ -501,6 +501,75 @@ async function rejectRequest(requestId: string, actorId: string, reason: string)
   return updated;
 }
 
+
+async function approveRequest(requestId: string, actorId: string, notes?: string) {
+  await ensureCoreUsers();
+
+  const request = await prisma.request.findUnique({
+    where: { id: requestId },
+    include: {
+      requester: {
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!request) throw new Error('الطلب غير موجود');
+  if (request.status !== RequestStatus.PENDING) {
+    if (request.status === RequestStatus.APPROVED) {
+      return request;
+    }
+    throw new Error('لا يمكن اعتماد الطلب في حالته الحالية');
+  }
+
+  const approved = await prisma.request.update({
+    where: { id: requestId },
+    data: {
+      status: RequestStatus.APPROVED,
+      processedAt: new Date(),
+      processedById: actorId,
+      rejectionReason: null,
+      notes: [request.notes, notes?.trim()].filter(Boolean).join(' | ') || request.notes,
+    },
+  });
+
+  const targets = await prisma.user.findMany({
+    where: {
+      roles: { has: Role.WAREHOUSE },
+      status: Status.ACTIVE,
+    },
+    select: { id: true },
+  });
+
+  if (targets.length) {
+    await prisma.notification.createMany({
+      data: targets.map((user) => ({
+        userId: user.id,
+        type: 'REQUEST_APPROVED',
+        title: 'طلب جاهز للصرف',
+        message: `تم اعتماد الطلب ${request.code} إداريًا وأصبح جاهزًا للصرف من المستودع.`,
+        link: `/requests?open=${request.id}`,
+        entityId: request.id,
+        entityType: 'REQUEST',
+      })),
+    });
+  }
+
+  await prisma.notification.create({
+    data: {
+      userId: request.requesterId,
+      type: 'REQUEST_APPROVED',
+      title: 'تم اعتماد الطلب',
+      message: `تم اعتماد الطلب ${request.code} إداريًا وجارٍ تجهيزه للصرف.`,
+      link: `/requests?open=${request.id}`,
+      entityId: request.id,
+      entityType: 'REQUEST',
+    },
+  });
+
+  return approved;
+}
+
 async function issueRequest(requestId: string, actorId: string, notes?: string) {
   await ensureCoreUsers();
 
@@ -735,5 +804,5 @@ export const RequestService = {
   reject: rejectRequest,
   issue: issueRequest,
   adjustAfterIssue,
-  approve: issueRequest,
+  approve: approveRequest,
 };

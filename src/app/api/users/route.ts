@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Role } from '@prisma/client';
+import { resolveSessionUser } from '@/lib/auth/session';
+import { hashPassword } from '@/lib/security/password';
 
 type PrismaRole = 'MANAGER' | 'WAREHOUSE' | 'USER';
 
@@ -18,7 +21,7 @@ function normalizeRoles(input: unknown): PrismaRole[] {
       ? [input]
       : [];
 
-  const mapped = raw
+  const mapped: PrismaRole[] = raw
     .map((value) => String(value || '').trim().toLowerCase())
     .map((value) => {
       if (value === 'manager') return 'MANAGER';
@@ -26,9 +29,8 @@ function normalizeRoles(input: unknown): PrismaRole[] {
       return 'USER';
     });
 
-  const withUser = mapped.includes('USER') ? mapped : [...mapped, 'USER'];
-
-  return Array.from(new Set(withUser));
+  const withUser: PrismaRole[] = mapped.includes('USER') ? mapped : [...mapped, 'USER'];
+  return Array.from(new Set(withUser)) as PrismaRole[];
 }
 
 function getPrimaryRole(roles: PrismaRole[]): 'manager' | 'warehouse' | 'user' {
@@ -66,8 +68,10 @@ function mapUser(user: any) {
   };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    await resolveSessionUser(request);
+
     const users = await prisma.user.findMany({
       include: {
         undertaking: true,
@@ -77,16 +81,20 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({
-      data: users.map(mapUser),
-    });
+    return NextResponse.json({ data: users.map(mapUser) });
   } catch {
-    return NextResponse.json({ error: 'تعذر جلب المستخدمين' }, { status: 500 });
+    return NextResponse.json({ error: 'تعذر جلب المستخدمين' }, { status: 401 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await resolveSessionUser(request);
+
+    if (session.role !== Role.MANAGER) {
+      return NextResponse.json({ error: 'إضافة المستخدمين متاحة للمدير فقط' }, { status: 403 });
+    }
+
     const body = await request.json();
 
     const fullName = normalizeText(body?.fullName);
@@ -102,7 +110,6 @@ export async function POST(request: NextRequest) {
     }
 
     const exists = await prisma.user.findUnique({ where: { email } });
-
     if (exists) {
       return NextResponse.json({ error: 'البريد الإلكتروني مستخدم من قبل' }, { status: 409 });
     }
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
         mobile,
         department: operationalProject || 'لا ينطبق',
         jobTitle: extension || '',
-        passwordHash: password,
+        passwordHash: hashPassword(password),
         roles,
         status: 'ACTIVE',
       },

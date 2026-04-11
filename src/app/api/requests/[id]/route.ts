@@ -1,75 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Role, Status } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
+import { Role } from '@prisma/client';
 import { RequestService } from '@/services/request.service';
-
-function mapRole(role: string): Role {
-  const normalized = String(role || '').trim().toLowerCase();
-  if (normalized === 'manager') return Role.MANAGER;
-  if (normalized === 'warehouse') return Role.WAREHOUSE;
-  return Role.USER;
-}
-
-async function resolveSessionUser(request: NextRequest) {
-  const cookieId = decodeURIComponent(request.cookies.get('user_id')?.value || '').trim();
-  const cookieEmail = decodeURIComponent(request.cookies.get('user_email')?.value || '').trim();
-  const cookieName = decodeURIComponent(
-    request.cookies.get('user_name')?.value || 'مستخدم النظام'
-  ).trim();
-  const cookieDepartment = decodeURIComponent(
-    request.cookies.get('user_department')?.value || 'إدارة عمليات التدريب'
-  ).trim();
-  const cookieEmployeeId = decodeURIComponent(
-    request.cookies.get('user_employee_id')?.value || ''
-  ).trim();
-  const headerActiveRole = request.headers.get('x-active-role') || '';
-  const effectiveRole = mapRole(
-    String(
-      headerActiveRole ||
-      decodeURIComponent(request.cookies.get('server_active_role')?.value || '') ||
-      decodeURIComponent(request.cookies.get('active_role')?.value || '') ||
-      decodeURIComponent(request.cookies.get('user_role')?.value || 'user')
-    ).trim()
-  );
-
-  let user = null;
-
-  if (cookieId) {
-    user = await prisma.user.findUnique({
-      where: { id: cookieId },
-      select: { id: true, department: true, email: true, employeeId: true },
-    });
-  }
-
-  if (!user && cookieEmail) {
-    user = await prisma.user.findFirst({
-      where: {
-        email: {
-          equals: cookieEmail,
-          mode: 'insensitive',
-        },
-      },
-      select: { id: true, department: true, email: true, employeeId: true },
-    });
-  }
-
-  if (!user && cookieEmployeeId) {
-    user = await prisma.user.findUnique({
-      where: { employeeId: cookieEmployeeId },
-      select: { id: true, department: true, email: true, employeeId: true },
-    });
-  }
-
-  if (!user) {
-    throw new Error('تعذر التحقق من المستخدم الحالي. أعد تسجيل الدخول ثم حاول مرة أخرى.');
-  }
-
-  return {
-    id: user.id,
-    role: effectiveRole,
-    department: user.department || cookieDepartment,
-  };
-}
+import { resolveSessionUser } from '@/lib/auth/session';
 
 export async function GET(
   _request: NextRequest,
@@ -79,10 +11,7 @@ export async function GET(
     const { id } = await params;
     return NextResponse.json(await RequestService.getById(id));
   } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || 'تعذر جلب الطلب' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'تعذر جلب الطلب' }, { status: 500 });
   }
 }
 
@@ -94,23 +23,27 @@ async function handleMutation(
     const { id } = await params;
     const body = await request.json();
     const session = await resolveSessionUser(request);
-    const action = String(body?.action || '')
-      .trim()
-      .toLowerCase();
+    const action = String(body?.action || '').trim().toLowerCase();
+
+    if (action === 'approve') {
+      if (session.role !== Role.MANAGER) {
+        return NextResponse.json({ error: 'الاعتماد الإداري متاح للمدير فقط' }, { status: 403 });
+      }
+
+      return NextResponse.json(await RequestService.approve(id, session.id, body?.notes || ''));
+    }
 
     if (action === 'issue') {
       if (session.role !== Role.WAREHOUSE) {
-        return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
+        return NextResponse.json({ error: 'الصرف متاح للمستودع فقط' }, { status: 403 });
       }
 
-      return NextResponse.json(
-        await RequestService.issue(id, session.id, body?.notes || '')
-      );
+      return NextResponse.json(await RequestService.issue(id, session.id, body?.notes || ''));
     }
 
     if (action === 'reject') {
-      if (session.role !== Role.WAREHOUSE) {
-        return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
+      if (![Role.MANAGER, Role.WAREHOUSE].includes(session.role)) {
+        return NextResponse.json({ error: 'الرفض متاح للمدير أو المستودع فقط' }, { status: 403 });
       }
 
       return NextResponse.json(
@@ -120,10 +53,7 @@ async function handleMutation(
 
     if (action === 'update') {
       if (session.role !== Role.USER) {
-        return NextResponse.json(
-          { error: 'هذا الإجراء مخصص للموظف فقط' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'هذا الإجراء مخصص للموظف فقط' }, { status: 403 });
       }
 
       return NextResponse.json(
@@ -137,10 +67,7 @@ async function handleMutation(
 
     if (action === 'cancel') {
       if (session.role !== Role.USER) {
-        return NextResponse.json(
-          { error: 'هذا الإجراء مخصص للموظف فقط' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'هذا الإجراء مخصص للموظف فقط' }, { status: 403 });
       }
 
       return NextResponse.json(
@@ -150,10 +77,7 @@ async function handleMutation(
 
     if (action === 'adjust_after_issue') {
       if (session.role !== Role.USER) {
-        return NextResponse.json(
-          { error: 'هذا الإجراء مخصص للموظف فقط' },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: 'هذا الإجراء مخصص للموظف فقط' }, { status: 403 });
       }
 
       return NextResponse.json(
@@ -171,23 +95,14 @@ async function handleMutation(
         ? 401
         : 400;
 
-    return NextResponse.json(
-      { error: error.message || 'تعذر تنفيذ العملية' },
-      { status: statusCode }
-    );
+    return NextResponse.json({ error: error.message || 'تعذر تنفيذ العملية' }, { status: statusCode });
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return handleMutation(request, context);
 }
 
-export async function PUT(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   return handleMutation(request, context);
 }

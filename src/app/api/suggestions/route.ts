@@ -38,6 +38,44 @@ function normalizeTargetDepartment(value: any) {
   return normalized;
 }
 
+
+type ServiceItemPayload = { label?: string; note?: string };
+
+function parseServiceItems(value: any): ServiceItemPayload[] {
+  const source = Array.isArray(value) ? value : [];
+  return source
+    .map((item) => {
+      if (typeof item === 'string') return { label: item.trim() };
+      if (item && typeof item === 'object') return { label: String(item.label || '').trim(), note: String(item.note || '').trim() };
+      return { label: '' };
+    })
+    .filter((item) => item.label);
+}
+
+function summarizeServiceItems(items: ServiceItemPayload[]): string {
+  return items.map((item) => String(item.label || '').trim()).filter(Boolean).join('، ');
+}
+
+function buildServiceItemsHtml(items: ServiceItemPayload[]): string {
+  if (!items.length) return '';
+  const rows = items.map((item) => `<li>${item.label}${item.note ? ` — ${item.note}` : ''}</li>`).join('');
+  return `<ul style="margin:0;padding-right:18px;">${rows}</ul>`;
+}
+
+function buildAttachmentsSummary(value: any): string {
+  const attachments = Array.isArray(value) ? value : [];
+  if (!attachments.length) return '';
+  return attachments.map((file: any, index: number) => {
+    const type = String(file?.contentType || file?.type || '').toLowerCase();
+    const rawName = String(file?.filename || file?.name || '').trim();
+    const name = rawName || `مرفق ${index + 1}`;
+    if (type.startsWith('image/')) return `صورة: ${name}`;
+    if (type.startsWith('video/')) return `فيديو: ${name}`;
+    if (type.includes('pdf') || /\.pdf$/i.test(name)) return `PDF: ${name}`;
+    return name;
+  }).join('، ');
+}
+
 function parseJsonObject(value: any): JsonObject {
   if (!value) return {};
   if (typeof value === 'object' && !Array.isArray(value)) return value;
@@ -162,12 +200,6 @@ function buildRecipients(category: SuggestionCategory, provided?: string | null)
   return String(provided || '').trim();
 }
 
-function buildRecipientLabel(category: SuggestionCategory, provided?: string | null) {
-  if (category === 'PURCHASE') return 'سعادة الأستاذ/ نواف المحارب سلمه الله';
-  if (category === 'MAINTENANCE' || category === 'CLEANING') return 'سعادة مدير إدارة الخدمات المساندة سلمه الله';
-  return String(provided || '').trim() || 'إلى الجهة المختصة';
-}
-
 function buildNotificationTitle(category: SuggestionCategory) {
   return `${categoryMeta(category).notification} جديد`;
 }
@@ -188,6 +220,7 @@ function buildExternalEmailHtml(params: {
   description: string;
   justification?: string;
   adminNotes?: string;
+  serviceItemsHtml?: string;
   attachmentsSummary?: string;
 }) {
   const rows = [
@@ -203,6 +236,7 @@ function buildExternalEmailHtml(params: {
     ['العنصر المطلوب', params.itemName || '—'],
     ['سبب الطلب', params.description || '—'],
   ];
+  if (params.serviceItemsHtml) rows.push(['البنود المطلوبة', params.serviceItemsHtml]);
   if (params.justification) rows.push(['إيضاحات إضافية', params.justification]);
   if (params.adminNotes) rows.push(['توجيه المدير', params.adminNotes]);
   if (params.attachmentsSummary) rows.push(['المرفقات المرفوعة', params.attachmentsSummary]);
@@ -258,6 +292,7 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
   const justificationData = parseJsonObject(item.justification);
   const adminData = parseJsonObject(item.adminNotes);
   const requester = requesterMap.get(item.requesterId) || null;
+  const serviceItems = parseServiceItems(justificationData.serviceItems);
   const attachments = Array.isArray(justificationData.attachments) ? justificationData.attachments.map((file: any, index: number) => {
     const type = String(file?.contentType || file?.type || '').toLowerCase();
     const name = String(file?.filename || file?.name || '').toLowerCase();
@@ -270,12 +305,13 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
     ...item,
     code: justificationData.publicCode || adminData.linkedCode || item.id,
     requester,
-    itemName: justificationData.itemName || '',
+    itemName: summarizeServiceItems(serviceItems) || justificationData.itemName || '',
     quantity: justificationData.quantity || null,
     location: justificationData.location || '',
     requestSource: justificationData.requestSource || '',
     programName: justificationData.programName || '',
     area: justificationData.area || '',
+    serviceItems: serviceItems.map((item) => item.label || ''),
     attachments,
     adminNotesText: adminData.adminNotes || '',
     targetDepartment: adminData.targetDepartment || justificationData.targetDepartment || null,
@@ -339,11 +375,16 @@ export async function POST(request: NextRequest) {
     const programName = String(body.programName || '').trim();
     const area = String(body.area || '').trim();
     const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+    const serviceItems = parseServiceItems(body.serviceItems);
     const description = String(body.description || '').trim();
     const title = String(body.title || '').trim() || categoryMeta(category).label;
 
     if (!description) {
       return NextResponse.json({ error: 'يرجى كتابة سبب الطلب أو الملاحظة' }, { status: 400 });
+    }
+
+    if ((category === 'MAINTENANCE' || category === 'CLEANING') && !serviceItems.length) {
+      return NextResponse.json({ error: category === 'MAINTENANCE' ? 'اختر بند صيانة واحدًا على الأقل' : 'اختر بند خدمة أو نظافة واحدًا على الأقل' }, { status: 400 });
     }
 
     const publicCode = await generatePublicCode(category);
@@ -354,13 +395,14 @@ export async function POST(request: NextRequest) {
         description,
         justification: JSON.stringify({
           publicCode,
-          itemName,
+          itemName: summarizeServiceItems(serviceItems) || itemName,
           quantity,
           location,
           externalRecipient,
           requestSource,
           programName,
           area,
+          serviceItems,
           attachments,
         }),
         category,
@@ -376,7 +418,7 @@ export async function POST(request: NextRequest) {
         action: 'CREATE_SUGGESTION',
         entity: 'Suggestion',
         entityId: suggestion.id,
-        details: JSON.stringify({ title, category, publicCode, itemName, quantity, location }),
+        details: JSON.stringify({ title, category, publicCode, itemName: summarizeServiceItems(serviceItems) || itemName, quantity, location }),
       },
     });
 
@@ -406,7 +448,6 @@ export async function PATCH(request: NextRequest) {
     const action = String(body.action || '').trim().toLowerCase();
     const adminNotes = String(body.adminNotes || '').trim();
     const targetDepartment = normalizeTargetDepartment(body.targetDepartment);
-    const managerRecipient = String(body.externalRecipient || '').trim();
 
     if (!suggestionId || !action) {
       return NextResponse.json({ error: 'البيانات غير مكتملة' }, { status: 400 });
@@ -426,12 +467,13 @@ export async function PATCH(request: NextRequest) {
     const adminData = parseJsonObject(suggestion.adminNotes);
     const category = normalizeCategory(suggestion.category);
     const publicCode = String(justificationData.publicCode || adminData.publicCode || await generatePublicCode(category));
-    const itemName = String(justificationData.itemName || '').trim();
+    const serviceItems = parseServiceItems(justificationData.serviceItems);
+    const itemName = summarizeServiceItems(serviceItems) || String(justificationData.itemName || '').trim();
     const quantity = Math.max(1, Number(justificationData.quantity || 1));
     const location = String(justificationData.location || '').trim();
     const requestSource = String(justificationData.requestSource || '').trim();
     const programName = String(justificationData.programName || '').trim();
-    const externalRecipient = String(managerRecipient || justificationData.externalRecipient || '').trim();
+    const externalRecipient = String(justificationData.externalRecipient || '').trim();
 
     if (action === 'reject') {
       const updated = await prisma.suggestion.update({
@@ -563,10 +605,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const recipient = buildRecipients(category, externalRecipient);
-    if (!recipient) {
-      return NextResponse.json({ error: 'يجب تحديد الجهة المستلمة لطلبات الفئة الأخرى قبل الاعتماد.' }, { status: 400 });
-    }
-    const recipientLabel = buildRecipientLabel(category, externalRecipient);
+    const recipientLabel = category === 'PURCHASE' ? 'سعادة الأستاذ/ نواف المحارب سلمه الله' : (category === 'MAINTENANCE' || category === 'CLEANING') ? 'سعادة مدير إدارة الخدمات المساندة سلمه الله' : 'إلى من يهمه الأمر';
 
     let linkedDraftId = String(adminData.linkedDraftId || '');
     let draft = null as any;
@@ -584,16 +623,8 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
-    const attachmentsSummary = Array.isArray(justificationData.attachments) && justificationData.attachments.length
-      ? justificationData.attachments.map((file: any, index: number) => {
-          const type = String(file?.contentType || file?.type || '').toLowerCase();
-          const name = String(file?.filename || file?.name || '').toLowerCase();
-          if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `صورة مرفقة ${index + 1}`;
-          if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `فيديو مرفق ${index + 1}`;
-          if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ملف PDF مرفق ${index + 1}`;
-          return `مرفق ${index + 1}`;
-        }).join('، ')
-      : '';
+    const attachmentsSummary = buildAttachmentsSummary(justificationData.attachments);
+    const serviceItemsHtml = buildServiceItemsHtml(serviceItems);
 
     const draftBody = buildExternalEmailHtml({
       recipientLabel,
@@ -611,6 +642,7 @@ export async function PATCH(request: NextRequest) {
       description: suggestion.description,
       justification: requestSource || programName || '',
       adminNotes,
+      serviceItemsHtml,
       attachmentsSummary,
     });
 
@@ -645,13 +677,11 @@ export async function PATCH(request: NextRequest) {
           ...adminData,
           adminNotes,
           targetDepartment,
-          externalRecipient,
           linkedEntityType,
           linkedEntityId,
           linkedCode,
           linkedDraftId: draft.id,
           publicCode,
-          externalRecipient,
         }),
       },
     });

@@ -30,9 +30,9 @@ type SuggestionRow = {
   requestSource?: string;
   programName?: string;
   area?: string;
+  serviceItems?: string[];
   attachments?: string[];
   adminNotes?: string;
-  externalRecipient?: string;
   requester?: {
     fullName?: string;
     department?: string;
@@ -53,10 +53,11 @@ type FormState = {
   quantity: string;
   otherTitle: string;
   otherRecipient: string;
+  customServiceItem: string;
 };
 
 const DEFAULT_FORM: FormState = {
-  scope: 'BUILDING', programName: '', location: '', area: '', customArea: '', issueSummary: '', itemName: '', quantity: '1', otherTitle: '', otherRecipient: ''
+  scope: 'BUILDING', programName: '', location: '', area: '', customArea: '', issueSummary: '', itemName: '', quantity: '1', otherTitle: '', otherRecipient: '', customServiceItem: ''
 };
 const MAINTENANCE_PARTS = ['التكييف','الإلكترونيات','الطاولات والكراسي','الأبواب','الإنارة','الشاشات','القاعات التدريبية','ممرات المبنى','دورات المياه','أخرى'];
 const CLEANING_AREAS = ['قاعة تدريبية','ممرات المبنى','دورات المياه','منطقة الضيافة','مكاتب','مداخل المبنى','أخرى'];
@@ -83,8 +84,8 @@ export default function SuggestionsPage() {
   const [adminNotes, setAdminNotes] = useState('');
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [selectedServiceItems, setSelectedServiceItems] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<{type:'success'|'error'; message:string}|null>(null);
-  const [decisionRecipient, setDecisionRecipient] = useState('');
 
   const canManage = user?.role === 'manager';
   const requestedType = (searchParams.get('type') || '').toUpperCase() as SuggestionType;
@@ -105,7 +106,7 @@ export default function SuggestionsPage() {
     } catch { setRows([]); } finally { setLoading(false); }
   }
   useEffect(() => { fetchRows(); }, [searchParams.toString()]);
-  useEffect(() => { if (!selected) { setAdminNotes(''); setDecisionRecipient(''); return; } const parsed = parseAdminNotes((selected as any).adminNotes); setAdminNotes(parsed.note || ''); setDecisionRecipient((selected as any).externalRecipient || ''); }, [selected]);
+  useEffect(() => { if (!selected) { setAdminNotes(''); return; } setAdminNotes(parseAdminNotes((selected as any).adminNotes).note || ''); }, [selected]);
 
   const stats = useMemo(() => ({ total: rows.length, pending: rows.filter((r)=>r.status==='PENDING' || r.status==='UNDER_REVIEW').length, approved: rows.filter((r)=>r.status==='APPROVED'||r.status==='IMPLEMENTED').length, rejected: rows.filter((r)=>r.status==='REJECTED').length }), [rows]);
   const filteredRows = useMemo(() => { const q=normalizeArabic(search); return rows.filter((row)=>{ const type=resolveType(row); const haystack=normalizeArabic([row.code,row.title,row.description,row.requester?.fullName,row.requester?.department,row.itemName,row.location,row.requestSource,typeMeta(type).label,statusMeta(row.status).label].filter(Boolean).join(' ')); return q ? haystack.includes(q) : true; }); }, [rows, search]);
@@ -113,7 +114,18 @@ export default function SuggestionsPage() {
   const processedRows = useMemo(() => filteredRows.filter((r)=>!(r.status==='PENDING' || r.status==='UNDER_REVIEW')), [filteredRows]);
 
   function updateForm<K extends keyof FormState>(key: K, value: FormState[K]) { setForm((prev) => ({ ...prev, [key]: value })); }
-  function resetCreateState() { setForm(DEFAULT_FORM); setAttachments([]); setFeedback(null); }
+  function toggleServiceItem(value: string) {
+    setSelectedServiceItems((prev) => prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]);
+  }
+  function buildServiceItemsPayload() {
+    const base = selectedServiceItems.filter((item) => item && item !== 'أخرى').map((item) => ({ label: item }));
+    const custom = form.customServiceItem.trim();
+    if (selectedServiceItems.includes('أخرى') && custom) {
+      base.push({ label: custom, note: 'تمت إضافته يدويًا' });
+    }
+    return base;
+  }
+  function resetCreateState() { setForm(DEFAULT_FORM); setAttachments([]); setSelectedServiceItems([]); setFeedback(null); }
   async function fileToAttachmentPayload(file: File) { const buffer = await file.arrayBuffer(); let binary=''; const bytes=new Uint8Array(buffer); const chunkSize=0x8000; for (let i=0;i<bytes.length;i+=chunkSize) { const chunk=bytes.subarray(i,i+chunkSize); binary += String.fromCharCode(...chunk); } return { filename:file.name, contentType:file.type || 'application/octet-stream', base64Content:btoa(binary) }; }
   function closeCreateMode() { resetCreateState(); router.replace('/suggestions'); }
 
@@ -128,10 +140,11 @@ export default function SuggestionsPage() {
     let itemName = '';
     let location = form.location.trim();
     let externalRecipient = buildDefaultRecipient(activeType);
+    const serviceItemsPayload = buildServiceItemsPayload();
 
     if (activeType === 'MAINTENANCE' || activeType === 'CLEANING') {
-      itemName = areaName;
-      if (!areaName || !description) { setFeedback({ type:'error', message:`أكمل حقول ${activeType === 'MAINTENANCE' ? 'طلب الصيانة' : 'طلب النظافة'} المطلوبة` }); return; }
+      itemName = serviceItemsPayload.map((item) => item.label).join('، ');
+      if (!serviceItemsPayload.length || !description) { setFeedback({ type:'error', message:`أكمل حقول ${activeType === 'MAINTENANCE' ? 'طلب الصيانة' : 'طلب النظافة'} المطلوبة` }); return; }
     }
     if (activeType === 'PURCHASE') {
       title = 'طلب شراء مباشر'; itemName = form.itemName.trim();
@@ -145,7 +158,7 @@ export default function SuggestionsPage() {
     const attachmentPayload = await Promise.all(attachments.map(fileToAttachmentPayload));
     setSubmitting(true);
     try {
-      const res = await fetch('/api/suggestions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ category: activeType, title, description, itemName, quantity: quantityValue, location, externalRecipient, requestSource, programName: form.programName.trim(), area: areaName, attachments: attachmentPayload }) });
+      const res = await fetch('/api/suggestions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ category: activeType, title, description, itemName, quantity: quantityValue, location, externalRecipient, requestSource, programName: form.programName.trim(), area: areaName, serviceItems: serviceItemsPayload, attachments: attachmentPayload }) });
       const data = await res.json().catch(()=>({}));
       if (!res.ok) { setFeedback({ type:'error', message: data?.error || 'تعذر حفظ الطلب' }); return; }
       setFeedback({ type:'success', message:'تم رفع الطلب بنجاح وإحالته إلى المدير للمراجعة' });
@@ -159,11 +172,11 @@ export default function SuggestionsPage() {
     if (!selected) return; setFeedback(null); setProcessing(true);
     try {
       const targetDepartment = resolveType(selected) === 'PURCHASE' ? 'FINANCE' : resolveType(selected) === 'OTHER' ? 'OTHER' : 'SUPPORT_SERVICES';
-      const res = await fetch('/api/suggestions', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ suggestionId:selected.id, action, adminNotes, targetDepartment, externalRecipient: decisionRecipient }) });
+      const res = await fetch('/api/suggestions', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ suggestionId:selected.id, action, adminNotes, targetDepartment }) });
       const data = await res.json().catch(()=>({}));
       if (!res.ok) { setFeedback({ type:'error', message: data?.error || 'تعذر معالجة الطلب' }); return; }
       setFeedback({ type:'success', message: action === 'approve' ? 'تم اعتماد الطلب بنجاح وإنشاء مسودة المراسلة الخارجية' : 'تم رفض الطلب' });
-      setSelected(null); setDecisionRecipient(''); await fetchRows();
+      setSelected(null); await fetchRows();
     } finally { setProcessing(false); }
   }
 
@@ -223,7 +236,7 @@ export default function SuggestionsPage() {
             <Input label="الموقع" value={form.location} onChange={(e)=>updateForm('location', e.target.value)} placeholder="مثال: القاعة 3 أو الممر الغربي" />
           </div>
           {form.scope === 'PROGRAM' ? <Input label="اسم البرنامج التدريبي (إن وجد)" value={form.programName} onChange={(e)=>updateForm('programName', e.target.value)} placeholder="اكتب اسم البرنامج" /> : null}
-          {(activeType==='MAINTENANCE' || activeType==='CLEANING') ? <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-2"><label className="block text-sm font-semibold text-slate-700">{activeType==='MAINTENANCE' ? 'الجزء المطلوب صيانته' : 'الموقع أو الجزء المطلوب تنظيفه'}</label><select value={form.area} onChange={(e)=>updateForm('area', e.target.value)} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"><option value="">اختر</option>{(activeType==='MAINTENANCE' ? MAINTENANCE_PARTS : CLEANING_AREAS).map((option)=><option key={option} value={option}>{option}</option>)}</select></div>{form.area==='أخرى' ? <Input label="تحديد الجزء" value={form.customArea} onChange={(e)=>updateForm('customArea', e.target.value)} placeholder="اكتب الجزء المطلوب" /> : <div />}</div> : null}
+          {(activeType==='MAINTENANCE' || activeType==='CLEANING') ? <div className="space-y-3 rounded-[20px] border border-[#e7ebea] bg-[#f8fbfb] p-4"><div className="text-sm font-semibold text-slate-700">{activeType==='MAINTENANCE' ? 'اختر جميع البنود المطلوب صيانتها' : 'اختر جميع البنود المطلوب خدمتها أو تنظيفها'}</div><div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{(activeType==='MAINTENANCE' ? MAINTENANCE_PARTS : CLEANING_AREAS).map((option)=><label key={option} className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition ${selectedServiceItems.includes(option) ? 'border-[#016564] bg-[#016564]/5 text-[#016564]' : 'border-slate-200 bg-white text-slate-700'}`}><input type="checkbox" className="h-4 w-4" checked={selectedServiceItems.includes(option)} onChange={()=>toggleServiceItem(option)} /><span>{option}</span></label>)}</div>{selectedServiceItems.includes('أخرى') ? <Input label="تفصيل البند الإضافي" value={form.customServiceItem} onChange={(e)=>updateForm('customServiceItem', e.target.value)} placeholder="مثال: النوافذ، الموكيت، اللوحات..." /> : null}{selectedServiceItems.length>0 ? <div className="rounded-2xl border border-[#d6e7e6] bg-white px-4 py-3 text-sm text-[#304342]">البنود المحددة: {buildServiceItemsPayload().map((item)=>item.label).join('، ') || '—'}</div> : null}</div> : null}
           {activeType==='PURCHASE' ? <div className="grid gap-3 sm:grid-cols-2"><Input label="الصنف المطلوب" value={form.itemName} onChange={(e)=>updateForm('itemName', e.target.value)} placeholder="اكتب اسم الصنف المطلوب" /><Input label="الكمية" type="number" min="1" value={form.quantity} onChange={(e)=>updateForm('quantity', e.target.value)} placeholder="1" /></div> : null}
           {activeType==='OTHER' ? <div className="grid gap-3 sm:grid-cols-2"><Input label="عنوان الطلب" value={form.otherTitle} onChange={(e)=>updateForm('otherTitle', e.target.value)} placeholder="مثال: طلب معالجة تشغيلية أخرى" /><Input label="الجهة المقترحة مبدئيًا (اختياري)" value={form.otherRecipient} onChange={(e)=>updateForm('otherRecipient', e.target.value)} placeholder="يترك فارغًا إذا كان المدير سيحدده" /></div> : null}
           <div className="space-y-2"><label className="block text-sm font-semibold text-slate-700">سبب الطلب أو الملاحظة</label><textarea value={form.issueSummary} onChange={(e)=>updateForm('issueSummary', e.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب وصفًا واضحًا ومباشرًا" /></div>
@@ -231,7 +244,7 @@ export default function SuggestionsPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button><Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button></div>
         </form>
       </Modal>
-      <Modal isOpen={!!selected} onClose={()=>{setSelected(null); setDecisionRecipient('');}} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="full" bodyClassName="overflow-visible">
+      <Modal isOpen={!!selected} onClose={()=>setSelected(null)} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="full" bodyClassName="overflow-visible">
         {selected ? <div className="space-y-5">{feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type==='error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{feedback.message}</div> : null}
           <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <div className="space-y-4 rounded-[22px] border border-[#e7ebea] bg-white p-4 sm:p-5">
@@ -251,6 +264,7 @@ export default function SuggestionsPage() {
                   ['رقم التحويلة', selected.requester?.extension || '—'],
                   ['الموقع', selected.location || '—'],
                   ['العنصر المطلوب', selected.itemName || selected.area || '—'],
+                  ['البنود المطلوبة', Array.isArray(selected.serviceItems) && selected.serviceItems.length ? selected.serviceItems.join('، ') : (selected.itemName || '—')],
                   ['مصدر الحاجة', selected.requestSource || '—'],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3">
@@ -267,7 +281,6 @@ export default function SuggestionsPage() {
             <div className="space-y-3 rounded-[22px] border border-[#e7ebea] bg-[#f8fbfb] p-4 sm:p-5">
               <div className="text-sm font-extrabold text-[#016564]">قرار المدير</div>
               <textarea value={adminNotes} onChange={(e)=>setAdminNotes(e.target.value)} rows={8} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب ملاحظة القرار أو التوجيه" />
-              {canManage && selected && resolveType(selected)==='OTHER' ? <Input label="الجهة المستلمة" value={decisionRecipient} onChange={(e)=>setDecisionRecipient(e.target.value)} placeholder="مثال: سعادة مدير الجهة المختصة أو البريد المعتمد" /> : null}
               {canManage && (selected.status==='PENDING' || selected.status==='UNDER_REVIEW') ? <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button variant="danger" className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('reject')}>رفض الطلب</Button><Button className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('approve')}>اعتماد الطلب</Button></div> : null}
             </div>
           </div>

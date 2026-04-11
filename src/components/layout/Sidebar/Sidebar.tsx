@@ -144,8 +144,8 @@ function Icon({
 
 const groupLabels: Record<NavigationGroup, string> = {
   dashboard: 'لوحة التحكم',
-  core: 'القسم الرئيسي',
-  services: 'الخدمات',
+  materials: 'طلبات المواد والمخزون',
+  services: 'الخدمات والمراسلات الخارجية',
   messages: 'المراسلات',
   governance: 'الحوكمة',
 };
@@ -169,7 +169,7 @@ export function Sidebar() {
   const role = ((user?.role || 'user') as AppRole);
 
   const items = navigationItems.filter((item) => !item.roles || item.roles.includes(role));
-  const groups: NavigationGroup[] = ['dashboard', 'core', 'services', 'messages', 'governance'];
+  const groups: NavigationGroup[] = ['dashboard', 'materials', 'services', 'messages', 'governance'];
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col overflow-hidden border-b border-[#dbe6e4] bg-white lg:min-h-screen lg:w-80 lg:border-b-0 lg:border-l">

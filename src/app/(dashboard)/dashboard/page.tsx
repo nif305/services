@@ -220,6 +220,47 @@ function ClickableStatCard({ href, ...props }: { href: string; title: string; va
   return <Link href={href} className="block transition hover:-translate-y-0.5"><StatCard {...props} /></Link>;
 }
 
+
+function WorkflowPathCard({
+  badge,
+  title,
+  description,
+  href,
+  cta,
+  tone = 'primary',
+}: {
+  badge: string;
+  title: string;
+  description: string;
+  href: string;
+  cta: string;
+  tone?: 'primary' | 'gold';
+}) {
+  const tones = {
+    primary: 'from-[#016564] to-[#0b6d6b] text-white border-[#016564]/10',
+    gold: 'from-[#fbf7ee] to-white text-[#5a4a2e] border-[#d0b284]/35',
+  } as const;
+
+  const badgeTones = {
+    primary: 'bg-white/12 text-white border-white/10',
+    gold: 'bg-[#fffaf0] text-[#9b7a31] border-[#d0b284]/35',
+  } as const;
+
+  return (
+    <Link
+      href={href}
+      className={`group block overflow-hidden rounded-[24px] border bg-gradient-to-br p-5 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5 hover:shadow-lg ${tones[tone]}`}
+    >
+      <div className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold ${badgeTones[tone]}`}>{badge}</div>
+      <div className="mt-4 text-[22px] font-extrabold leading-[1.35]">{title}</div>
+      <p className={`mt-2 text-[13px] leading-7 ${tone === 'primary' ? 'text-white/85' : 'text-[#6b5a4a]'}`}>{description}</p>
+      <div className={`mt-5 inline-flex items-center rounded-full px-4 py-2 text-[13px] font-bold ${tone === 'primary' ? 'bg-white text-[#016564]' : 'bg-[#016564] text-white'}`}>
+        {cta}
+      </div>
+    </Link>
+  );
+}
+
 function InventoryDonut({
   total,
   data,
@@ -407,6 +448,25 @@ function ManagerDashboard(props: any) {
         </div>
       </Hero>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <WorkflowPathCard
+          badge="مسار المواد"
+          title="طلب مواد من المخزون"
+          description="ارفع طلبات المواد التدريبية من مسار مستقل وواضح، ثم تابع الصرف والعهدة والإرجاعات في مكان واحد."
+          href="/requests"
+          cta="فتح طلبات المواد"
+          tone="gold"
+        />
+        <WorkflowPathCard
+          badge="مسار الخدمات"
+          title="طلب خدمات تشغيلية"
+          description="ارفع طلبات الصيانة والنظافة والشراء المباشر والطلبات الأخرى من صفحة مستقلة عن طلبات المواد."
+          href="/service-requests"
+          cta="فتح طلبات الخدمات"
+          tone="primary"
+        />
+      </div>
+
       <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
         <SectionCard title="أهم العناصر التي تستدعي تدخلًا مباشرًا" subtitle="عناصر تنفيذية مرتبطة بقرار المدير">
           <div className="space-y-2.5">
@@ -517,9 +577,9 @@ function UserDashboard(props: any) {
     { href: '/requests', label: 'طلب مواد' },
     { href: '/custody', label: 'عهدتي' },
     { href: '/returns', label: 'طلبات الإرجاع' },
-    { href: '/suggestions?type=MAINTENANCE&new=1', label: 'طلبات الصيانة' },
+    { href: '/service-requests', label: 'طلب خدمات' },
     { href: '/notifications', label: 'الإشعارات' },
-    { href: '/suggestions?type=PURCHASE&new=1', label: 'شراء مباشر' },
+    { href: '/suggestions', label: 'متابعة طلبات الخدمات' },
   ];
 
   return (

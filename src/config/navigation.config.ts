@@ -1,6 +1,6 @@
 export type AppRole = 'manager' | 'warehouse' | 'user';
 
-export type NavigationGroup = 'dashboard' | 'core' | 'services' | 'messages' | 'governance';
+export type NavigationGroup = 'dashboard' | 'materials' | 'services' | 'messages' | 'governance';
 
 export type NavigationItem = {
   href: string;
@@ -37,78 +37,57 @@ export const navigationItems: NavigationItem[] = [
 
   {
     href: '/inventory',
-    label: 'المخزون',
+    label: 'مخزون المواد',
     icon: 'inventory',
     roles: ['manager', 'warehouse'],
-    group: 'core',
+    group: 'materials',
   },
   {
     href: '/requests',
-    label: 'الطلبات التشغيلية',
+    label: 'طلبات المواد',
     icon: 'requests',
     roles: ['manager', 'warehouse'],
-    group: 'core',
+    group: 'materials',
   },
   {
     href: '/returns',
-    label: 'الإرجاعات التشغيلية',
+    label: 'إرجاعات المواد',
     icon: 'returns',
     roles: ['manager', 'warehouse'],
-    group: 'core',
+    group: 'materials',
   },
   {
     href: '/requests',
-    label: 'طلب مواد',
+    label: 'طلب مواد من المخزون',
     icon: 'requests',
     roles: ['user'],
-    group: 'core',
+    group: 'materials',
   },
   {
     href: '/custody',
     label: 'عهدتي',
     icon: 'custody',
     roles: ['user'],
-    group: 'core',
+    group: 'materials',
   },
   {
     href: '/returns',
     label: 'طلبات الإرجاع',
     icon: 'returns',
     roles: ['user'],
-    group: 'core',
+    group: 'materials',
   },
 
   {
-    href: '/maintenance',
-    label: 'الصيانة',
+    href: '/service-approvals',
+    label: 'اعتماد طلبات الخدمات',
     icon: 'maintenance',
     roles: ['manager'],
     group: 'services',
   },
   {
-    href: '/suggestions?category=CLEANING',
-    label: 'النظافة',
-    icon: 'cleaning',
-    roles: ['manager'],
-    group: 'services',
-  },
-  {
-    href: '/purchases',
-    label: 'الشراء المباشر',
-    icon: 'purchases',
-    roles: ['manager'],
-    group: 'services',
-  },
-  {
-    href: '/suggestions?category=OTHER',
-    label: 'الطلبات الأخرى',
-    icon: 'other',
-    roles: ['manager'],
-    group: 'services',
-  },
-  {
-    href: '/suggestions',
-    label: 'الطلبات الخدمية',
+    href: '/service-requests',
+    label: 'طلب خدمات',
     icon: 'other',
     roles: ['user'],
     group: 'services',
@@ -123,7 +102,7 @@ export const navigationItems: NavigationItem[] = [
   },
   {
     href: '/email-drafts',
-    label: 'المراسلات الخارجية',
+    label: 'مراسلات الخدمات الخارجية',
     icon: 'email',
     roles: ['manager'],
     group: 'messages',

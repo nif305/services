@@ -25,7 +25,7 @@ type Row = {
   location: string;
   itemName: string;
   description: string;
-  attachments: string[];
+  attachments: Array<{ name: string; filename?: string }>;
   body: string;
 };
 
@@ -224,7 +224,7 @@ export default function EmailDraftsPage() {
                 ))}
                 <div className="rounded-[18px] border border-[#e7ebea] bg-white px-4 py-3 sm:col-span-2">
                   <div className="text-xs font-bold text-[#016564]">المرفقات المرفوعة</div>
-                  <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.attachments.length ? selected.attachments.join('، ') : 'لا توجد مرفقات'}</div>
+                  <div className="mt-1 break-words text-sm leading-7 text-[#304342]">{selected.attachments.length ? selected.attachments.map((item) => item.name).join('، ') : 'لا توجد مرفقات'}</div>
                 </div>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">

@@ -252,7 +252,7 @@ export default function RequestsPage() {
   const isManager = user?.role === 'manager';
   const isWarehouse = user?.role === 'warehouse';
   const isEmployee = user?.role === 'user';
-  const canIssue = isWarehouse || isManager;
+  const canIssue = isWarehouse;
   const canUseWarehouseTabs = isWarehouse || isManager;
 
   const [requests, setRequests] = useState<RequestRow[]>([]);
@@ -659,7 +659,7 @@ export default function RequestsPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <h1 className="text-xl font-extrabold text-[#016564] sm:text-2xl">
-              {isEmployee ? 'طلب مواد' : 'الطلبات التشغيلية'}
+              {isEmployee ? 'طلب مواد' : isWarehouse ? 'الطلبات التشغيلية' : 'متابعة الطلبات التشغيلية'}
             </h1>
             <p className="text-sm leading-7 text-[#61706f]">
               {isEmployee

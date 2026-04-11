@@ -14,7 +14,7 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 function getDefaultRouteForRole(role: Role) {
-  if (role === 'manager') return '/users';
+  if (role === 'manager') return '/maintenance';
   if (role === 'warehouse') return '/inventory';
   return '/requests';
 }

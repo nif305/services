@@ -72,6 +72,122 @@ function buildPageTitle(type: SuggestionType) { if (type==='MAINTENANCE') return
 function buildDefaultRecipient(type: SuggestionType) { if (type==='PURCHASE') return 'wa.n1@nauss.edu.sa'; if (type==='MAINTENANCE' || type==='CLEANING') return 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa'; return ''; }
 function parseAdminNotes(value?: string | null) { if (!value) return { note:'', linkedCode:'', linkedDraftId:'' }; try { const parsed = JSON.parse(value); return { note: parsed?.adminNotes || '', linkedCode: parsed?.linkedCode || parsed?.publicCode || '', linkedDraftId: parsed?.linkedDraftId || '' }; } catch { return { note:String(value), linkedCode:'', linkedDraftId:'' }; } }
 
+function formatBytes(size: number) {
+  if (!Number.isFinite(size) || size <= 0) return '0 ك.ب';
+  const kb = size / 1024;
+  if (kb < 1024) return `${kb.toFixed(kb < 10 ? 1 : 0)} ك.ب`;
+  return `${(kb / 1024).toFixed(2)} م.ب`;
+}
+
+function readBlobAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('تعذر قراءة الملف'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function compressImageFile(file: File, maxDimension = 1600, maxBytes = 350 * 1024): Promise<Blob> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`تعذر قراءة الصورة: ${file.name}`));
+      img.src = objectUrl;
+    });
+
+    let width = image.width;
+    let height = image.height;
+    const largest = Math.max(width, height);
+    if (largest > maxDimension) {
+      const scale = maxDimension / largest;
+      width = Math.max(1, Math.round(width * scale));
+      height = Math.max(1, Math.round(height * scale));
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('تعذر تجهيز الصورة للرفع');
+    ctx.drawImage(image, 0, 0, width, height);
+
+    const qualities = [0.82, 0.74, 0.66, 0.58, 0.5, 0.42];
+    let output: Blob | null = null;
+    for (const quality of qualities) {
+      output = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+      if (output && output.size <= maxBytes) return output;
+    }
+    return output || file;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function buildAttachmentPayloads(
+  files: File[],
+  onSummary: (items: Array<{ name: string; originalSize: number; finalSize?: number; status: 'queued' | 'processing' | 'ready' | 'error'; message?: string }>) => void,
+  onProgress: (progress: number) => void,
+) {
+  const summaries = files.map((file) => ({ name: file.name, originalSize: file.size, status: 'queued' as const }));
+  onSummary(summaries);
+  const payload: Array<{ filename: string; contentType: string; base64Content: string }> = [];
+
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    summaries[index] = { ...summaries[index], status: 'processing' };
+    onSummary([...summaries]);
+
+    let blob: Blob = file;
+    const isImage = String(file.type || '').startsWith('image/');
+    if (isImage) {
+      blob = await compressImageFile(file);
+    } else if (file.size > 700 * 1024) {
+      summaries[index] = { ...summaries[index], status: 'error', message: 'الملف غير الصوري يتجاوز الحد المسموح (700 ك.ب)' };
+      onSummary([...summaries]);
+      throw new Error(`الملف ${file.name} كبير جدًا. ارفع نسخة أصغر أو صورة بدقة أقل.`);
+    }
+
+    const dataUrl = await readBlobAsDataUrl(blob);
+    const base64Content = dataUrl.split(',')[1] || '';
+    payload.push({
+      filename: file.name,
+      contentType: blob.type || file.type || 'application/octet-stream',
+      base64Content,
+    });
+
+    summaries[index] = { ...summaries[index], status: 'ready', finalSize: blob.size };
+    onSummary([...summaries]);
+    onProgress(Math.round(((index + 1) / Math.max(files.length, 1)) * 100));
+  }
+
+  const estimatedBytes = payload.reduce((total, item) => total + item.base64Content.length, 0);
+  if (estimatedBytes > 3_300_000) {
+    throw new Error('حجم المرفقات بعد الضغط ما زال كبيرًا. خفف عدد الصور أو أعد رفع صور أقل حجمًا.');
+  }
+
+  return payload;
+}
+
+function postJsonWithProgress(url: string, body: unknown, onProgress: (progress: number) => void) {
+  return new Promise<{ status: number; responseText: string }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress(Math.min(100, Math.max(1, Math.round((event.loaded / event.total) * 100))));
+    };
+    xhr.onload = () => resolve({ status: xhr.status, responseText: xhr.responseText || '' });
+    xhr.onerror = () => reject(new Error('تعذر إرسال الطلب إلى الخادم'));
+    xhr.send(JSON.stringify(body));
+  });
+}
+
+
 export default function SuggestionsPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -86,6 +202,9 @@ export default function SuggestionsPage() {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [feedback, setFeedback] = useState<{type:'success'|'error'; message:string}|null>(null);
+  const [uploadStage, setUploadStage] = useState<'idle'|'preparing'|'uploading'>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [attachmentSummaries, setAttachmentSummaries] = useState<Array<{ name: string; originalSize: number; finalSize?: number; status: 'queued' | 'processing' | 'ready' | 'error'; message?: string }>>([]);
 
   const canManage = user?.role === 'manager';
   const requestedType = (searchParams.get('type') || '').toUpperCase() as SuggestionType;
@@ -132,48 +251,94 @@ export default function SuggestionsPage() {
     const extraItems = form.serviceItems.includes('أخرى') ? customLines : [];
     return [...baseItems, ...extraItems];
   }
-  function resetCreateState() { setForm(DEFAULT_FORM); setAttachments([]); setFeedback(null); }
+  function resetCreateState() { setForm(DEFAULT_FORM); setAttachments([]); setFeedback(null); setUploadStage('idle'); setUploadProgress(0); setAttachmentSummaries([]); }
   async function fileToAttachmentPayload(file: File) { const buffer = await file.arrayBuffer(); let binary=''; const bytes=new Uint8Array(buffer); const chunkSize=0x8000; for (let i=0;i<bytes.length;i+=chunkSize) { const chunk=bytes.subarray(i,i+chunkSize); binary += String.fromCharCode(...chunk); } return { filename:file.name, contentType:file.type || 'application/octet-stream', base64Content:btoa(binary) }; }
   function closeCreateMode() { resetCreateState(); router.replace('/suggestions'); }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setFeedback(null);
+    setUploadProgress(0);
+
     const selectedServiceItems = resolveSelectedServiceItems();
     const areaName = selectedServiceItems.join('، ');
     const quantityValue = Math.max(1, Number(form.quantity || 1));
     const requestSource = form.scope === 'PROGRAM' ? `مرتبط ببرنامج تدريبي${form.programName ? ` | اسم البرنامج: ${form.programName}` : ''}` : 'مرتبط بملاحظة عامة في المبنى';
     let title = buildPageTitle(activeType);
-    let description = form.issueSummary.trim();
+    const description = form.issueSummary.trim();
     let itemName = '';
-    let location = form.location.trim();
+    const location = form.location.trim();
     let externalRecipient = buildDefaultRecipient(activeType);
 
     if (activeType === 'MAINTENANCE' || activeType === 'CLEANING') {
       itemName = areaName;
-      if (!selectedServiceItems.length) { setFeedback({ type:'error', message:'اختر بند خدمة واحدًا على الأقل وأكمل الوصف' }); return; }
-      if (!description) { setFeedback({ type:'error', message:`أكمل حقول ${activeType === 'MAINTENANCE' ? 'طلب الصيانة' : 'طلب النظافة'} المطلوبة` }); return; }
+      if (!selectedServiceItems.length) {
+        setFeedback({ type:'error', message:'اختر بند خدمة واحدًا على الأقل.' });
+        return;
+      }
+      if (!description) {
+        setFeedback({ type:'error', message:`أكمل حقول ${activeType === 'MAINTENANCE' ? 'طلب الصيانة' : 'طلب النظافة'} المطلوبة` });
+        return;
+      }
     }
     if (activeType === 'PURCHASE') {
-      title = 'طلب شراء مباشر'; itemName = form.itemName.trim();
-      if (!itemName || !description) { setFeedback({ type:'error', message:'أكمل حقول طلب الشراء المباشر المطلوبة' }); return; }
+      title = 'طلب شراء مباشر';
+      itemName = form.itemName.trim();
+      if (!itemName || !description) {
+        setFeedback({ type:'error', message:'أكمل حقول طلب الشراء المباشر المطلوبة' });
+        return;
+      }
     }
     if (activeType === 'OTHER') {
       title = form.otherTitle.trim() || 'طلب آخر';
-      if (!title || !description) { setFeedback({ type:'error', message:'أكمل حقول الطلب الآخر المطلوبة' }); return; }
+      if (!title || !description) {
+        setFeedback({ type:'error', message:'أكمل حقول الطلب الآخر المطلوبة' });
+        return;
+      }
       externalRecipient = form.otherRecipient.trim();
     }
-    const attachmentPayload = await Promise.all(attachments.map(fileToAttachmentPayload));
+
     setSubmitting(true);
     try {
-      const res = await fetch('/api/suggestions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ category: activeType, title, description, itemName, quantity: quantityValue, location, externalRecipient, requestSource, programName: form.programName.trim(), area: areaName, serviceItems: selectedServiceItems, attachments: attachmentPayload }) });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok) { setFeedback({ type:'error', message: data?.error || 'تعذر حفظ الطلب' }); return; }
+      setUploadStage('preparing');
+      const attachmentPayload = await buildAttachmentPayloads(attachments, setAttachmentSummaries, setUploadProgress);
+
+      setUploadStage('uploading');
+      setUploadProgress(0);
+      const payload = {
+        category: activeType,
+        title,
+        description,
+        itemName,
+        quantity: quantityValue,
+        location,
+        externalRecipient,
+        requestSource,
+        programName: form.programName.trim(),
+        area: areaName,
+        serviceItems: selectedServiceItems,
+        attachments: attachmentPayload,
+      };
+
+      const res = await postJsonWithProgress('/api/suggestions', payload, setUploadProgress);
+      const data = res.responseText ? JSON.parse(res.responseText) : {};
+      if (res.status < 200 || res.status >= 300) {
+        const message = data?.error || (res.status === 413 ? 'حجم المرفقات كبير جدًا. خفف عدد الصور أو استخدم صورًا أصغر.' : 'تعذر حفظ الطلب');
+        setFeedback({ type:'error', message });
+        return;
+      }
+
       setFeedback({ type:'success', message:'تم رفع الطلب بنجاح وإحالته إلى المدير للمراجعة' });
       resetCreateState();
       router.replace('/suggestions');
       await fetchRows();
-    } finally { setSubmitting(false); }
+    } catch (error: any) {
+      setFeedback({ type:'error', message: error?.message || 'تعذر حفظ الطلب' });
+    } finally {
+      setSubmitting(false);
+      setUploadStage('idle');
+      setUploadProgress(0);
+    }
   }
 
   async function handleDecision(action: 'approve' | 'reject') {
@@ -250,7 +415,7 @@ export default function SuggestionsPage() {
           {activeType==='PURCHASE' ? <div className="grid gap-3 sm:grid-cols-2"><Input label="الصنف المطلوب" value={form.itemName} onChange={(e)=>updateForm('itemName', e.target.value)} placeholder="اكتب اسم الصنف المطلوب" /><Input label="الكمية" type="number" min="1" value={form.quantity} onChange={(e)=>updateForm('quantity', e.target.value)} placeholder="1" /></div> : null}
           {activeType==='OTHER' ? <div className="grid gap-3 sm:grid-cols-2"><Input label="عنوان الطلب" value={form.otherTitle} onChange={(e)=>updateForm('otherTitle', e.target.value)} placeholder="مثال: طلب معالجة تشغيلية أخرى" /><Input label="الجهة المقترحة مبدئيًا (اختياري)" value={form.otherRecipient} onChange={(e)=>updateForm('otherRecipient', e.target.value)} placeholder="يترك فارغًا إذا كان المدير سيحدده" /></div> : null}
           <div className="space-y-2"><label className="block text-sm font-semibold text-slate-700">سبب الطلب أو الملاحظة</label><textarea value={form.issueSummary} onChange={(e)=>updateForm('issueSummary', e.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب وصفًا واضحًا ومباشرًا" /></div>
-          <div className="space-y-2"><label className="block text-sm font-semibold text-slate-700">المرفقات (اختياري)</label><input type="file" multiple onChange={(e)=>setAttachments(Array.from(e.target.files || []))} className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />{attachments.length>0 ? <div className="rounded-2xl border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm text-[#304342]">الملفات المختارة: {attachments.map((file)=>file.name).join(' ، ')}</div> : null}</div>
+          <div className="space-y-3"><label className="block text-sm font-semibold text-slate-700">المرفقات (اختياري)</label><input type="file" accept="image/*,.pdf" multiple onChange={(e)=>{ const files = Array.from(e.target.files || []); setAttachments(files); setAttachmentSummaries(files.map((file) => ({ name: file.name, originalSize: file.size, status: 'queued' as const }))); setUploadStage('idle'); setUploadProgress(0); }} className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700" />{attachments.length>0 ? <div className="space-y-3 rounded-2xl border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3 text-sm text-[#304342]"><div className="font-semibold text-[#016564]">الملفات المختارة ({attachments.length})</div><div className="space-y-2">{attachmentSummaries.map((item, index) => <div key={`${item.name}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e7ebea] bg-white px-3 py-2"><div className="min-w-0 flex-1 truncate">{item.name}</div><div className="text-xs text-[#61706f]">{item.finalSize ? `${formatBytes(item.originalSize)} ← ${formatBytes(item.finalSize)}` : formatBytes(item.originalSize)}</div><div className={`text-xs font-bold ${item.status==='error' ? 'text-red-600' : item.status==='ready' ? 'text-emerald-700' : item.status==='processing' ? 'text-[#016564]' : 'text-[#8a6a28]'}`}>{item.status==='error' ? (item.message || 'فشل') : item.status==='ready' ? 'جاهز للرفع' : item.status==='processing' ? 'جاري التجهيز' : 'بانتظار التجهيز'}</div></div>)}</div>{(submitting || uploadStage !== 'idle') ? <div className="space-y-2"><div className="flex items-center justify-between text-xs font-semibold text-[#016564]"><span>{uploadStage==='preparing' ? 'جاري تجهيز وضغط المرفقات' : 'جاري رفع الطلب إلى الخادم'}</span><span>{uploadProgress}%</span></div><div className="h-2 overflow-hidden rounded-full bg-[#d6e6e5]"><div className="h-full rounded-full bg-[#016564] transition-all" style={{ width: `${uploadProgress}%` }} /></div></div> : <div className="text-xs text-[#61706f]">سيتم ضغط الصور تلقائيًا قبل الرفع لتفادي فشل الحفظ.</div>}</div> : null}</div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button><Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button></div>
         </form>
       </Modal>

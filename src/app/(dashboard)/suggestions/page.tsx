@@ -32,6 +32,7 @@ type SuggestionRow = {
   area?: string;
   attachments?: string[];
   adminNotes?: string;
+  externalRecipient?: string;
   requester?: {
     fullName?: string;
     department?: string;
@@ -83,6 +84,7 @@ export default function SuggestionsPage() {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [feedback, setFeedback] = useState<{type:'success'|'error'; message:string}|null>(null);
+  const [decisionRecipient, setDecisionRecipient] = useState('');
 
   const canManage = user?.role === 'manager';
   const requestedType = (searchParams.get('type') || '').toUpperCase() as SuggestionType;
@@ -103,7 +105,7 @@ export default function SuggestionsPage() {
     } catch { setRows([]); } finally { setLoading(false); }
   }
   useEffect(() => { fetchRows(); }, [searchParams.toString()]);
-  useEffect(() => { if (!selected) { setAdminNotes(''); return; } setAdminNotes(parseAdminNotes((selected as any).adminNotes).note || ''); }, [selected]);
+  useEffect(() => { if (!selected) { setAdminNotes(''); setDecisionRecipient(''); return; } const parsed = parseAdminNotes((selected as any).adminNotes); setAdminNotes(parsed.note || ''); setDecisionRecipient((selected as any).externalRecipient || ''); }, [selected]);
 
   const stats = useMemo(() => ({ total: rows.length, pending: rows.filter((r)=>r.status==='PENDING' || r.status==='UNDER_REVIEW').length, approved: rows.filter((r)=>r.status==='APPROVED'||r.status==='IMPLEMENTED').length, rejected: rows.filter((r)=>r.status==='REJECTED').length }), [rows]);
   const filteredRows = useMemo(() => { const q=normalizeArabic(search); return rows.filter((row)=>{ const type=resolveType(row); const haystack=normalizeArabic([row.code,row.title,row.description,row.requester?.fullName,row.requester?.department,row.itemName,row.location,row.requestSource,typeMeta(type).label,statusMeta(row.status).label].filter(Boolean).join(' ')); return q ? haystack.includes(q) : true; }); }, [rows, search]);
@@ -157,11 +159,11 @@ export default function SuggestionsPage() {
     if (!selected) return; setFeedback(null); setProcessing(true);
     try {
       const targetDepartment = resolveType(selected) === 'PURCHASE' ? 'FINANCE' : resolveType(selected) === 'OTHER' ? 'OTHER' : 'SUPPORT_SERVICES';
-      const res = await fetch('/api/suggestions', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ suggestionId:selected.id, action, adminNotes, targetDepartment }) });
+      const res = await fetch('/api/suggestions', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ suggestionId:selected.id, action, adminNotes, targetDepartment, externalRecipient: decisionRecipient }) });
       const data = await res.json().catch(()=>({}));
       if (!res.ok) { setFeedback({ type:'error', message: data?.error || 'تعذر معالجة الطلب' }); return; }
       setFeedback({ type:'success', message: action === 'approve' ? 'تم اعتماد الطلب بنجاح وإنشاء مسودة المراسلة الخارجية' : 'تم رفض الطلب' });
-      setSelected(null); await fetchRows();
+      setSelected(null); setDecisionRecipient(''); await fetchRows();
     } finally { setProcessing(false); }
   }
 
@@ -229,7 +231,7 @@ export default function SuggestionsPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button><Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button></div>
         </form>
       </Modal>
-      <Modal isOpen={!!selected} onClose={()=>setSelected(null)} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="full" bodyClassName="overflow-visible">
+      <Modal isOpen={!!selected} onClose={()=>{setSelected(null); setDecisionRecipient('');}} title={selected ? `تفاصيل الطلب ${selected.code || ''}` : 'تفاصيل الطلب'} size="full" bodyClassName="overflow-visible">
         {selected ? <div className="space-y-5">{feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type==='error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{feedback.message}</div> : null}
           <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
             <div className="space-y-4 rounded-[22px] border border-[#e7ebea] bg-white p-4 sm:p-5">
@@ -265,6 +267,7 @@ export default function SuggestionsPage() {
             <div className="space-y-3 rounded-[22px] border border-[#e7ebea] bg-[#f8fbfb] p-4 sm:p-5">
               <div className="text-sm font-extrabold text-[#016564]">قرار المدير</div>
               <textarea value={adminNotes} onChange={(e)=>setAdminNotes(e.target.value)} rows={8} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب ملاحظة القرار أو التوجيه" />
+              {canManage && selected && resolveType(selected)==='OTHER' ? <Input label="الجهة المستلمة" value={decisionRecipient} onChange={(e)=>setDecisionRecipient(e.target.value)} placeholder="مثال: سعادة مدير الجهة المختصة أو البريد المعتمد" /> : null}
               {canManage && (selected.status==='PENDING' || selected.status==='UNDER_REVIEW') ? <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button variant="danger" className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('reject')}>رفض الطلب</Button><Button className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('approve')}>اعتماد الطلب</Button></div> : null}
             </div>
           </div>

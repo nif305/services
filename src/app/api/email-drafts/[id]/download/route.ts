@@ -1,5 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Role, Status } from '@prisma/client';
+
+function mapRole(role: string): Role {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'manager') return Role.MANAGER;
+  if (normalized === 'warehouse') return Role.WAREHOUSE;
+  return Role.USER;
+}
+
+async function resolveSessionUser(request: NextRequest) {
+  const cookieId = decodeURIComponent(request.cookies.get('user_id')?.value || '').trim();
+  const cookieEmail = decodeURIComponent(request.cookies.get('user_email')?.value || '').trim();
+  const cookieEmployeeId = decodeURIComponent(request.cookies.get('user_employee_id')?.value || '').trim();
+  const activeRoleRaw = decodeURIComponent(
+    request.headers.get('x-active-role') ||
+      request.cookies.get('server_active_role')?.value ||
+      request.cookies.get('active_role')?.value ||
+      request.cookies.get('user_role')?.value ||
+      'user'
+  ).trim();
+
+  const activeRole = mapRole(activeRoleRaw);
+
+  let user = null;
+  if (cookieId) {
+    user = await prisma.user.findUnique({
+      where: { id: cookieId },
+      select: { id: true, roles: true, status: true },
+    });
+  }
+  if (!user && cookieEmail) {
+    user = await prisma.user.findFirst({
+      where: { email: { equals: cookieEmail, mode: 'insensitive' } },
+      select: { id: true, roles: true, status: true },
+    });
+  }
+  if (!user && cookieEmployeeId) {
+    user = await prisma.user.findUnique({
+      where: { employeeId: cookieEmployeeId },
+      select: { id: true, roles: true, status: true },
+    });
+  }
+
+  if (!user) throw new Error('تعذر التحقق من المستخدم الحالي.');
+  if (user.status !== Status.ACTIVE) throw new Error('الحساب غير نشط.');
+  if (!Array.isArray(user.roles) || !user.roles.includes(activeRole)) {
+    throw new Error('الدور النشط غير صالح لهذا المستخدم.');
+  }
+
+  return { ...user, role: activeRole };
+}
 
 type JsonObject = Record<string, any>;
 type AttachmentPayload = {
@@ -100,6 +151,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const sessionUser = await resolveSessionUser(_request);
+    if (sessionUser.role !== Role.MANAGER) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
+    }
+
     const { id } = await params;
 
     const draft = await prisma.emailDraft.findUnique({ where: { id } });
@@ -183,13 +239,6 @@ export async function GET(
         copiedAt: new Date(),
       },
     });
-
-    if (linkedSuggestion && linkedSuggestion.status !== 'IMPLEMENTED') {
-      await prisma.suggestion.update({
-        where: { id: linkedSuggestion.id },
-        data: { status: 'IMPLEMENTED' },
-      });
-    }
 
     const buffer = new TextEncoder().encode(eml);
 

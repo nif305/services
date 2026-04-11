@@ -162,6 +162,12 @@ function buildRecipients(category: SuggestionCategory, provided?: string | null)
   return String(provided || '').trim();
 }
 
+function buildRecipientLabel(category: SuggestionCategory, provided?: string | null) {
+  if (category === 'PURCHASE') return 'سعادة الأستاذ/ نواف المحارب سلمه الله';
+  if (category === 'MAINTENANCE' || category === 'CLEANING') return 'سعادة مدير إدارة الخدمات المساندة سلمه الله';
+  return String(provided || '').trim() || 'إلى الجهة المختصة';
+}
+
 function buildNotificationTitle(category: SuggestionCategory) {
   return `${categoryMeta(category).notification} جديد`;
 }
@@ -400,6 +406,7 @@ export async function PATCH(request: NextRequest) {
     const action = String(body.action || '').trim().toLowerCase();
     const adminNotes = String(body.adminNotes || '').trim();
     const targetDepartment = normalizeTargetDepartment(body.targetDepartment);
+    const managerRecipient = String(body.externalRecipient || '').trim();
 
     if (!suggestionId || !action) {
       return NextResponse.json({ error: 'البيانات غير مكتملة' }, { status: 400 });
@@ -424,7 +431,7 @@ export async function PATCH(request: NextRequest) {
     const location = String(justificationData.location || '').trim();
     const requestSource = String(justificationData.requestSource || '').trim();
     const programName = String(justificationData.programName || '').trim();
-    const externalRecipient = String(justificationData.externalRecipient || '').trim();
+    const externalRecipient = String(managerRecipient || justificationData.externalRecipient || '').trim();
 
     if (action === 'reject') {
       const updated = await prisma.suggestion.update({
@@ -556,7 +563,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const recipient = buildRecipients(category, externalRecipient);
-    const recipientLabel = category === 'PURCHASE' ? 'سعادة الأستاذ/ نواف المحارب سلمه الله' : (category === 'MAINTENANCE' || category === 'CLEANING') ? 'سعادة مدير إدارة الخدمات المساندة سلمه الله' : 'إلى من يهمه الأمر';
+    if (!recipient) {
+      return NextResponse.json({ error: 'يجب تحديد الجهة المستلمة لطلبات الفئة الأخرى قبل الاعتماد.' }, { status: 400 });
+    }
+    const recipientLabel = buildRecipientLabel(category, externalRecipient);
 
     let linkedDraftId = String(adminData.linkedDraftId || '');
     let draft = null as any;
@@ -635,11 +645,13 @@ export async function PATCH(request: NextRequest) {
           ...adminData,
           adminNotes,
           targetDepartment,
+          externalRecipient,
           linkedEntityType,
           linkedEntityId,
           linkedCode,
           linkedDraftId: draft.id,
           publicCode,
+          externalRecipient,
         }),
       },
     });

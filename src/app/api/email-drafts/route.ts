@@ -1,8 +1,58 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Role, Status } from '@prisma/client';
+
+function mapRole(role: string): Role {
+  const normalized = String(role || '').trim().toLowerCase();
+  if (normalized === 'manager') return Role.MANAGER;
+  if (normalized === 'warehouse') return Role.WAREHOUSE;
+  return Role.USER;
+}
+
+async function resolveSessionUser(request: NextRequest) {
+  const cookieId = decodeURIComponent(request.cookies.get('user_id')?.value || '').trim();
+  const cookieEmail = decodeURIComponent(request.cookies.get('user_email')?.value || '').trim();
+  const cookieEmployeeId = decodeURIComponent(request.cookies.get('user_employee_id')?.value || '').trim();
+  const activeRoleRaw = decodeURIComponent(
+    request.headers.get('x-active-role') ||
+      request.cookies.get('server_active_role')?.value ||
+      request.cookies.get('active_role')?.value ||
+      request.cookies.get('user_role')?.value ||
+      'user'
+  ).trim();
+
+  const activeRole = mapRole(activeRoleRaw);
+
+  let user = null;
+  if (cookieId) {
+    user = await prisma.user.findUnique({
+      where: { id: cookieId },
+      select: { id: true, roles: true, status: true },
+    });
+  }
+  if (!user && cookieEmail) {
+    user = await prisma.user.findFirst({
+      where: { email: { equals: cookieEmail, mode: 'insensitive' } },
+      select: { id: true, roles: true, status: true },
+    });
+  }
+  if (!user && cookieEmployeeId) {
+    user = await prisma.user.findUnique({
+      where: { employeeId: cookieEmployeeId },
+      select: { id: true, roles: true, status: true },
+    });
+  }
+
+  if (!user) throw new Error('تعذر التحقق من المستخدم الحالي.');
+  if (user.status !== Status.ACTIVE) throw new Error('الحساب غير نشط.');
+  if (!Array.isArray(user.roles) || !user.roles.includes(activeRole)) {
+    throw new Error('الدور النشط غير صالح لهذا المستخدم.');
+  }
+
+  return { ...user, role: activeRole };
+}
 
 type JsonObject = Record<string, any>;
-
 type AttachmentPayload = {
   filename?: string;
   contentType?: string;
@@ -18,6 +68,10 @@ function parseJsonObject(value: any): JsonObject {
   } catch {
     return {};
   }
+}
+
+function sanitizeHeader(value?: string | null) {
+  return String(value || '').replace(/[\r\n]+/g, ' ').trim();
 }
 
 function stripHtmlToText(html?: string | null) {
@@ -40,29 +94,6 @@ function stripHtmlToText(html?: string | null) {
     .trim();
 }
 
-function normalizeRequestType(sourceType?: string | null) {
-  const normalized = String(sourceType || '').trim().toLowerCase();
-  if (normalized === 'maintenance') return { code: 'MAINTENANCE', label: 'طلب صيانة' };
-  if (normalized === 'cleaning') return { code: 'CLEANING', label: 'طلب نظافة' };
-  if (normalized === 'purchase') return { code: 'PURCHASE', label: 'طلب شراء مباشر' };
-  return { code: 'OTHER', label: 'طلب آخر' };
-}
-
-function friendlyAttachmentName(item: AttachmentPayload, index: number) {
-  const contentType = String(item?.contentType || '').toLowerCase();
-  const filename = String(item?.filename || '').toLowerCase();
-  if (contentType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp|svg)$/.test(filename)) {
-    return `صورة مرفقة ${index + 1}`;
-  }
-  if (contentType.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm)$/.test(filename)) {
-    return `فيديو مرفق ${index + 1}`;
-  }
-  if (contentType.includes('pdf') || filename.endsWith('.pdf')) {
-    return `ملف PDF مرفق ${index + 1}`;
-  }
-  return `ملف مرفق ${index + 1}`;
-}
-
 function extractCodeCandidates(draft: { subject?: string | null; body?: string | null }) {
   const text = `${draft.subject || ''} ${stripHtmlToText(draft.body || '')}`;
   const matches = text.match(/[A-Z]{3}-\d{4}-\d{4}/g) || [];
@@ -71,7 +102,7 @@ function extractCodeCandidates(draft: { subject?: string | null; body?: string |
 
 function findLinkedSuggestion(
   draft: { id: string; sourceId: string; subject?: string | null; body?: string | null },
-  suggestions: Array<{ id: string; title: string; description: string; justification: string; category: string; requesterId: string; status: string; createdAt: Date; updatedAt: Date; adminNotes: string | null }>
+  suggestions: Array<{ id: string; requesterId: string; status: string; justification: string; adminNotes: string | null }>
 ) {
   const codes = extractCodeCandidates(draft);
 
@@ -101,85 +132,128 @@ function findLinkedSuggestion(
   return suggestion || null;
 }
 
-export async function GET() {
+function toBase64Lines(value: string) {
+  return value.replace(/.{1,76}/g, '$&\r\n').trim();
+}
+
+function safeAsciiFilename(value: string) {
+  const cleaned = value
+    .normalize('NFKD')
+    .replace(/[^\x20-\x7E]/g, '')
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return (cleaned || 'email-draft').slice(0, 120);
+}
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const [drafts, suggestions, users] = await Promise.all([
-      prisma.emailDraft.findMany({
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.suggestion.findMany({
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          justification: true,
-          category: true,
-          requesterId: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
-          adminNotes: true,
-        },
-      }),
-      prisma.user.findMany({
-        select: {
-          id: true,
-          fullName: true,
-          email: true,
-          mobile: true,
-          department: true,
-          jobTitle: true,
-        },
-      }),
-    ]);
+    const sessionUser = await resolveSessionUser(_request);
+    if (sessionUser.role !== Role.MANAGER) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
+    }
 
-    const userMap = new Map(users.map((user) => [user.id, user]));
+    const { id } = await params;
 
-    const data = drafts.map((draft) => {
-      const linkedSuggestion = findLinkedSuggestion(draft, suggestions);
-      const requester = linkedSuggestion ? userMap.get(linkedSuggestion.requesterId) : null;
-      const admin = parseJsonObject(linkedSuggestion?.adminNotes);
-      const justification = parseJsonObject(linkedSuggestion?.justification);
-      const attachments = Array.isArray(justification.attachments) ? (justification.attachments as AttachmentPayload[]) : [];
-      const requestType = normalizeRequestType(linkedSuggestion?.category || draft.sourceType);
-      const requestCode = String(admin.linkedCode || justification.publicCode || draft.sourceId || draft.id);
-      const mappedStatus = draft.status === 'COPIED' ? 'READY' : draft.status === 'SENT' ? 'SENT' : 'DRAFT';
+    const draft = await prisma.emailDraft.findUnique({ where: { id } });
+    if (!draft) {
+      return NextResponse.json({ error: 'المسودة غير موجودة' }, { status: 404 });
+    }
 
-      return {
-        id: draft.id,
-        subject: draft.subject,
-        to: draft.recipient,
-        cc: null,
-        body: draft.body,
-        status: mappedStatus,
-        createdAt: draft.createdAt,
-        updatedAt: draft.copiedAt || draft.createdAt,
-        createdBy: requester
-          ? {
-              fullName: requester.fullName,
-            }
-          : null,
-        requestCode,
-        requestType: requestType.code,
-        requestTypeLabel: requestType.label,
-        requesterName: requester?.fullName || '—',
-        requesterEmail: requester?.email || '—',
-        requesterMobile: requester?.mobile || '—',
-        requesterDepartment: 'إدارة عمليات التدريب',
-        requesterJobTitle: requester?.jobTitle || '—',
-        location: String(justification.location || admin.location || '—'),
-        itemName: String(justification.itemName || admin.itemName || linkedSuggestion?.title || '—'),
-        description: linkedSuggestion?.description || stripHtmlToText(draft.body),
-        attachments: attachments.map((item, index) => ({
-          name: friendlyAttachmentName(item, index),
-        })),
-      };
+    const suggestions = await prisma.suggestion.findMany({
+      select: {
+        id: true,
+        requesterId: true,
+        status: true,
+        justification: true,
+        adminNotes: true,
+      },
     });
 
-    return NextResponse.json({ data });
+    const linkedSuggestion = findLinkedSuggestion(draft, suggestions);
+    const justification = parseJsonObject(linkedSuggestion?.justification);
+    const attachments = Array.isArray(justification.attachments) ? (justification.attachments as AttachmentPayload[]) : [];
+
+    const subject = sanitizeHeader(draft.subject || 'مسودة مراسلة');
+    const to = sanitizeHeader(draft.recipient || '');
+    const htmlBody = String(draft.body || '');
+    const textBody = stripHtmlToText(htmlBody) || ' '; 
+
+    const mixedBoundary = `mixed_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    const altBoundary = `alt_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    const lines: string[] = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      'MIME-Version: 1.0',
+      'X-Unsent: 1',
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+      '',
+      `--${mixedBoundary}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+      '',
+      `--${altBoundary}`,
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      textBody,
+      '',
+      `--${altBoundary}`,
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      htmlBody || '<div></div>',
+      '',
+      `--${altBoundary}--`,
+    ];
+
+    for (const attachment of attachments) {
+      const base64Content = String(attachment.base64Content || '').trim();
+      if (!base64Content) continue;
+      const filename = sanitizeHeader(attachment.filename || 'attachment.bin') || 'attachment.bin';
+      const contentType = sanitizeHeader(attachment.contentType || 'application/octet-stream') || 'application/octet-stream';
+      lines.push(
+        '',
+        `--${mixedBoundary}`,
+        `Content-Type: ${contentType}; name="${filename}"`,
+        'Content-Transfer-Encoding: base64',
+        `Content-Disposition: attachment; filename="${filename}"`,
+        '',
+        toBase64Lines(base64Content)
+      );
+    }
+
+    lines.push('', `--${mixedBoundary}--`, '');
+
+    const eml = lines.join('\r\n');
+    const downloadName = `${safeAsciiFilename(subject)}.eml`;
+    const encodedName = encodeURIComponent(`${subject || 'email-draft'}.eml`);
+
+    await prisma.emailDraft.update({
+      where: { id: draft.id },
+      data: {
+        status: 'COPIED',
+        copiedAt: new Date(),
+      },
+    });
+
+    const buffer = new TextEncoder().encode(eml);
+
+    return new NextResponse(buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'message/rfc822',
+        'Content-Disposition': `attachment; filename="${downloadName}"; filename*=UTF-8''${encodedName}`,
+        'Content-Length': String(buffer.byteLength),
+        'Cache-Control': 'no-store',
+      },
+    });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error?.message || 'تعذر جلب المراسلات الخارجية' },
+      { error: error?.message || 'تعذر تصدير ملف EML' },
       { status: 500 }
     );
   }

@@ -4,6 +4,7 @@ import { ChangeEvent, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { detectSystemFromPath, getDefaultRouteForRole, systemMeta } from '@/lib/system';
 
 type Role = 'manager' | 'warehouse' | 'user';
 
@@ -13,63 +14,51 @@ const ROLE_LABELS: Record<Role, string> = {
   user: 'موظف',
 };
 
-function getDefaultRouteForRole(role: Role) {
-  if (role === 'manager') return '/maintenance';
-  if (role === 'warehouse') return '/inventory';
-  return '/requests';
-}
-
 export function Header() {
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const system = detectSystemFromPath(pathname);
 
   const availableRoles = useMemo<Role[]>(() => {
     const roles = Array.isArray(originalUser?.roles) ? originalUser.roles : [];
     return roles.filter(
-      (role): role is Role =>
-        role === 'manager' || role === 'warehouse' || role === 'user'
+      (role): role is Role => role === 'manager' || role === 'warehouse' || role === 'user'
     );
   }, [originalUser?.roles]);
 
-  const handleRoleChange = (event: ChangeEvent<HTMLSelectElement>) => {
+  const handleRoleChange = async (event: ChangeEvent<HTMLSelectElement>) => {
     const role = event.target.value as Role;
-
     if (!role) return;
 
-    switchViewRole(role);
-
+    await switchViewRole(role);
     const targetRoute = getDefaultRouteForRole(role);
     if (pathname !== targetRoute) {
       router.push(targetRoute);
       return;
     }
-
     router.refresh();
   };
 
   return (
-    <header className="rounded-[22px] border border-surface-border bg-white px-4 py-4 shadow-soft sm:rounded-[24px] sm:px-5">
+    <header className="rounded-[24px] border border-surface-border bg-white px-4 py-4 shadow-soft sm:px-5">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-[18px] font-bold text-primary sm:text-[20px]">
-            مرحبًا، {user?.fullName || 'مستخدم النظام'}
+          <div className="text-[12px] font-semibold text-surface-subtle">{systemMeta[system].shortTitle}</div>
+          <h1 className="mt-1 truncate text-[18px] font-bold text-primary sm:text-[20px]">
+            {user?.fullName || 'مستخدم النظام'}
           </h1>
           <p className="mt-1 truncate text-[12px] leading-6 text-surface-subtle sm:text-[13px]">
-            {user?.department || 'وكالة التدريب'}
+            {user?.email || user?.department || 'وكالة التدريب'}
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[340px]">
+        <div className="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[360px]">
           {canUseRoleSwitch && availableRoles.length > 1 ? (
             <div className="flex w-full items-center gap-2">
-              <label
-                htmlFor="header-role-switcher"
-                className="shrink-0 text-sm font-semibold text-primary"
-              >
+              <label htmlFor="header-role-switcher" className="shrink-0 text-sm font-semibold text-primary">
                 الدور
               </label>
-
               <select
                 id="header-role-switcher"
                 value={user?.role || 'user'}
@@ -86,11 +75,7 @@ export function Header() {
           ) : null}
 
           <div className="flex w-full justify-end">
-            <Button
-              variant="ghost"
-              onClick={logout}
-              className="w-full sm:w-auto"
-            >
+            <Button variant="ghost" onClick={logout} className="w-full sm:w-auto">
               تسجيل الخروج
             </Button>
           </div>

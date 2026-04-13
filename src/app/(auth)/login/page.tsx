@@ -23,7 +23,7 @@ export default function LoginPage() {
 
     try {
       await login(form.email, form.password);
-      router.replace('/dashboard');
+      router.replace('/portal');
       router.refresh();
     } catch (err: any) {
       setError(err.message || 'تعذر تسجيل الدخول');

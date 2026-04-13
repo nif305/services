@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ChangeEvent, useMemo } from 'react';
@@ -13,10 +14,6 @@ const ROLE_LABELS: Record<Role, string> = {
   user: 'موظف',
 };
 
-function getDefaultRouteForRole(role: Role) {
-  return '/portal';
-}
-
 export function Header() {
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
   const router = useRouter();
@@ -30,20 +27,11 @@ export function Header() {
     );
   }, [originalUser?.roles]);
 
-  const handleRoleChange = (event: ChangeEvent<HTMLSelectElement>) => {
+  const handleRoleChange = async (event: ChangeEvent<HTMLSelectElement>) => {
     const role = event.target.value as Role;
-
     if (!role) return;
-
-    switchViewRole(role);
-
-    const targetRoute = getDefaultRouteForRole(role);
-    if (pathname !== targetRoute) {
-      router.push(targetRoute);
-      return;
-    }
-
-    router.refresh();
+    await switchViewRole(role);
+    router.push('/portal');
   };
 
   return (
@@ -58,16 +46,10 @@ export function Header() {
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[340px]">
+        <div className="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[520px]">
           {canUseRoleSwitch && availableRoles.length > 1 ? (
             <div className="flex w-full items-center gap-2">
-              <label
-                htmlFor="header-role-switcher"
-                className="shrink-0 text-sm font-semibold text-primary"
-              >
-                الدور
-              </label>
-
+              <label htmlFor="header-role-switcher" className="shrink-0 text-sm font-semibold text-primary">الدور</label>
               <select
                 id="header-role-switcher"
                 value={user?.role || 'user'}
@@ -75,20 +57,17 @@ export function Header() {
                 className="h-11 w-full rounded-2xl border border-surface-border bg-white px-4 text-sm text-primary outline-none transition focus:border-primary"
               >
                 {availableRoles.map((role) => (
-                  <option key={role} value={role}>
-                    {ROLE_LABELS[role]}
-                  </option>
+                  <option key={role} value={role}>{ROLE_LABELS[role]}</option>
                 ))}
               </select>
             </div>
           ) : null}
 
-          <div className="flex w-full justify-end">
-            <Button
-              variant="ghost"
-              onClick={logout}
-              className="w-full sm:w-auto"
-            >
+          <div className="flex w-full flex-wrap justify-end gap-2">
+            <Button variant="ghost" onClick={() => router.push('/portal')} className="w-full sm:w-auto">
+              اختيار النظام
+            </Button>
+            <Button variant="ghost" onClick={logout} className="w-full sm:w-auto">
               تسجيل الخروج
             </Button>
           </div>

@@ -1,5 +1,2 @@
-import { WorkspaceShell } from '@/components/workspace/WorkspaceShell';
-
-export default function MaterialsLayout({ children }: { children: React.ReactNode }) {
-  return <WorkspaceShell workspace="materials">{children}</WorkspaceShell>;
-}
+import { SystemShell } from '@/components/system/SystemShell';
+export default function MaterialsLayout({ children }: { children: React.ReactNode }) { return <SystemShell system="materials">{children}</SystemShell>; }

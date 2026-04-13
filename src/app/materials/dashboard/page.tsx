@@ -1,22 +1,31 @@
-
 import Link from 'next/link';
 
 const cards = [
-  { href: '/materials/requests', title: 'طلب مواد من المخزون', description: 'رفع الطلبات ومتابعتها حتى الصرف أو الإرجاع.' },
-  { href: '/materials/inventory', title: 'المخزون', description: 'متابعة المواد المتاحة والجاهزية وحركة المخزون.' },
-  { href: '/materials/returns', title: 'المرتجعات', description: 'متابعة إعادة المواد والعهد ومسار التسليم.' },
-  { href: '/materials/messages', title: 'المراسلات الداخلية', description: 'المراسلات الرسمية المشتركة داخل الموقع.' },
+  { href: '/materials/requests', title: 'طلبات المواد' },
+  { href: '/materials/inventory', title: 'المخزون' },
+  { href: '/materials/returns', title: 'المرتجعات' },
+  { href: '/materials/custody', title: 'العهد' },
+  { href: '/materials/messages', title: 'المراسلات الداخلية' },
 ];
 
 export default function MaterialsDashboardPage() {
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {cards.map((card) => (
-        <Link key={card.href} href={card.href} className="rounded-[24px] border border-[#dbe6e4] bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:border-[#016564]/40">
-          <h3 className="text-lg font-bold text-primary">{card.title}</h3>
-          <p className="mt-2 text-sm leading-7 text-slate-600">{card.description}</p>
-        </Link>
-      ))}
+    <div className="space-y-4">
+      <div className="rounded-[22px] border border-[#dde5e3] bg-white px-5 py-4 shadow-soft">
+        <div className="text-[12px] font-semibold text-slate-400">نظام المواد التدريبية</div>
+        <h2 className="mt-1 text-[18px] font-bold text-[#1b4e50]">لوحة معلومات المواد</h2>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        {cards.map((card) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className="rounded-[20px] border border-[#dde5e3] bg-white px-4 py-5 text-center text-[15px] font-bold text-[#1b4e50] shadow-soft transition hover:border-[#2A6364]/35 hover:bg-[#f8fbfa]"
+          >
+            {card.title}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

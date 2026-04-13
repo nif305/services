@@ -6,11 +6,6 @@ export const WORKSPACE_TITLES: Record<WorkspaceKey, string> = {
   services: 'نظام الخدمات والمراسلات',
 };
 
-export const WORKSPACE_DESCRIPTIONS: Record<WorkspaceKey, string> = {
-  materials: 'بيئة مستقلة لطلبات المواد، المخزون، الصرف، والإرجاعات.',
-  services: 'بيئة مستقلة لطلبات الخدمات، الاعتمادات، والمراسلات الخارجية.',
-};
-
 export function normalizeRole(role?: string | null): AppRole {
   const value = String(role || '').toLowerCase();
   if (value === 'manager') return 'manager';
@@ -25,16 +20,14 @@ export function canAccessWorkspace(role: AppRole, workspace: WorkspaceKey): bool
 
 export function getDefaultWorkspacePath(role?: string | null): string {
   const normalizedRole = normalizeRole(role);
-  if (normalizedRole === 'manager') return '/services/dashboard';
   if (normalizedRole === 'warehouse') return '/materials/dashboard';
-  return '/materials/dashboard';
+  return '/portal';
 }
 
 export type WorkspaceNavItem = {
   href: string;
   label: string;
   roles?: AppRole[];
-  badge?: string;
 };
 
 export type WorkspaceNavGroup = {
@@ -52,47 +45,21 @@ function getSharedMessagesItem(workspace: WorkspaceKey): WorkspaceNavItem {
 }
 
 export function getWorkspaceGroups(workspace: WorkspaceKey, role: AppRole): WorkspaceNavGroup[] {
-  const systemItems: WorkspaceNavItem[] = [];
-
-  if (canAccessWorkspace(role, 'materials')) {
-    systemItems.push({ href: '/materials/dashboard', label: 'نظام المواد والمخزون' });
-  }
-
-  if (canAccessWorkspace(role, 'services')) {
-    systemItems.push({ href: '/services/dashboard', label: 'نظام الخدمات والمراسلات' });
-  }
-
-  const groups: WorkspaceNavGroup[] = [
-    {
-      key: 'systems',
-      title: 'الأنظمة',
-      items: systemItems,
-    },
-  ];
+  const groups: WorkspaceNavGroup[] = [];
 
   if (workspace === 'materials') {
     groups.push(
       {
-        key: 'dashboard',
-        title: 'لوحة المواد',
+        key: 'materials-core',
+        title: 'نظام المواد التدريبية',
         items: [
           { href: '/materials/dashboard', label: 'لوحة معلومات المواد', roles: ['manager', 'warehouse', 'user'] },
+          { href: '/materials/requests', label: 'طلبات المواد', roles: ['manager', 'warehouse', 'user'] },
+          { href: '/materials/inventory', label: 'المخزون', roles: ['manager', 'warehouse'] },
+          { href: '/materials/returns', label: 'المرتجعات', roles: ['manager', 'warehouse', 'user'] },
+          { href: '/materials/custody', label: 'العهد', roles: ['user'] },
+          getSharedMessagesItem(workspace),
         ],
-      },
-      {
-        key: 'operations',
-        title: 'عمليات المواد',
-        items: [
-          { href: '/materials/requests', label: role === 'user' ? 'طلب مواد من المخزون' : 'طلبات المواد', roles: ['manager', 'warehouse', 'user'] },
-          { href: '/materials/inventory', label: 'مخزون المواد', roles: ['manager', 'warehouse'] },
-          { href: '/materials/returns', label: role === 'user' ? 'طلبات الإرجاع' : 'إرجاعات المواد', roles: ['manager', 'warehouse', 'user'] },
-          { href: '/materials/custody', label: 'عهدتي', roles: ['user'] },
-        ],
-      },
-      {
-        key: 'communications',
-        title: 'المراسلات',
-        items: [getSharedMessagesItem(workspace)],
       }
     );
   }
@@ -100,28 +67,16 @@ export function getWorkspaceGroups(workspace: WorkspaceKey, role: AppRole): Work
   if (workspace === 'services') {
     groups.push(
       {
-        key: 'dashboard',
-        title: 'لوحة الخدمات',
+        key: 'services-core',
+        title: 'نظام الخدمات العامة',
         items: [
           { href: '/services/dashboard', label: 'لوحة معلومات الخدمات', roles: ['manager', 'user'] },
-        ],
-      },
-      {
-        key: 'requests',
-        title: 'طلبات الخدمات',
-        items: [
-          { href: '/services/requests', label: 'بوابة طلبات الخدمات', roles: ['manager', 'user'] },
+          { href: '/services/requests', label: 'بوابة الطلبات', roles: ['manager', 'user'] },
           { href: '/services/maintenance', label: 'طلبات الصيانة', roles: ['manager', 'user'] },
           { href: '/services/cleaning', label: 'طلبات النظافة', roles: ['manager', 'user'] },
-          { href: '/services/purchases', label: 'طلبات الشراء المباشر', roles: ['manager', 'user'] },
+          { href: '/services/purchases', label: 'الشراء المباشر', roles: ['manager', 'user'] },
           { href: '/services/other', label: 'الطلبات الأخرى', roles: ['manager', 'user'] },
-        ],
-      },
-      {
-        key: 'approvals',
-        title: 'الاعتمادات والمراسلات',
-        items: [
-          { href: '/services/approvals', label: 'اعتماد طلبات الخدمات', roles: ['manager'] },
+          { href: '/services/approvals', label: 'اعتماد الطلبات', roles: ['manager'] },
           { href: '/services/email-drafts', label: 'المراسلات الخارجية', roles: ['manager'] },
           getSharedMessagesItem(workspace),
         ],

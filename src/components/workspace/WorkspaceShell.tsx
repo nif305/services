@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { useAuth } from '@/context/AuthContext';
-import { type AppRole, type WorkspaceKey, canAccessWorkspace, getDefaultWorkspacePath, normalizeRole } from '@/lib/workspace';
+import {
+  type AppRole,
+  type WorkspaceKey,
+  canAccessWorkspace,
+  normalizeRole,
+} from '@/lib/workspace';
 
 export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKey; children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -20,14 +25,14 @@ export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKe
       return;
     }
     if (!canAccessWorkspace(role, workspace)) {
-      router.replace(getDefaultWorkspacePath(role));
+      router.replace('/portal');
     }
   }, [loading, user, role, workspace, router]);
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface">
-        <div className="rounded-3xl border border-surface-border bg-white px-8 py-6 text-center shadow-soft">
+      <div className="flex min-h-screen items-center justify-center bg-surface px-4">
+        <div className="rounded-2xl border border-surface-border bg-white px-6 py-4 text-center text-sm shadow-soft">
           جاري تجهيز بيئة العمل...
         </div>
       </div>
@@ -37,14 +42,16 @@ export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKe
   if (!canAccessWorkspace(role, workspace)) return null;
 
   return (
-    <div className="min-h-screen bg-surface lg:flex lg:flex-row-reverse">
-      <WorkspaceSidebar workspace={workspace} role={role} />
-      <main className="min-w-0 flex-1">
-        <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-5 px-4 py-4 sm:px-5 lg:px-6 lg:py-6">
-          <WorkspaceHeader workspace={workspace} />
-          <section className="min-h-0 flex-1">{children}</section>
-        </div>
-      </main>
+    <div className="min-h-screen bg-surface" dir="rtl">
+      <div className="mx-auto grid min-h-screen w-full max-w-[1680px] grid-cols-1 lg:grid-cols-[minmax(0,1fr)_290px]">
+        <main className="min-w-0 px-3 py-3 sm:px-4 sm:py-4 lg:px-5 lg:py-5">
+          <div className="flex min-h-screen flex-col gap-4">
+            <WorkspaceHeader workspace={workspace} />
+            <section className="min-h-0 flex-1">{children}</section>
+          </div>
+        </main>
+        <WorkspaceSidebar workspace={workspace} role={role} />
+      </div>
     </div>
   );
 }

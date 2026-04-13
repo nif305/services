@@ -311,7 +311,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveStoredUser(AUTH_STORAGE_KEY, nextUser);
 
       if (typeof window !== 'undefined') {
-        const targetPath = role === 'manager' ? '/services/dashboard' : role === 'warehouse' ? '/materials/dashboard' : '/materials/dashboard';
+        const targetPath = '/portal';
         window.location.assign(targetPath);
       }
     },

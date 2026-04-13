@@ -57,9 +57,8 @@ const WORKSPACE_META: Record<Workspace, WorkspaceMeta> = {
   },
 };
 
-function getDefaultRouteForRole(role?: string): string {
-  void role;
-  return '/dashboard';
+function getDefaultRouteForRole(_role?: string): string {
+  return '/portal';
 }
 
 function getWorkspaceForRole(role?: string): Workspace {
@@ -532,7 +531,6 @@ function DashboardLayoutContent({
   const role = user?.role || 'user';
   const workspace = useMemo(() => getWorkspaceForRole(role), [role]);
   const workspaceMeta = WORKSPACE_META[workspace];
-  const isPortalPage = pathname === '/dashboard';
 
   useEffect(() => {
     setMobileOpen(false);
@@ -648,13 +646,11 @@ function DashboardLayoutContent({
   return (
     <div dir="rtl" className="min-h-screen overflow-x-clip bg-surface text-slate-900">
       <div className="flex min-h-screen">
-        {!isPortalPage ? (
-          <aside className="hidden w-[320px] shrink-0 border-l border-slate-200/80 bg-white/70 backdrop-blur xl:block">
-            {sidebarContent}
-          </aside>
-        ) : null}
+        <aside className="hidden w-[320px] shrink-0 border-l border-slate-200/80 bg-white/70 backdrop-blur xl:block">
+          {sidebarContent}
+        </aside>
 
-        {mobileOpen && !isPortalPage ? (
+        {mobileOpen ? (
           <div className="fixed inset-0 z-[70] xl:hidden">
             <button
               aria-label="إغلاق القائمة"
@@ -676,20 +672,20 @@ function DashboardLayoutContent({
                   <button
                     onClick={() => setMobileOpen((prev) => !prev)}
                     aria-label={mobileOpen ? 'إغلاق القائمة' : 'فتح القائمة'}
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#016564] shadow-soft xl:hidden ${isPortalPage ? 'invisible pointer-events-none' : ''}`}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#016564] shadow-soft xl:hidden"
                   >
                     {mobileOpen ? <CloseIcon /> : <MenuIcon />}
                   </button>
 
                   <div className="min-w-0">
                     <h1 className="truncate text-base font-semibold text-[#016564] sm:text-xl lg:text-[28px]">
-                      {isPortalPage ? 'منصة إدارة مخزون المواد التدريبية' : workspaceMeta.title}
+                      {workspaceMeta.title}
                     </h1>
                     <p className="mt-1 hidden text-[12px] text-slate-500 xl:block">
-                      {isPortalPage ? 'اختر نوع الطلب للانتقال إلى البيئة التنفيذية المناسبة' : workspaceMeta.subtitle}
+                      {workspaceMeta.subtitle}
                     </p>
                     <p className="mt-1 text-[11px] text-slate-500 sm:text-xs xl:hidden">
-                      {isPortalPage ? 'صفحة اختيار النظام' : workspaceMeta.badge}
+                      {workspaceMeta.badge}
                     </p>
                   </div>
                 </div>
@@ -776,8 +772,8 @@ function DashboardLayoutContent({
             </div>
           </header>
 
-          <main className={`min-w-0 flex-1 overflow-x-hidden ${isPortalPage ? 'px-0 py-0' : 'px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6'}`}>
-            <div className={isPortalPage ? 'min-w-0' : 'mx-auto min-w-0 max-w-[1600px]'}>{children}</div>
+          <main className="min-w-0 flex-1 overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6">
+            <div className="mx-auto min-w-0 max-w-[1600px]">{children}</div>
           </main>
         </div>
       </div>

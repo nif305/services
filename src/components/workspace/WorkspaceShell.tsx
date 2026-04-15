@@ -5,7 +5,13 @@ import { useRouter } from 'next/navigation';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { useAuth } from '@/context/AuthContext';
-import { type AppRole, type WorkspaceKey, canAccessWorkspace, normalizeRole } from '@/lib/workspace';
+import {
+  type AppRole,
+  type WorkspaceKey,
+  canAccessWorkspace,
+  getDefaultWorkspacePath,
+  normalizeRole,
+} from '@/lib/workspace';
 
 export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKey; children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -20,14 +26,14 @@ export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKe
       return;
     }
     if (!canAccessWorkspace(role, workspace)) {
-      router.replace('/portal');
+      router.replace(getDefaultWorkspacePath(role));
     }
   }, [loading, user, role, workspace, router]);
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f6f8f8]">
-        <div className="rounded-2xl border border-[#dbe3e1] bg-white px-6 py-4 text-sm text-[#294d4d] shadow-sm">
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f7f7]">
+        <div className="rounded-[20px] border border-[#dbe6e4] bg-white px-6 py-4 text-sm text-[#385454] shadow-soft">
           جاري تجهيز بيئة العمل...
         </div>
       </div>
@@ -37,13 +43,17 @@ export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKe
   if (!canAccessWorkspace(role, workspace)) return null;
 
   return (
-    <div className="min-h-screen bg-[#f5f7f7]" dir="rtl">
-      <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-1 gap-4 px-3 py-3 lg:grid-cols-[1fr_300px] lg:px-4 lg:py-4">
-        <main className="min-w-0 space-y-4 rounded-[28px] border border-[#dde5e3] bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.04)] lg:p-5">
-          <WorkspaceHeader workspace={workspace} />
-          <section className="min-w-0">{children}</section>
+    <div className="min-h-screen bg-[#f4f7f6]">
+      <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-1 gap-4 px-3 py-3 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-4 lg:px-4 lg:py-4" dir="ltr">
+        <main className="min-w-0" dir="rtl">
+          <div className="flex min-h-full flex-col gap-4">
+            <WorkspaceHeader workspace={workspace} />
+            <section className="min-h-0 flex-1">{children}</section>
+          </div>
         </main>
-        <WorkspaceSidebar workspace={workspace} role={role} />
+        <aside className="min-w-0" dir="rtl">
+          <WorkspaceSidebar workspace={workspace} role={role} />
+        </aside>
       </div>
     </div>
   );

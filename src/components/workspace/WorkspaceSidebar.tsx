@@ -9,75 +9,71 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-const ICONS: Record<string, string> = {
-  'لوحة معلومات المواد': '▦',
-  'طلبات المواد': '◫',
-  'طلب مواد من المخزون': '◫',
-  'مخزون المواد': '◩',
-  'إرجاعات المواد': '↺',
-  'طلبات الإرجاع': '↺',
-  'عهدتي': '▣',
-  'المراسلات الداخلية': '✉',
-  'لوحة معلومات الخدمات': '▦',
-  'بوابة طلبات الخدمات': '⌘',
-  'طلبات الصيانة': '🛠',
-  'طلبات النظافة': '🧹',
-  'طلبات الشراء المباشر': '🛒',
-  'الطلبات الأخرى': '◌',
-  'اعتماد طلبات الخدمات': '✓',
-  'المراسلات الخارجية': '↗',
-  'المستخدمون': '👥',
-  'التقارير': '◫',
-  'الأرشيف': '🗂',
-  'سجل التدقيق': '≣',
-  'نظام المواد والمخزون': '◧',
-  'نظام الخدمات والمراسلات': '◨',
-};
+function iconFor(label: string) {
+  if (label.includes('لوحة')) return '▦';
+  if (label.includes('مواد')) return '▣';
+  if (label.includes('مخزون')) return '◫';
+  if (label.includes('إرجاع')) return '↺';
+  if (label.includes('عهد')) return '◪';
+  if (label.includes('صيانة')) return '✎';
+  if (label.includes('نظافة')) return '⌁';
+  if (label.includes('شراء')) return '🛒';
+  if (label.includes('اعتماد')) return '✓';
+  if (label.includes('خارجية')) return '✉';
+  if (label.includes('داخلية')) return '◌';
+  if (label.includes('مستخدم')) return '⚙';
+  return '•';
+}
 
 export function WorkspaceSidebar({ workspace, role }: { workspace: WorkspaceKey; role: AppRole }) {
   const pathname = usePathname();
   const groups = getWorkspaceGroups(workspace, role);
 
   return (
-    <aside className="order-first overflow-hidden rounded-[28px] border border-[#dde5e3] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)] lg:order-last lg:min-h-[calc(100vh-2rem)]">
-      <div className="border-b border-[#e6ecea] p-4">
-        <div className="rounded-[20px] border border-[#e6ecea] bg-[#fbfcfc] p-4 text-center">
-          <img src="/nauss-gold-logo.png" alt="شعار الجامعة" className="mx-auto h-16 w-auto object-contain" />
+    <aside className="sticky top-3 flex max-h-[calc(100vh-24px)] min-h-[calc(100vh-24px)] w-full flex-col overflow-hidden rounded-[24px] border border-[#dce5e3] bg-white shadow-soft">
+      <div className="shrink-0 border-b border-[#edf2f1] px-4 py-4">
+        <img src="/nauss-gold-logo.png" alt="شعار جامعة نايف" className="h-auto w-full object-contain" />
+        <div className="mt-3 text-right">
+          <div className="text-[11px] font-semibold text-[#97a6a4]">{WORKSPACE_TITLES[workspace]}</div>
+          <div className="mt-1 text-[16px] font-bold text-[#214040]">وكالة التدريب</div>
         </div>
       </div>
 
-      <div className="px-4 pb-4 pt-3 text-center">
-        <div className="text-[11px] font-semibold text-[#93a29f]">{WORKSPACE_TITLES[workspace]}</div>
-      </div>
-
-      <nav className="max-h-[calc(100vh-220px)] space-y-5 overflow-y-auto px-4 pb-5">
-        {groups.map((group) => (
-          <div key={group.key} className="space-y-2">
-            <div className="px-2 text-[11px] font-semibold text-[#9aa8a6]">{group.title}</div>
-            <div className="space-y-2">
-              {group.items.map((item) => {
-                const active = isActive(pathname, item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center justify-between rounded-[20px] border px-4 py-3 text-[15px] font-semibold transition',
-                      active
-                        ? 'border-[#2A6364] bg-[#2A6364] text-white shadow-[0_10px_24px_-18px_rgba(42,99,100,0.55)]'
-                        : 'border-[#e6ecea] bg-white text-[#244142] hover:border-[#c7d8d4] hover:bg-[#f7faf9]'
-                    )}
-                  >
-                    <span>{item.label}</span>
-                    <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm', active ? 'bg-white/10' : 'bg-[#f3f7f6] text-[#2A6364]')}>
-                      {ICONS[item.label] || '•'}
-                    </span>
-                  </Link>
-                );
-              })}
+      <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="space-y-5">
+          {groups.map((group) => (
+            <div key={group.key}>
+              <div className="mb-2 px-2 text-[10px] font-semibold text-[#9aa9a7]">{group.title}</div>
+              <div className="space-y-1.5">
+                {group.items.map((item) => {
+                  const active = isActive(pathname, item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        'flex items-center gap-3 rounded-[18px] border px-3 py-2.5 text-[14px] font-semibold transition',
+                        active
+                          ? 'border-[#2A6364] bg-[#2A6364] text-white shadow-[0_14px_28px_-22px_rgba(42,99,100,0.75)]'
+                          : 'border-[#e7efed] bg-[#fcfdfd] text-[#365454] hover:border-[#d5e2df] hover:bg-[#f8fbfa]'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] text-[14px]',
+                          active ? 'bg-white/12 text-white' : 'bg-[#f2f7f6] text-[#2A6364]'
+                        )}
+                      >
+                        {iconFor(item.label)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-right">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </nav>
     </aside>
   );

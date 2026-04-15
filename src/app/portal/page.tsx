@@ -24,27 +24,44 @@ export default function PortalPage() {
   }, [originalUser?.roles]);
 
   return (
-    <div dir="rtl" className="arabic-surface min-h-screen bg-[#f4f7f6]">
-      <div className="mx-auto max-w-[1120px] px-4 py-4 lg:px-5 lg:py-5">
-        <header className="rounded-[24px] border border-white/80 bg-white/90 px-4 py-3 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)] backdrop-blur">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="flex items-center gap-3 rounded-[18px] border border-[#dde7e5] bg-[#fbfcfc] px-3.5 py-2.5">
-                <img
-                  src="/nauss-gold-logo.png"
-                  alt="شعار جامعة نايف"
-                  className="h-8 w-auto object-contain"
-                />
-                <div className="text-right">
-                  <div className="text-[11px] font-semibold text-[#8a9a98]">منصة المواد والخدمات</div>
-                  <div className="text-[14px] font-bold text-[#223738]">
+    <div dir="rtl" className="arabic-surface min-h-screen overflow-hidden bg-[#f7f8f5]">
+      <div className="grid min-h-screen lg:grid-cols-[1.04fr_0.96fr]">
+        <section className="relative bg-[#f8f8f6] px-6 py-6 lg:px-10 lg:py-8">
+          <div className="mx-auto flex max-w-[900px] flex-col">
+            <header className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={logout}
+                aria-label="تسجيل الخروج"
+                className="inline-flex h-16 w-16 items-center justify-center rounded-[22px] border border-[#d9e2df] bg-white text-[#315f61] shadow-[0_16px_28px_-24px_rgba(15,23,42,0.22)]"
+              >
+                <LogoutIcon />
+              </button>
+
+              <div className="flex min-w-[250px] flex-1 items-center justify-between gap-3 rounded-[26px] border border-[#d9e2df] bg-white px-5 py-3 shadow-[0_16px_28px_-24px_rgba(15,23,42,0.18)]">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] bg-[#f5f8f7] text-[#315f61]">
+                  <UserIcon />
+                </div>
+                <div className="flex-1 text-right">
+                  <div className="text-[15px] font-extrabold text-[#223738]">
                     {user?.fullName || 'مستخدم النظام'}
+                  </div>
+                  <div className="mt-0.5 text-[11px] font-medium text-[#869895]">
+                    {user?.email || ''}
                   </div>
                 </div>
               </div>
 
+              <button
+                type="button"
+                aria-label="التنبيهات"
+                className="inline-flex h-16 w-16 items-center justify-center rounded-[22px] border border-[#d9e2df] bg-white text-[#315f61] shadow-[0_16px_28px_-24px_rgba(15,23,42,0.22)]"
+              >
+                <BellIcon />
+              </button>
+
               {canUseRoleSwitch && availableRoles.length > 1 ? (
-                <div className="inline-flex w-full items-center gap-1 rounded-[18px] border border-[#dce6e4] bg-[#f7f9f9] p-1 shadow-inner lg:w-auto">
+                <div className="inline-flex min-w-[320px] flex-1 items-center gap-1 rounded-[24px] border border-[#d9e2df] bg-white p-1.5 shadow-[0_16px_28px_-24px_rgba(15,23,42,0.18)]">
                   {availableRoles.map((role) => {
                     const active = user?.role === role;
                     return (
@@ -54,8 +71,8 @@ export default function PortalPage() {
                         onClick={() => switchViewRole(role)}
                         className={
                           active
-                            ? 'flex-1 rounded-[14px] bg-[#2A6364] px-4 py-2 text-[13px] font-semibold text-white lg:flex-none'
-                            : 'flex-1 rounded-[14px] px-4 py-2 text-[13px] font-semibold text-[#455d5d] hover:bg-white lg:flex-none'
+                            ? 'flex-1 rounded-[18px] bg-[#2f6666] px-4 py-2.5 text-[13px] font-bold text-white'
+                            : 'flex-1 rounded-[18px] px-4 py-2.5 text-[13px] font-semibold text-[#576b6b] hover:bg-[#f5f8f7]'
                         }
                       >
                         {ROLE_LABELS[role]}
@@ -64,128 +81,133 @@ export default function PortalPage() {
                   })}
                 </div>
               ) : null}
+            </header>
+
+            <div className="flex flex-1 items-center justify-center py-12 lg:py-10">
+              <div className="w-full max-w-[480px] space-y-7">
+                <PortalCard
+                  icon={<MaterialsIcon />}
+                  title="طلب مواد تدريبية"
+                  description="من يمكنك تقديم طلب مواد\nلتلبية الاحتياجات التدريبية"
+                  onClick={() => router.push('/materials/dashboard')}
+                />
+
+                <PortalCard
+                  icon={<ServicesIcon />}
+                  title="طلب خدمات عامة"
+                  description="من يمكنك تقديم طلب صيانة\nوتنظيف ومشتريات وأخرى"
+                  onClick={() => router.push('/services/dashboard')}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="relative hidden overflow-hidden bg-[#2f6666] lg:block">
+          <div className="absolute inset-0 opacity-20" style={gridPatternStyle} />
+          <div className="absolute right-[9%] top-[16%] h-24 w-24 rounded-full border border-white/10" />
+          <div className="absolute bottom-[18%] right-[14%] h-20 w-20 rounded-full border border-white/14" />
+
+          <div className="relative flex h-full flex-col items-center justify-center px-10">
+            <div className="w-full max-w-[640px] rounded-[42px] border border-white/10 bg-[#356d6d]/40 px-10 py-12 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <img
+                src="/nauss-gold-logo.png"
+                alt="شعار جامعة نايف"
+                className="mx-auto h-auto w-full max-w-[460px] object-contain opacity-95"
+              />
             </div>
 
-            <button
-              type="button"
-              onClick={logout}
-              className="inline-flex h-10 items-center justify-center rounded-[16px] border border-[#dce6e4] bg-white px-4 text-[13px] font-semibold text-[#27494a]"
-            >
-              تسجيل الخروج
-            </button>
+            <div className="mt-14 w-full max-w-[460px] rounded-[34px] border border-white/10 bg-[#6f9490]/55 px-8 py-10 text-center text-white shadow-[0_18px_36px_-24px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+              <div className="text-[15px] font-semibold text-white/90">منصة مواد التدريب</div>
+              <div className="mt-4 text-[34px] font-extrabold leading-tight">وكالة التدريب</div>
+            </div>
           </div>
-        </header>
-
-        <main className="mx-auto mt-10 max-w-[860px]">
-          <div className="text-center">
-            <div className="text-[12px] font-semibold tracking-[0.16em] text-[#8a9a98]">اختيار النظام</div>
-            <h1 className="mt-2.5 text-[22px] font-extrabold text-[#223738] sm:text-[26px]">
-              اختر النظام
-            </h1>
-          </div>
-
-          <div className="mt-6 grid gap-3 md:grid-cols-2">
-            <PortalEntryCard
-              title="طلب مواد"
-              subtitle="المواد من المخزن"
-              tone="teal"
-              icon={<MaterialsIcon />}
-              onClick={() => router.push('/materials/dashboard')}
-            />
-
-            <PortalEntryCard
-              title="طلب خدمات"
-              subtitle="الخدمات العامة"
-              tone="burgundy"
-              icon={<ServicesIcon />}
-              onClick={() => router.push('/services/dashboard')}
-            />
-          </div>
-        </main>
+        </section>
       </div>
     </div>
   );
 }
 
-function PortalEntryCard({
-  title,
-  subtitle,
+function PortalCard({
   icon,
-  tone,
+  title,
+  description,
   onClick,
 }: {
-  title: string;
-  subtitle: string;
   icon: React.ReactNode;
-  tone: 'teal' | 'burgundy';
+  title: string;
+  description: string;
   onClick: () => void;
 }) {
-  const palette =
-    tone === 'teal'
-      ? {
-          border: 'border-[#cfe0dc]',
-          iconBg: 'bg-[#eef5f4]',
-          iconText: 'text-[#0f5d61]',
-          arrowBg: 'bg-[#0f5d61]',
-          arrowText: 'text-white',
-        }
-      : {
-          border: 'border-[#e0d1d9]',
-          iconBg: 'bg-[#f5ecef]',
-          iconText: 'text-[#7c1e3e]',
-          arrowBg: 'bg-[#7c1e3e]',
-          arrowText: 'text-white',
-        };
-
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group rounded-[20px] border ${palette.border} bg-white px-4 py-4 text-right shadow-[0_16px_30px_-30px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_34px_-32px_rgba(15,23,42,0.22)]`}
+      className="block w-full rounded-[32px] border-[3px] border-[#163d46] bg-[#527e80] px-8 py-10 text-center text-white shadow-[0_18px_30px_-24px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5 hover:bg-[#4a7778]"
     >
-      <div className="flex items-center gap-3">
-        <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] ${palette.iconBg} ${palette.iconText}`}>
-          {icon}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="text-[11px] font-semibold text-[#8a9a98]">{subtitle}</div>
-          <div className="mt-1 text-[22px] font-extrabold text-[#223738]">{title}</div>
-        </div>
-
-        <div className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] ${palette.arrowBg} ${palette.arrowText} transition group-hover:scale-105`}>
-          <ArrowIcon />
-        </div>
+      <div className="mx-auto inline-flex h-20 w-20 items-center justify-center text-[#d0b57b]">
+        {icon}
+      </div>
+      <div className="mt-4 text-[27px] font-extrabold leading-tight">{title}</div>
+      <div className="mt-5 whitespace-pre-line text-[14px] font-medium leading-8 text-white/92">
+        {description}
       </div>
     </button>
   );
 }
 
-function ArrowIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-      <path d="M19 12H5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="m11 6-6 6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function MaterialsIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
-      <path d="M4 7.5 12 3l8 4.5-8 4.5L4 7.5Z" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M4 7.5V16.5L12 21l8-4.5V7.5" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M12 12v9" stroke="currentColor" strokeWidth="1.8" />
+    <svg viewBox="0 0 64 64" fill="none" className="h-16 w-16">
+      <path d="M14 54V21l18-8 18 8v33" stroke="currentColor" strokeWidth="3.5" />
+      <path d="M22 28h20M22 35h20" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M22 54V42h20v12" stroke="currentColor" strokeWidth="3.5" />
+      <path d="M27 47h.01M37 47h.01" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
     </svg>
   );
 }
 
 function ServicesIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
-      <path d="m14.7 6.3 3 3-8.4 8.4H6.3v-3L14.7 6.3Z" stroke="currentColor" strokeWidth="1.8" />
-      <path d="m13.3 7.7 3 3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M4 20h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    <svg viewBox="0 0 64 64" fill="none" className="h-16 w-16">
+      <path d="m18 21 25 25" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+      <path d="m39 18 7 7-8 8-7-7 8-8Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M18 46 32 32" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+      <path d="m17 48 6-6 7 7-6 6a5 5 0 0 1-7 0 5 5 0 0 1 0-7Z" fill="currentColor" />
     </svg>
   );
 }
+
+function LogoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+      <path d="M14 7V5.8A1.8 1.8 0 0 0 12.2 4H7.8A1.8 1.8 0 0 0 6 5.8v12.4A1.8 1.8 0 0 0 7.8 20h4.4a1.8 1.8 0 0 0 1.8-1.8V17" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M10 12h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="m16 8 4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+      <circle cx="12" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M5.5 18.2c1.8-3 4.1-4.5 6.5-4.5s4.7 1.5 6.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+      <path d="M8 10a4 4 0 1 1 8 0v2.6c0 .8.2 1.5.7 2.1l.8 1H6.5l.8-1c.5-.6.7-1.3.7-2.1V10Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const gridPatternStyle = {
+  backgroundImage:
+    'linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)',
+  backgroundSize: '32px 32px',
+};

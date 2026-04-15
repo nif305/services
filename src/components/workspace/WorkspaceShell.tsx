@@ -36,15 +36,15 @@ export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKe
   if (!canAccessWorkspace(role, workspace)) return null;
 
   return (
-    <div className="min-h-screen bg-[#f5f7f7]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-4 px-4 py-4 lg:flex-row lg:items-start lg:gap-5 lg:px-5 lg:py-5">
-        <main className="order-2 min-w-0 flex-1 lg:order-1">
+    <div className="arabic-surface min-h-screen bg-[#f5f7f7]">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-4 px-4 py-4 lg:flex-row-reverse lg:items-start lg:gap-5 lg:px-5 lg:py-5">
+        <main className="order-2 min-w-0 flex-1 lg:order-2">
           <div className="flex min-h-screen flex-col gap-4">
             <WorkspaceHeader workspace={workspace} />
             <section className="min-h-0 flex-1">{children}</section>
           </div>
         </main>
-        <div className="order-1 w-full lg:order-2 lg:sticky lg:top-4 lg:w-[300px] lg:flex-none">
+        <div className="order-1 w-full lg:order-1 lg:sticky lg:top-4 lg:w-[300px] lg:flex-none">
           <WorkspaceSidebar workspace={workspace} role={role} />
         </div>
       </div>

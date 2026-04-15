@@ -55,6 +55,7 @@ body {
   padding: 0;
   min-height: 100vh;
   color: var(--nauss-text);
+  text-align: right;
   background:
     radial-gradient(circle at top right, rgba(1, 101, 100, 0.04), transparent 22%),
     radial-gradient(circle at bottom left, rgba(208, 178, 132, 0.05), transparent 18%),
@@ -122,6 +123,18 @@ textarea {
   font-family: var(--font-cairo), 'Cairo', sans-serif !important;
 }
 
+input,
+select,
+textarea {
+  direction: rtl;
+  text-align: right;
+}
+
+input::placeholder,
+textarea::placeholder {
+  text-align: right;
+}
+
 button,
 [role='button'] {
   touch-action: manipulation;
@@ -176,6 +189,7 @@ textarea {
   th,
   td {
     vertical-align: middle;
+    text-align: right;
   }
 }
 
@@ -227,6 +241,21 @@ textarea {
 
   .mobile-scroll-x > * {
     min-width: max-content;
+  }
+
+  .arabic-surface {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .arabic-surface::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(135deg, rgba(1, 101, 100, 0.04), transparent 32%),
+      radial-gradient(circle at top right, rgba(208, 178, 132, 0.12), transparent 26%);
+    pointer-events: none;
   }
 }
 

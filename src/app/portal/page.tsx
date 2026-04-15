@@ -24,7 +24,7 @@ export default function PortalPage() {
   }, [originalUser?.roles]);
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#f5f7f7]">
+    <div dir="rtl" className="arabic-surface min-h-screen bg-[#f5f7f7]">
       <div className="mx-auto max-w-[1500px] px-4 py-5 lg:px-6">
         <header className="rounded-[28px] border border-[#dde6e4] bg-white px-5 py-4 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.22)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -60,7 +60,7 @@ export default function PortalPage() {
         </header>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[330px_minmax(0,1fr)]">
-          <aside className="order-2 lg:order-1">
+          <aside className="order-2 lg:order-1 lg:col-start-2">
             <div className="rounded-[30px] bg-[linear-gradient(135deg,#2d6768_0%,#4e8280_100%)] p-5 text-white shadow-[0_22px_50px_-34px_rgba(15,23,42,0.35)]">
               <div className="rounded-[24px] border border-white/15 bg-white/5 p-4 backdrop-blur-sm">
                 <img src="/nauss-gold-logo.png" alt="شعار الجامعة" className="h-28 w-auto object-contain" />
@@ -72,7 +72,7 @@ export default function PortalPage() {
             </div>
           </aside>
 
-          <section className="order-1 lg:order-2">
+          <section className="order-1 lg:order-2 lg:col-start-1">
             <div className="grid gap-5 md:grid-cols-2">
               <PortalActionCard
                 title="نظام المواد التدريبية"

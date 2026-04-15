@@ -644,11 +644,8 @@ function DashboardLayoutContent({
   );
 
   return (
-    <div dir="rtl" className="min-h-screen overflow-x-clip bg-surface text-slate-900">
-      <div className="flex min-h-screen">
-        <aside className="hidden w-[320px] shrink-0 border-l border-slate-200/80 bg-white/70 backdrop-blur xl:block">
-          {sidebarContent}
-        </aside>
+    <div dir="rtl" className="arabic-surface min-h-screen overflow-x-clip bg-surface text-slate-900">
+      <div className="flex min-h-screen xl:flex-row-reverse">
 
         {mobileOpen ? (
           <div className="fixed inset-0 z-[70] xl:hidden">
@@ -776,6 +773,10 @@ function DashboardLayoutContent({
             <div className="mx-auto min-w-0 max-w-[1600px]">{children}</div>
           </main>
         </div>
+
+        <aside className="hidden w-[320px] shrink-0 border-l border-slate-200/80 bg-white/70 backdrop-blur xl:block">
+          {sidebarContent}
+        </aside>
       </div>
     </div>
   );

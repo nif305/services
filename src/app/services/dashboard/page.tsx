@@ -40,6 +40,33 @@ export default function ServicesDashboardPage() {
     { title: 'المراسلات الداخلية', hint: 'تواصل رسمي داخلي', href: '/services/messages' },
   ];
 
+  const requestActions = [
+    {
+      title: 'طلب صيانة',
+      hint: 'رفع طلب أعمال الصيانة',
+      href: '/suggestions?type=MAINTENANCE&new=1',
+      icon: <MaintenanceIcon />,
+    },
+    {
+      title: 'طلب نظافة',
+      hint: 'رفع طلب خدمات النظافة',
+      href: '/suggestions?type=CLEANING&new=1',
+      icon: <CleaningIcon />,
+    },
+    {
+      title: 'شراء مباشر',
+      hint: 'رفع طلب شراء مباشر',
+      href: '/suggestions?type=PURCHASE&new=1',
+      icon: <PurchaseIcon />,
+    },
+    {
+      title: 'مراسلات',
+      hint: 'الداخلية والخارجية',
+      href: '/services/messages',
+      icon: <MessagesIcon />,
+    },
+  ];
+
   const priorityCards = [
     {
       title: 'طلبات الصيانة',
@@ -66,6 +93,37 @@ export default function ServicesDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <section className="rounded-[30px] border border-white/80 bg-white p-6 shadow-[0_22px_48px_-40px_rgba(15,23,42,0.24)]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="text-[12px] font-semibold text-[#8a9a98]">إجراءات النظام</div>
+            <h2 className="mt-2 text-[28px] font-extrabold text-[#223738]">اختر نوع الطلب</h2>
+          </div>
+          <a
+            href="/services/requests"
+            className="inline-flex items-center justify-center rounded-[20px] bg-[#163e44] px-5 py-3 text-[15px] font-bold text-white transition hover:bg-[#0f3337]"
+          >
+            بوابة الطلبات
+          </a>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {requestActions.map((action) => (
+            <a
+              key={action.title}
+              href={action.href}
+              className="group rounded-[24px] border border-[#dde6e4] bg-[#fbfcfc] p-5 transition hover:-translate-y-1 hover:border-[#cfe0dc] hover:bg-white"
+            >
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-[20px] bg-[#eef5f4] text-[#0f5e61]">
+                {action.icon}
+              </div>
+              <div className="mt-4 text-[21px] font-extrabold text-[#223738]">{action.title}</div>
+              <div className="mt-2 text-[13px] leading-7 text-[#70807e]">{action.hint}</div>
+            </a>
+          ))}
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_24px_56px_-40px_rgba(15,23,42,0.28)]">
         <div className="grid gap-6 p-6 xl:grid-cols-[1.05fr_0.95fr] xl:p-7">
           <div className="rounded-[28px] bg-[linear-gradient(135deg,#7c1e3e_0%,#8e5366_52%,#2a6d6b_100%)] px-6 py-6 text-white shadow-[0_22px_48px_-34px_rgba(124,30,62,0.52)]">
@@ -172,5 +230,44 @@ function HeroMetric({ title, value }: { title: string; value: number }) {
       <div className="text-[12px] text-white/70">{title}</div>
       <div className="mt-2 text-[32px] font-extrabold">{value}</div>
     </div>
+  );
+}
+
+function MaintenanceIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+      <path d="m14.7 6.3 3 3-8.4 8.4H6.3v-3L14.7 6.3Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m13.3 7.7 3 3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function CleaningIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+      <path d="M7 21h10" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 3v12" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m8 7 4-4 4 4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 15h8" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function PurchaseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+      <path d="M6 7h13l-1.2 6.2a2 2 0 0 1-2 1.6H9.3a2 2 0 0 1-2-1.6L6 7Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6 7 5.2 5.3A1.5 1.5 0 0 0 3.8 4.5H3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="10" cy="18.5" r="1.2" fill="currentColor" />
+      <circle cx="17" cy="18.5" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function MessagesIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+      <path d="M5 7.5A2.5 2.5 0 0 1 7.5 5h9A2.5 2.5 0 0 1 19 7.5v6A2.5 2.5 0 0 1 16.5 16H10l-4 3v-3.5A2.5 2.5 0 0 1 5 13.5v-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
   );
 }

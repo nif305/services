@@ -85,22 +85,15 @@ export default function PortalPage() {
 
         <main className="mt-8">
           <div className="mx-auto max-w-[1100px] text-center">
-            <div className="text-[13px] font-semibold tracking-[0.12em] text-[#7d8f8d]">
+            <h1 className="text-[34px] font-extrabold text-[#223738] sm:text-[44px]">
               اختر النظام
-            </div>
-            <h1 className="mt-3 text-[34px] font-extrabold text-[#223738] sm:text-[44px]">
-              ابدأ من المسار الذي تحتاجه
             </h1>
-            <p className="mt-3 text-[15px] leading-8 text-[#6f8080] sm:text-[17px]">
-              انتقال مباشر وسريع إلى نظام طلب المواد من المخزن أو نظام طلب الخدمات.
-            </p>
           </div>
 
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
             <PortalEntryCard
               title="طلب مواد"
               subtitle="نظام المواد من المخزن"
-              description="طلبات المواد، الصرف، المرتجعات، والعهد."
               icon={<MaterialsIcon />}
               accent="from-[#0f5d61] via-[#45787a] to-[#7fa0a0]"
               onClick={() => router.push('/materials/dashboard')}
@@ -109,7 +102,6 @@ export default function PortalPage() {
             <PortalEntryCard
               title="طلب خدمات"
               subtitle="نظام الخدمات"
-              description="الصيانة، النظافة، الشراء المباشر، والمراسلات."
               icon={<ServicesIcon />}
               accent="from-[#7c1e3e] via-[#8c4e66] to-[#286c6a]"
               onClick={() => router.push('/services/dashboard')}
@@ -124,14 +116,12 @@ export default function PortalPage() {
 function PortalEntryCard({
   title,
   subtitle,
-  description,
   icon,
   accent,
   onClick,
 }: {
   title: string;
   subtitle: string;
-  description: string;
   icon: React.ReactNode;
   accent: string;
   onClick: () => void;
@@ -142,22 +132,16 @@ function PortalEntryCard({
       onClick={onClick}
       className={`group overflow-hidden rounded-[34px] bg-gradient-to-br ${accent} p-[1px] text-right shadow-[0_26px_56px_-40px_rgba(15,23,42,0.42)] transition duration-200 hover:-translate-y-1`}
     >
-      <div className="flex h-full min-h-[320px] flex-col justify-between rounded-[33px] bg-[linear-gradient(180deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.06)_100%)] p-7 text-white backdrop-blur-sm">
+      <div className="flex h-full min-h-[280px] flex-col justify-between rounded-[33px] bg-[linear-gradient(180deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.06)_100%)] p-7 text-white backdrop-blur-sm">
         <div className="flex items-start justify-between gap-4">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-[24px] bg-white/12 text-white">
             {icon}
           </div>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[12px] text-white/86">
-            دخول مباشر
-          </span>
         </div>
 
         <div>
           <div className="text-[14px] text-white/72">{subtitle}</div>
-          <div className="mt-3 text-[38px] font-extrabold leading-tight">{title}</div>
-          <div className="mt-4 max-w-[440px] text-[16px] leading-8 text-white/82">
-            {description}
-          </div>
+          <div className="mt-4 text-[42px] font-extrabold leading-tight">{title}</div>
         </div>
 
         <div className="flex items-center justify-between rounded-[24px] border border-white/12 bg-black/10 px-4 py-4 text-[15px] font-semibold">

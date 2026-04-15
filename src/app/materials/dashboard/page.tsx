@@ -69,6 +69,33 @@ export default function MaterialsDashboardPage() {
     { title: 'العهد', hint: 'متابعة العهد النشطة والمتأخرة', href: '/materials/custody' },
   ];
 
+  const requestActions = [
+    {
+      title: 'طلب جديد',
+      hint: 'رفع طلب مواد من المخزن',
+      href: '/materials/requests?new=1',
+      icon: <RequestIcon />,
+    },
+    {
+      title: 'المخزون',
+      hint: 'استعراض الأصناف والكميات',
+      href: '/materials/inventory',
+      icon: <InventoryIcon />,
+    },
+    {
+      title: 'المرتجعات',
+      hint: 'طلبات الإرجاع والاستلام',
+      href: '/materials/returns',
+      icon: <ReturnIcon />,
+    },
+    {
+      title: 'العهد',
+      hint: 'العهد النشطة والمتأخرة',
+      href: '/materials/custody',
+      icon: <CustodyIcon />,
+    },
+  ];
+
   const workflow = [
     { label: 'طلبات بانتظار الإجراء', value: metrics?.pendingRequests ?? 0 },
     { label: 'طلبات مصروفة', value: metrics?.issuedRequests ?? 0 },
@@ -79,6 +106,37 @@ export default function MaterialsDashboardPage() {
 
   return (
     <div className="space-y-6">
+      <section className="rounded-[30px] border border-white/80 bg-white p-6 shadow-[0_22px_48px_-40px_rgba(15,23,42,0.24)]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="text-[12px] font-semibold text-[#8a9a98]">إجراءات النظام</div>
+            <h2 className="mt-2 text-[28px] font-extrabold text-[#223738]">اختر نوع الإجراء</h2>
+          </div>
+          <a
+            href="/materials/requests?new=1"
+            className="inline-flex items-center justify-center rounded-[20px] bg-[#163e44] px-5 py-3 text-[15px] font-bold text-white transition hover:bg-[#0f3337]"
+          >
+            طلب مواد جديد
+          </a>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {requestActions.map((action) => (
+            <a
+              key={action.title}
+              href={action.href}
+              className="group rounded-[24px] border border-[#dde6e4] bg-[#fbfcfc] p-5 transition hover:-translate-y-1 hover:border-[#cfe0dc] hover:bg-white"
+            >
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-[20px] bg-[#eef5f4] text-[#0f5e61]">
+                {action.icon}
+              </div>
+              <div className="mt-4 text-[21px] font-extrabold text-[#223738]">{action.title}</div>
+              <div className="mt-2 text-[13px] leading-7 text-[#70807e]">{action.hint}</div>
+            </a>
+          ))}
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_24px_56px_-40px_rgba(15,23,42,0.28)]">
         <div className="grid gap-6 p-6 xl:grid-cols-[1.05fr_0.95fr] xl:p-7">
           <div className="rounded-[28px] bg-[linear-gradient(135deg,#0e5d61_0%,#698b8c_100%)] px-6 py-6 text-white shadow-[0_22px_48px_-34px_rgba(1,101,100,0.72)]">
@@ -252,5 +310,44 @@ function DonutChart({
         </div>
       </div>
     </div>
+  );
+}
+
+function RequestIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+      <path d="M7 4h7l3 3v13H7V4Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M14 4v4h4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M10 12h4M10 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function InventoryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+      <path d="M4 7.5 12 3l8 4.5-8 4.5L4 7.5Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 7.5V16.5L12 21l8-4.5V7.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 12v9" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function ReturnIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+      <path d="M8 8H5V5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 8c1.8-2.4 4-3.5 7-3.5 4.7 0 8 3.3 8 8s-3.3 8-8 8c-3.3 0-5.8-1.3-7.5-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CustodyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+      <path d="M4 7.5 12 3l8 4.5-8 4.5L4 7.5Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 7.5V16.5L12 21l8-4.5V7.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8.5 12.5h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }

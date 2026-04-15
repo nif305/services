@@ -25,17 +25,26 @@ export default function PortalPage() {
 
   return (
     <div dir="rtl" className="arabic-surface min-h-screen bg-[#f4f7f6]">
-      <div className="mx-auto max-w-[1500px] px-4 py-5 lg:px-6 lg:py-6">
-        <header className="overflow-hidden rounded-[32px] border border-white/80 bg-white/90 px-5 py-5 shadow-[0_20px_48px_-36px_rgba(15,23,42,0.28)] backdrop-blur">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-              <div className="rounded-[24px] border border-[#dce6e4] bg-[linear-gradient(135deg,#0f5d61_0%,#6d8d8e_100%)] px-5 py-4 text-white shadow-[0_18px_40px_-34px_rgba(1,101,100,0.74)]">
-                <div className="text-[12px] text-white/72">بوابة موحدة</div>
-                <div className="mt-2 text-[24px] font-extrabold leading-tight">منصة المواد والخدمات</div>
+      <div className="mx-auto max-w-[1280px] px-4 py-5 lg:px-6 lg:py-6">
+        <header className="rounded-[28px] border border-white/80 bg-white/90 px-4 py-4 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.22)] backdrop-blur">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="flex items-center gap-3 rounded-[20px] border border-[#dde7e5] bg-[#fbfcfc] px-4 py-3">
+                <img
+                  src="/nauss-gold-logo.png"
+                  alt="شعار جامعة نايف"
+                  className="h-10 w-auto object-contain"
+                />
+                <div className="text-right">
+                  <div className="text-[11px] font-semibold text-[#8a9a98]">منصة المواد والخدمات</div>
+                  <div className="text-[15px] font-extrabold text-[#223738]">
+                    {user?.fullName || 'مستخدم النظام'}
+                  </div>
+                </div>
               </div>
 
               {canUseRoleSwitch && availableRoles.length > 1 ? (
-                <div className="inline-flex w-full items-center gap-1 rounded-[24px] border border-[#dce6e4] bg-[#f7f9f9] p-1 shadow-inner lg:w-auto">
+                <div className="inline-flex w-full items-center gap-1 rounded-[20px] border border-[#dce6e4] bg-[#f7f9f9] p-1 shadow-inner lg:w-auto">
                   {availableRoles.map((role) => {
                     const active = user?.role === role;
                     return (
@@ -45,8 +54,8 @@ export default function PortalPage() {
                         onClick={() => switchViewRole(role)}
                         className={
                           active
-                            ? 'flex-1 rounded-[18px] bg-[#2A6364] px-5 py-3 text-[15px] font-semibold text-white lg:flex-none'
-                            : 'flex-1 rounded-[18px] px-5 py-3 text-[15px] font-semibold text-[#455d5d] hover:bg-white lg:flex-none'
+                            ? 'flex-1 rounded-[16px] bg-[#2A6364] px-4 py-2.5 text-[14px] font-semibold text-white lg:flex-none'
+                            : 'flex-1 rounded-[16px] px-4 py-2.5 text-[14px] font-semibold text-[#455d5d] hover:bg-white lg:flex-none'
                         }
                       >
                         {ROLE_LABELS[role]}
@@ -57,53 +66,38 @@ export default function PortalPage() {
               ) : null}
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-              <div className="flex items-center gap-3 rounded-[24px] border border-[#dde7e5] bg-[#fbfcfc] px-4 py-3">
-                <img
-                  src="/nauss-gold-logo.png"
-                  alt="شعار جامعة نايف"
-                  className="h-12 w-auto object-contain sm:h-14"
-                />
-                <div className="text-right">
-                  <div className="text-[15px] font-bold text-[#223738]">
-                    {user?.fullName || 'مستخدم النظام'}
-                  </div>
-                  <div className="text-[12px] text-[#7a8d8b]">{user?.email || ''}</div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={logout}
-                className="inline-flex h-12 items-center justify-center rounded-2xl border border-[#dce6e4] bg-white px-5 text-[14px] font-semibold text-[#27494a]"
-              >
-                تسجيل الخروج
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex h-11 items-center justify-center rounded-[18px] border border-[#dce6e4] bg-white px-4 text-[14px] font-semibold text-[#27494a]"
+            >
+              تسجيل الخروج
+            </button>
           </div>
         </header>
 
-        <main className="mt-8">
-          <div className="mx-auto max-w-[1100px] text-center">
-            <h1 className="text-[34px] font-extrabold text-[#223738] sm:text-[44px]">
+        <main className="mx-auto mt-12 max-w-[980px]">
+          <div className="text-center">
+            <div className="text-[12px] font-semibold tracking-[0.16em] text-[#8a9a98]">اختيار النظام</div>
+            <h1 className="mt-3 text-[28px] font-extrabold text-[#223738] sm:text-[34px]">
               اختر النظام
             </h1>
           </div>
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-2">
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
             <PortalEntryCard
               title="طلب مواد"
-              subtitle="نظام المواد من المخزن"
+              subtitle="المواد من المخزن"
+              tone="teal"
               icon={<MaterialsIcon />}
-              accent="from-[#0f5d61] via-[#45787a] to-[#7fa0a0]"
               onClick={() => router.push('/materials/dashboard')}
             />
 
             <PortalEntryCard
               title="طلب خدمات"
-              subtitle="نظام الخدمات"
+              subtitle="الخدمات العامة"
+              tone="burgundy"
               icon={<ServicesIcon />}
-              accent="from-[#7c1e3e] via-[#8c4e66] to-[#286c6a]"
               onClick={() => router.push('/services/dashboard')}
             />
           </div>
@@ -117,45 +111,68 @@ function PortalEntryCard({
   title,
   subtitle,
   icon,
-  accent,
+  tone,
   onClick,
 }: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
-  accent: string;
+  tone: 'teal' | 'burgundy';
   onClick: () => void;
 }) {
+  const palette =
+    tone === 'teal'
+      ? {
+          border: 'border-[#cfe0dc]',
+          iconBg: 'bg-[#eef5f4]',
+          iconText: 'text-[#0f5d61]',
+          arrowBg: 'bg-[#0f5d61]',
+          arrowText: 'text-white',
+        }
+      : {
+          border: 'border-[#e0d1d9]',
+          iconBg: 'bg-[#f5ecef]',
+          iconText: 'text-[#7c1e3e]',
+          arrowBg: 'bg-[#7c1e3e]',
+          arrowText: 'text-white',
+        };
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group overflow-hidden rounded-[34px] bg-gradient-to-br ${accent} p-[1px] text-right shadow-[0_26px_56px_-40px_rgba(15,23,42,0.42)] transition duration-200 hover:-translate-y-1`}
+      className={`group rounded-[24px] border ${palette.border} bg-white px-5 py-5 text-right shadow-[0_18px_38px_-34px_rgba(15,23,42,0.22)] transition hover:-translate-y-1 hover:shadow-[0_24px_48px_-36px_rgba(15,23,42,0.26)]`}
     >
-      <div className="flex h-full min-h-[280px] flex-col justify-between rounded-[33px] bg-[linear-gradient(180deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0.06)_100%)] p-7 text-white backdrop-blur-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-[24px] bg-white/12 text-white">
-            {icon}
-          </div>
+      <div className="flex items-center gap-4">
+        <div className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] ${palette.iconBg} ${palette.iconText}`}>
+          {icon}
         </div>
 
-        <div>
-          <div className="text-[14px] text-white/72">{subtitle}</div>
-          <div className="mt-4 text-[42px] font-extrabold leading-tight">{title}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12px] font-semibold text-[#8a9a98]">{subtitle}</div>
+          <div className="mt-1 text-[30px] font-extrabold text-[#223738]">{title}</div>
         </div>
 
-        <div className="flex items-center justify-between rounded-[24px] border border-white/12 bg-black/10 px-4 py-4 text-[15px] font-semibold">
-          <span>الانتقال إلى {title}</span>
-          <span className="text-[22px] transition group-hover:translate-x-[-4px]">←</span>
+        <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] ${palette.arrowBg} ${palette.arrowText} transition group-hover:scale-105`}>
+          <ArrowIcon />
         </div>
       </div>
     </button>
   );
 }
 
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+      <path d="M19 12H5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="m11 6-6 6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function MaterialsIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8">
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
       <path d="M4 7.5 12 3l8 4.5-8 4.5L4 7.5Z" stroke="currentColor" strokeWidth="1.8" />
       <path d="M4 7.5V16.5L12 21l8-4.5V7.5" stroke="currentColor" strokeWidth="1.8" />
       <path d="M12 12v9" stroke="currentColor" strokeWidth="1.8" />
@@ -165,7 +182,7 @@ function MaterialsIcon() {
 
 function ServicesIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8">
+    <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
       <path d="m14.7 6.3 3 3-8.4 8.4H6.3v-3L14.7 6.3Z" stroke="currentColor" strokeWidth="1.8" />
       <path d="m13.3 7.7 3 3" stroke="currentColor" strokeWidth="1.8" />
       <path d="M4 20h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />

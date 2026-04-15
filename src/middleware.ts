@@ -33,8 +33,6 @@ export function middleware(request: NextRequest) {
   const protectedRoutes = [
     '/portal',
     '/dashboard',
-    '/materials',
-    '/services',
     '/inventory',
     '/requests',
     '/approvals',
@@ -93,7 +91,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/portal', request.url));
   }
 
-  const managerOnlyRoutes = ['/users', '/audit-logs', '/approvals', '/email-drafts', '/services/approvals', '/services/email-drafts', '/materials/users', '/materials/audit-logs', '/services/users', '/services/audit-logs'];
+  const managerOnlyRoutes = ['/users', '/audit-logs', '/approvals', '/email-drafts'];
 
   if (
     managerOnlyRoutes.some((route) => pathname.startsWith(route)) &&

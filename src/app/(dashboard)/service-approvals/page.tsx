@@ -4,22 +4,22 @@ const approvalCards = [
   {
     title: 'طلبات الصيانة',
     description: 'مراجعة واعتماد طلبات الصيانة التشغيلية قبل تحويلها إلى المراسلات الخارجية.',
-    href: '/suggestions?type=MAINTENANCE',
+    href: '/services/suggestions?type=MAINTENANCE',
   },
   {
     title: 'طلبات النظافة',
     description: 'مراجعة طلبات النظافة واعتمادها أو إعادتها أو رفضها حسب الحاجة.',
-    href: '/suggestions?type=CLEANING',
+    href: '/services/suggestions?type=CLEANING',
   },
   {
     title: 'طلبات الشراء المباشر',
     description: 'اعتماد طلبات الشراء المباشر وإحالتها للمسار الخارجي المناسب.',
-    href: '/suggestions?type=PURCHASE',
+    href: '/services/suggestions?type=PURCHASE',
   },
   {
     title: 'الطلبات الأخرى',
     description: 'مراجعة الطلبات التشغيلية الأخرى وتحديد الجهة المستلمة قبل الإحالة.',
-    href: '/suggestions?type=OTHER',
+    href: '/services/suggestions?type=OTHER',
   },
 ];
 
@@ -49,11 +49,11 @@ export default function ServiceApprovalsPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <Link href="/email-drafts" className="rounded-[24px] border border-[#d6d7d4] bg-[#f8fbfb] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+        <Link href="/services/email-drafts" className="rounded-[24px] border border-[#d6d7d4] bg-[#f8fbfb] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
           <div className="text-[18px] font-extrabold text-[#016564]">المراسلات الخارجية للخدمات</div>
           <p className="mt-2 text-[13px] leading-7 text-[#61706f]">عرض جميع المسودات الخارجية الجاهزة للتنزيل والإرسال ومتابعة حالاتها ضمن مسار الخدمات فقط.</p>
         </Link>
-        <Link href="/requests" className="rounded-[24px] border border-[#d6d7d4] bg-[#fbf7ee] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+        <Link href="/materials/requests" className="rounded-[24px] border border-[#d6d7d4] bg-[#fbf7ee] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
           <div className="text-[18px] font-extrabold text-[#7b6334]">العودة إلى طلبات المواد</div>
           <p className="mt-2 text-[13px] leading-7 text-[#6b5a4a]">طلبات المواد من المخزون ومسار صرفها وإرجاعها بقيت مستقلة تمامًا عن هذا المسار.</p>
         </Link>

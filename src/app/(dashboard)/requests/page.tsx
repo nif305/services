@@ -342,7 +342,7 @@ export default function RequestsPage() {
     setIsModalOpen(false);
     resetForm();
     if (searchParams.get('new') === '1') {
-      router.replace('/requests');
+      router.replace('/materials/requests');
     }
   }, [resetForm, router, searchParams]);
 

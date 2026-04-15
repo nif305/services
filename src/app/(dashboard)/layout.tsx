@@ -61,6 +61,45 @@ function getDefaultRouteForRole(_role?: string): string {
   return '/portal';
 }
 
+function buildLegacyTarget(pathname: string, search: string, role?: string): string | null {
+  const suffix = search ? `?${search}` : '';
+  const normalizedRole = (role || 'user') as AppRole;
+
+  const byRole = (materialsPath: string, servicesPath: string) =>
+    normalizedRole === 'manager' ? servicesPath : materialsPath;
+
+  const redirects: Record<string, string> = {
+    '/dashboard': '/portal',
+    '/index': '/portal',
+    '/requests': '/materials/requests',
+    '/inventory': '/materials/inventory',
+    '/returns': '/materials/returns',
+    '/custody': '/materials/custody',
+    '/service-requests': '/services/requests',
+    '/service-approvals': '/services/approvals',
+    '/approvals': '/services/approvals',
+    '/maintenance': '/services/maintenance',
+    '/cleaning': '/services/cleaning',
+    '/purchases': '/services/purchases',
+    '/other': '/services/other',
+    '/email-drafts': '/services/email-drafts',
+    '/messages': byRole('/materials/messages', '/services/messages'),
+    '/reports': byRole('/materials/reports', '/services/reports'),
+    '/users': byRole('/materials/users', '/services/users'),
+    '/archive': byRole('/materials/archive', '/services/archive'),
+    '/audit-logs': byRole('/materials/audit-logs', '/services/audit-logs'),
+    '/notifications': byRole('/materials/notifications', '/services/notifications'),
+  };
+
+  if (pathname === '/suggestions') {
+    return `/services/suggestions${suffix}`;
+  }
+
+  const direct = redirects[pathname];
+  if (!direct) return null;
+  return `${direct}${suffix}`;
+}
+
 function getWorkspaceForRole(role?: string): Workspace {
   if (role === 'manager') return 'services';
   if (role === 'warehouse') return 'materials';
@@ -531,10 +570,19 @@ function DashboardLayoutContent({
   const role = user?.role || 'user';
   const workspace = useMemo(() => getWorkspaceForRole(role), [role]);
   const workspaceMeta = WORKSPACE_META[workspace];
+  const legacyTarget = useMemo(
+    () => buildLegacyTarget(pathname, searchParams.toString(), role),
+    [pathname, searchParams, role]
+  );
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname, searchParams]);
+
+  useEffect(() => {
+    if (!legacyTarget) return;
+    router.replace(legacyTarget);
+  }, [legacyTarget, router]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -559,6 +607,10 @@ function DashboardLayoutContent({
       }))
       .filter((group) => group.items.length > 0);
   }, [role]);
+
+  if (legacyTarget) {
+    return <div className="min-h-screen bg-[#f7f9f9]" />;
+  }
 
   const sidebarContent = (
     <div className="flex h-full min-h-0 flex-col bg-[#f7f9f9]">

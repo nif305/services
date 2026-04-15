@@ -253,7 +253,7 @@ export default function SuggestionsPage() {
   }
   function resetCreateState() { setForm(DEFAULT_FORM); setAttachments([]); setFeedback(null); setUploadStage('idle'); setUploadProgress(0); setAttachmentSummaries([]); }
   async function fileToAttachmentPayload(file: File) { const buffer = await file.arrayBuffer(); let binary=''; const bytes=new Uint8Array(buffer); const chunkSize=0x8000; for (let i=0;i<bytes.length;i+=chunkSize) { const chunk=bytes.subarray(i,i+chunkSize); binary += String.fromCharCode(...chunk); } return { filename:file.name, contentType:file.type || 'application/octet-stream', base64Content:btoa(binary) }; }
-  function closeCreateMode() { resetCreateState(); router.replace('/suggestions'); }
+  function closeCreateMode() { resetCreateState(); router.replace('/services/suggestions'); }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -330,7 +330,7 @@ export default function SuggestionsPage() {
 
       setFeedback({ type:'success', message:'تم رفع الطلب بنجاح وإحالته إلى المدير للمراجعة' });
       resetCreateState();
-      router.replace('/suggestions');
+      router.replace('/services/suggestions');
       await fetchRows();
     } catch (error: any) {
       setFeedback({ type:'error', message: error?.message || 'تعذر حفظ الطلب' });
@@ -357,7 +357,7 @@ export default function SuggestionsPage() {
     const items: Array<{type:SuggestionType; label:string}> = [
       {type:'MAINTENANCE', label:'طلب صيانة'}, {type:'CLEANING', label:'طلب نظافة'}, {type:'PURCHASE', label:'شراء مباشر'}, {type:'OTHER', label:'طلب آخر'}
     ];
-    return <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{items.map((item)=><Button key={item.type} variant={activeType===item.type && isCreateMode ? 'primary' : 'ghost'} className="w-full" onClick={()=>router.push(`/suggestions?type=${item.type}&new=1`)}>{item.label}</Button>)}</div>;
+    return <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{items.map((item)=><Button key={item.type} variant={activeType===item.type && isCreateMode ? 'primary' : 'ghost'} className="w-full" onClick={()=>router.push(`/services/suggestions?type=${item.type}&new=1`)}>{item.label}</Button>)}</div>;
   }
 
 
@@ -387,14 +387,14 @@ export default function SuggestionsPage() {
 
   function renderRow(row: SuggestionRow) {
     const type = resolveType(row); const typeBadge = typeMeta(type); const statusBadge = statusMeta(row.status);
-    return <Card key={row.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 space-y-3"><div className="flex flex-wrap items-center gap-2"><div className="font-mono text-sm font-bold text-[#016564]">{row.code || row.id}</div><Badge variant={typeBadge.variant}>{typeBadge.label}</Badge><Badge variant={statusBadge.variant}>{statusBadge.label}</Badge></div><div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">{row.title}</div>{row.description ? <div className="break-words text-sm leading-7 text-[#304342]">{row.description}</div> : null}<div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs"><div>التاريخ: {formatDateTime(row.createdAt)}</div><div className="break-words">مقدم الطلب: {row.requester?.fullName || '—'}</div></div></div><div className="flex w-full flex-col gap-2 sm:w-auto"><Button className="w-full sm:w-auto" onClick={()=>setSelected(row)}>فتح التفاصيل</Button>{row.linkedDraftId && canManage ? <Button variant="ghost" className="w-full sm:w-auto" onClick={()=>router.push('/email-drafts')}>فتح المراسلات</Button> : null}</div></div></Card>;
+    return <Card key={row.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 space-y-3"><div className="flex flex-wrap items-center gap-2"><div className="font-mono text-sm font-bold text-[#016564]">{row.code || row.id}</div><Badge variant={typeBadge.variant}>{typeBadge.label}</Badge><Badge variant={statusBadge.variant}>{statusBadge.label}</Badge></div><div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">{row.title}</div>{row.description ? <div className="break-words text-sm leading-7 text-[#304342]">{row.description}</div> : null}<div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs"><div>التاريخ: {formatDateTime(row.createdAt)}</div><div className="break-words">مقدم الطلب: {row.requester?.fullName || '—'}</div></div></div><div className="flex w-full flex-col gap-2 sm:w-auto"><Button className="w-full sm:w-auto" onClick={()=>setSelected(row)}>فتح التفاصيل</Button>{row.linkedDraftId && canManage ? <Button variant="ghost" className="w-full sm:w-auto" onClick={()=>router.push('/services/email-drafts')}>فتح المراسلات</Button> : null}</div></div></Card>;
   }
 
   return <div className="space-y-4 sm:space-y-5">
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2"><h2 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">{managerHeading}</h2><p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">{managerDescription}</p></div>
-          {!canManage ? <Button className="w-full sm:w-auto" onClick={()=>router.push('/suggestions?new=1&type=MAINTENANCE')}>طلب جديد</Button> : null}
+          {!canManage ? <Button className="w-full sm:w-auto" onClick={()=>router.push('/services/suggestions?new=1&type=MAINTENANCE')}>طلب جديد</Button> : null}
         </div>
         {!canManage ? <div className="mt-4"><ServiceButtons /></div> : null}
         <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4"><Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي الطلبات</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564]">{stats.total}</div></Card><Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">بانتظار المدير</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284]">{stats.pending}</div></Card><Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المعالجة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#498983]">{stats.approved}</div></Card><Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المرفوضة</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e]">{stats.rejected}</div></Card></div>
@@ -459,7 +459,7 @@ export default function SuggestionsPage() {
               {canManage && (selected.status==='PENDING' || selected.status==='UNDER_REVIEW') ? <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button variant="danger" className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('reject')}>رفض الطلب</Button><Button className="w-full sm:w-auto" loading={processing} onClick={()=>handleDecision('approve')}>اعتماد الطلب</Button></div> : null}
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">{selected.linkedDraftId && canManage ? <Button className="w-full sm:w-auto" onClick={()=>router.push('/email-drafts')}>فتح المراسلات الخارجية</Button> : null}<Button variant="ghost" onClick={()=>setSelected(null)} className="w-full sm:w-auto">إغلاق</Button></div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">{selected.linkedDraftId && canManage ? <Button className="w-full sm:w-auto" onClick={()=>router.push('/services/email-drafts')}>فتح المراسلات الخارجية</Button> : null}<Button variant="ghost" onClick={()=>setSelected(null)} className="w-full sm:w-auto">إغلاق</Button></div>
         </div> : null}
       </Modal>
     </div>;

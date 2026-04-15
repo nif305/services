@@ -25,7 +25,7 @@ export default function NotFoundPage() {
 
         <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:justify-center">
           <Link
-            href="/dashboard"
+            href="/portal"
             className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-primary px-4 py-3 text-sm text-white shadow-soft sm:w-auto sm:min-w-[160px]"
           >
             العودة للوحة التحكم

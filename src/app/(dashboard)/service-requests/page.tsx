@@ -4,25 +4,25 @@ const serviceCards = [
   {
     title: 'طلب صيانة',
     description: 'رفع طلبات الصيانة التشغيلية الخاصة بالقاعات والمرافق والمكونات الفنية داخل المبنى.',
-    href: '/suggestions?type=MAINTENANCE&new=1',
+    href: '/services/suggestions?type=MAINTENANCE&new=1',
     badge: 'صيانة',
   },
   {
     title: 'طلب نظافة',
     description: 'رفع طلبات النظافة والخدمات المرتبطة بجاهزية البيئة التدريبية داخل المبنى.',
-    href: '/suggestions?type=CLEANING&new=1',
+    href: '/services/suggestions?type=CLEANING&new=1',
     badge: 'نظافة',
   },
   {
     title: 'شراء مباشر',
     description: 'رفع طلبات الشراء المباشر المرتبطة باحتياج تشغيلي أو دعم عاجل للعمل التدريبي.',
-    href: '/suggestions?type=PURCHASE&new=1',
+    href: '/services/suggestions?type=PURCHASE&new=1',
     badge: 'شراء مباشر',
   },
   {
     title: 'طلب آخر',
     description: 'رفع طلبات تشغيلية أخرى تحتاج إحالة واعتمادًا ومراسلة خارجية من المدير.',
-    href: '/suggestions?type=OTHER&new=1',
+    href: '/services/suggestions?type=OTHER&new=1',
     badge: 'أخرى',
   },
 ];
@@ -54,11 +54,11 @@ export default function ServiceRequestsPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <Link href="/suggestions" className="rounded-[24px] border border-[#d6d7d4] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+        <Link href="/services/suggestions" className="rounded-[24px] border border-[#d6d7d4] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
           <div className="text-[18px] font-extrabold text-[#016564]">متابعة طلبات الخدمات</div>
           <p className="mt-2 text-[13px] leading-7 text-[#61706f]">عرض جميع طلبات الخدمات السابقة ومتابعة حالاتها وقراراتها من مكان مستقل عن طلبات المواد.</p>
         </Link>
-        <Link href="/requests" className="rounded-[24px] border border-[#d6d7d4] bg-[#fbf7ee] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+        <Link href="/materials/requests" className="rounded-[24px] border border-[#d6d7d4] bg-[#fbf7ee] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
           <div className="text-[18px] font-extrabold text-[#7b6334]">الانتقال إلى طلبات المواد</div>
           <p className="mt-2 text-[13px] leading-7 text-[#6b5a4a]">إذا كان احتياجك مواد تدريبية من المخزون، فالمسار الصحيح هو طلبات المواد من المخزون وليس طلبات الخدمات.</p>
         </Link>

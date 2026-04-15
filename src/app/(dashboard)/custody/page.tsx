@@ -194,7 +194,7 @@ export default function CustodyPage() {
             </p>
           </div>
 
-          <Link href="/requests" className="w-full sm:w-auto">
+          <Link href="/materials/requests" className="w-full sm:w-auto">
             <Button variant="ghost" className="w-full sm:w-auto">
               طلب مادة جديدة
             </Button>

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function MaintenanceRedirectPage() {
-  redirect('/suggestions?type=MAINTENANCE');
+  redirect('/services/suggestions?type=MAINTENANCE');
 }

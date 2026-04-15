@@ -335,7 +335,7 @@ export default function ReturnsPage() {
     resetCreateForm();
 
     if (searchParams.get('new') === '1') {
-      router.replace('/returns');
+      router.replace('/materials/returns');
     }
   };
 
@@ -413,7 +413,7 @@ export default function ReturnsPage() {
         severity: 'info',
         title: 'تم تسجيل طلب الإرجاع',
         message: `تم تسجيل طلب الإرجاع ${data?.code || ''} وهو الآن بانتظار الاستلام والتوثيق.`,
-        link: '/returns',
+        link: '/materials/returns',
         entityType: 'RETURN',
         entityId: data?.id || null,
         dedupeKey: `return-created-user-${data?.id || custodyId || requestItemId}`,
@@ -426,7 +426,7 @@ export default function ReturnsPage() {
       severity: 'action',
       title: 'طلب إرجاع جديد',
       message: `تم رفع طلب إرجاع جديد ${data?.code || ''} ويحتاج الاستلام والتوثيق.`,
-      link: '/returns',
+      link: '/materials/returns',
       entityType: 'RETURN',
       entityId: data?.id || null,
       dedupeKey: `return-created-admin-${data?.id || custodyId || requestItemId}`,
@@ -472,7 +472,7 @@ export default function ReturnsPage() {
           receivedType === 'GOOD'
             ? `تم استلام المادة المرتبطة بطلب الإرجاع ${selectedReturn.code} وتوثيقها كحالة سليمة.`
             : `تم استلام المادة المرتبطة بطلب الإرجاع ${selectedReturn.code} وتوثيقها كحالة غير سليمة.`,
-        link: '/returns',
+        link: '/materials/returns',
         entityType: 'RETURN',
         entityId: selectedReturn.id,
         dedupeKey: `return-approved-user-${selectedReturn.id}`,
@@ -486,7 +486,7 @@ export default function ReturnsPage() {
         severity: 'critical',
         title: 'مادة مستلمة بحالة غير سليمة',
         message: `تم استلام المادة في طلب الإرجاع ${selectedReturn.code} وتوثيقها كحالة غير سليمة.`,
-        link: '/returns',
+        link: '/materials/returns',
         entityType: 'RETURN',
         entityId: selectedReturn.id,
         dedupeKey: `return-damaged-${selectedReturn.id}`,
@@ -528,7 +528,7 @@ export default function ReturnsPage() {
         message: `تم رفض طلب الإرجاع ${selectedReturn.code}${
           receivedNotes ? ` بسبب: ${receivedNotes}` : '.'
         }`,
-        link: '/returns',
+        link: '/materials/returns',
         entityType: 'RETURN',
         entityId: selectedReturn.id,
         dedupeKey: `return-rejected-${selectedReturn.id}`,

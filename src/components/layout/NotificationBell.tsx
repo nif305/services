@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { NOTIFICATIONS_UPDATED_EVENT } from '@/lib/notifications';
+import { canonicalizeAppHref } from '@/lib/system';
 
 type ServerNotification = {
   id: string;
@@ -34,16 +36,20 @@ function normalizeNotification(item: ServerNotification) {
 }
 
 function resolveItemLink(item: ReturnType<typeof normalizeNotification>): string | null {
+  return resolveItemLinkForRole(item, 'user');
+}
+
+function resolveItemLinkForRole(item: ReturnType<typeof normalizeNotification>, role?: string | null): string | null {
   const entityType = String(item.entityType || '').toLowerCase();
 
-  if (item.link && item.link !== '/notifications') return item.link;
-  if (entityType === 'message' && item.entityId) return `/messages?open=${item.entityId}`;
-  if (entityType === 'request' && item.entityId) return `/requests?open=${item.entityId}`;
-  if (entityType === 'return' && item.entityId) return `/returns?open=${item.entityId}`;
-  if (entityType === 'custody' && item.entityId) return `/custody?open=${item.entityId}`;
-  if (entityType === 'inventory' && item.entityId) return `/inventory?open=${item.entityId}`;
+  if (item.link) return canonicalizeAppHref(item.link, role);
+  if (entityType === 'message' && item.entityId) return `${canonicalizeAppHref('/messages', role)}?open=${item.entityId}`;
+  if (entityType === 'request' && item.entityId) return `/materials/requests?open=${item.entityId}`;
+  if (entityType === 'return' && item.entityId) return `/materials/returns?open=${item.entityId}`;
+  if (entityType === 'custody' && item.entityId) return `/materials/custody?open=${item.entityId}`;
+  if (entityType === 'inventory' && item.entityId) return `/materials/inventory?open=${item.entityId}`;
 
-  return '/notifications';
+  return canonicalizeAppHref('/notifications', role);
 }
 
 function formatRelative(value?: string | null) {
@@ -66,6 +72,7 @@ function formatRelative(value?: string | null) {
 
 export function NotificationBell({ userId }: { userId: string }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<ReturnType<typeof normalizeNotification>[]>([]);
 
@@ -123,7 +130,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       await markOneRead(item.id);
     }
 
-    const target = resolveItemLink(item);
+    const target = resolveItemLinkForRole(item, user?.role);
     setOpen(false);
     if (target) router.push(target);
   };
@@ -168,7 +175,7 @@ export function NotificationBell({ userId }: { userId: string }) {
                 <button type="button" onClick={markAllRead} className="text-xs text-[#016564]">
                   تعليم الكل كمقروء
                 </button>
-                <Link href="/notifications" className="text-xs text-slate-500" onClick={() => setOpen(false)}>
+                <Link href={canonicalizeAppHref('/notifications', user?.role)} className="text-xs text-slate-500" onClick={() => setOpen(false)}>
                   عرض الكل
                 </Link>
               </div>

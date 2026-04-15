@@ -48,19 +48,19 @@ export default function ServicesDashboardPage() {
         {
           title: 'طلب صيانة',
           hint: 'رفع طلب أعمال الصيانة',
-          href: '/suggestions?type=MAINTENANCE&new=1',
+          href: '/services/suggestions?type=MAINTENANCE&new=1',
           icon: <MaintenanceIcon />,
         },
         {
           title: 'طلب نظافة',
           hint: 'رفع طلب خدمات النظافة',
-          href: '/suggestions?type=CLEANING&new=1',
+          href: '/services/suggestions?type=CLEANING&new=1',
           icon: <CleaningIcon />,
         },
         {
           title: 'شراء مباشر',
           hint: 'رفع طلب شراء مباشر',
-          href: '/suggestions?type=PURCHASE&new=1',
+          href: '/services/suggestions?type=PURCHASE&new=1',
           icon: <PurchaseIcon />,
         },
         {

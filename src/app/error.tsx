@@ -57,7 +57,7 @@ export default function ErrorPage({
           </button>
 
           <Link
-            href="/dashboard"
+            href="/portal"
             className="inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl border border-surface-border bg-white px-4 py-3 text-sm text-primary sm:w-auto sm:min-w-[160px]"
           >
             العودة للوحة التحكم

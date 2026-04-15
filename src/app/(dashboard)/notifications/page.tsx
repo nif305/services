@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/context/AuthContext';
 import { NOTIFICATIONS_UPDATED_EVENT } from '@/lib/notifications';
+import { canonicalizeAppHref } from '@/lib/system';
 
 type FilterKey = 'ALL' | 'UNREAD' | 'ALERT' | 'NOTIFICATION' | 'CRITICAL' | 'ACTION';
 
@@ -79,7 +80,7 @@ function severityLabel(item: NotificationMeta) {
   return 'معلوماتي';
 }
 
-function itemClasses(item: InventoryNotification) {
+function itemClasses(item: NotificationMeta) {
   if (item.severity === 'critical') {
     return 'border-[#7c1e3e]/15 bg-[#7c1e3e]/[0.04]';
   }
@@ -91,27 +92,31 @@ function itemClasses(item: InventoryNotification) {
   return 'border-slate-200 bg-white';
 }
 
-function badgeClasses(item: InventoryNotification) {
+function badgeClasses(item: NotificationMeta) {
   if (item.severity === 'critical') return 'bg-[#7c1e3e]/10 text-[#7c1e3e]';
   if (item.kind === 'alert' || item.severity === 'action') return 'bg-[#d0b284]/15 text-[#8a6a28]';
   return 'bg-[#016564]/10 text-[#016564]';
 }
 
-function resolveItemLink(item: InventoryNotification): string | null {
+function resolveItemLink(item: NotificationMeta): string | null {
+  return resolveItemLinkForRole(item, 'user');
+}
+
+function resolveItemLinkForRole(item: NotificationMeta, role?: string | null): string | null {
   const meta = item as NotificationMeta;
 
-  if (item.link && item.link !== '/notifications') {
-    return item.link;
+  if (item.link) {
+    return canonicalizeAppHref(item.link, role);
   }
 
   const entityType = String(meta.entityType || '').toLowerCase();
 
-  if (entityType === 'message' && meta.entityId) return `/messages?open=${meta.entityId}`;
-  if (entityType === 'request' && meta.entityId) return `/requests?open=${meta.entityId}`;
-  if (entityType === 'return' && meta.entityId) return `/returns?open=${meta.entityId}`;
-  if (entityType === 'custody' && meta.entityId) return `/custody?open=${meta.entityId}`;
-  if (entityType === 'inventory' && meta.entityId) return `/inventory?open=${meta.entityId}`;
-  if (entityType === 'suggestion' && meta.entityId) return '/dashboard';
+  if (entityType === 'message' && meta.entityId) return `${canonicalizeAppHref('/messages', role)}?open=${meta.entityId}`;
+  if (entityType === 'request' && meta.entityId) return `/materials/requests?open=${meta.entityId}`;
+  if (entityType === 'return' && meta.entityId) return `/materials/returns?open=${meta.entityId}`;
+  if (entityType === 'custody' && meta.entityId) return `/materials/custody?open=${meta.entityId}`;
+  if (entityType === 'inventory' && meta.entityId) return `/materials/inventory?open=${meta.entityId}`;
+  if (entityType === 'suggestion' && meta.entityId) return canonicalizeAppHref('/services/requests', role);
 
   return null;
 }
@@ -218,7 +223,7 @@ export default function NotificationsPage() {
   };
 
   const handleOpenItem = async (item: NotificationMeta) => {
-    const target = resolveItemLink(item);
+    const target = resolveItemLinkForRole(item, user?.role);
 
     if (!item.isRead) {
       await handleMarkRead(item.id);

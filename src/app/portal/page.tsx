@@ -25,26 +25,26 @@ export default function PortalPage() {
 
   return (
     <div dir="rtl" className="arabic-surface min-h-screen bg-[#f4f7f6]">
-      <div className="mx-auto max-w-[1280px] px-4 py-5 lg:px-6 lg:py-6">
-        <header className="rounded-[28px] border border-white/80 bg-white/90 px-4 py-4 shadow-[0_18px_40px_-34px_rgba(15,23,42,0.22)] backdrop-blur">
+      <div className="mx-auto max-w-[1120px] px-4 py-4 lg:px-5 lg:py-5">
+        <header className="rounded-[24px] border border-white/80 bg-white/90 px-4 py-3 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)] backdrop-blur">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="flex items-center gap-3 rounded-[20px] border border-[#dde7e5] bg-[#fbfcfc] px-4 py-3">
+              <div className="flex items-center gap-3 rounded-[18px] border border-[#dde7e5] bg-[#fbfcfc] px-3.5 py-2.5">
                 <img
                   src="/nauss-gold-logo.png"
                   alt="شعار جامعة نايف"
-                  className="h-10 w-auto object-contain"
+                  className="h-8 w-auto object-contain"
                 />
                 <div className="text-right">
                   <div className="text-[11px] font-semibold text-[#8a9a98]">منصة المواد والخدمات</div>
-                  <div className="text-[15px] font-extrabold text-[#223738]">
+                  <div className="text-[14px] font-bold text-[#223738]">
                     {user?.fullName || 'مستخدم النظام'}
                   </div>
                 </div>
               </div>
 
               {canUseRoleSwitch && availableRoles.length > 1 ? (
-                <div className="inline-flex w-full items-center gap-1 rounded-[20px] border border-[#dce6e4] bg-[#f7f9f9] p-1 shadow-inner lg:w-auto">
+                <div className="inline-flex w-full items-center gap-1 rounded-[18px] border border-[#dce6e4] bg-[#f7f9f9] p-1 shadow-inner lg:w-auto">
                   {availableRoles.map((role) => {
                     const active = user?.role === role;
                     return (
@@ -54,8 +54,8 @@ export default function PortalPage() {
                         onClick={() => switchViewRole(role)}
                         className={
                           active
-                            ? 'flex-1 rounded-[16px] bg-[#2A6364] px-4 py-2.5 text-[14px] font-semibold text-white lg:flex-none'
-                            : 'flex-1 rounded-[16px] px-4 py-2.5 text-[14px] font-semibold text-[#455d5d] hover:bg-white lg:flex-none'
+                            ? 'flex-1 rounded-[14px] bg-[#2A6364] px-4 py-2 text-[13px] font-semibold text-white lg:flex-none'
+                            : 'flex-1 rounded-[14px] px-4 py-2 text-[13px] font-semibold text-[#455d5d] hover:bg-white lg:flex-none'
                         }
                       >
                         {ROLE_LABELS[role]}
@@ -69,22 +69,22 @@ export default function PortalPage() {
             <button
               type="button"
               onClick={logout}
-              className="inline-flex h-11 items-center justify-center rounded-[18px] border border-[#dce6e4] bg-white px-4 text-[14px] font-semibold text-[#27494a]"
+              className="inline-flex h-10 items-center justify-center rounded-[16px] border border-[#dce6e4] bg-white px-4 text-[13px] font-semibold text-[#27494a]"
             >
               تسجيل الخروج
             </button>
           </div>
         </header>
 
-        <main className="mx-auto mt-12 max-w-[980px]">
+        <main className="mx-auto mt-10 max-w-[860px]">
           <div className="text-center">
             <div className="text-[12px] font-semibold tracking-[0.16em] text-[#8a9a98]">اختيار النظام</div>
-            <h1 className="mt-3 text-[28px] font-extrabold text-[#223738] sm:text-[34px]">
+            <h1 className="mt-2.5 text-[22px] font-extrabold text-[#223738] sm:text-[26px]">
               اختر النظام
             </h1>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
             <PortalEntryCard
               title="طلب مواد"
               subtitle="المواد من المخزن"
@@ -141,19 +141,19 @@ function PortalEntryCard({
     <button
       type="button"
       onClick={onClick}
-      className={`group rounded-[24px] border ${palette.border} bg-white px-5 py-5 text-right shadow-[0_18px_38px_-34px_rgba(15,23,42,0.22)] transition hover:-translate-y-1 hover:shadow-[0_24px_48px_-36px_rgba(15,23,42,0.26)]`}
+      className={`group rounded-[20px] border ${palette.border} bg-white px-4 py-4 text-right shadow-[0_16px_30px_-30px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_34px_-32px_rgba(15,23,42,0.22)]`}
     >
-      <div className="flex items-center gap-4">
-        <div className={`inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] ${palette.iconBg} ${palette.iconText}`}>
+      <div className="flex items-center gap-3">
+        <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] ${palette.iconBg} ${palette.iconText}`}>
           {icon}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="text-[12px] font-semibold text-[#8a9a98]">{subtitle}</div>
-          <div className="mt-1 text-[30px] font-extrabold text-[#223738]">{title}</div>
+          <div className="text-[11px] font-semibold text-[#8a9a98]">{subtitle}</div>
+          <div className="mt-1 text-[22px] font-extrabold text-[#223738]">{title}</div>
         </div>
 
-        <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[16px] ${palette.arrowBg} ${palette.arrowText} transition group-hover:scale-105`}>
+        <div className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] ${palette.arrowBg} ${palette.arrowText} transition group-hover:scale-105`}>
           <ArrowIcon />
         </div>
       </div>

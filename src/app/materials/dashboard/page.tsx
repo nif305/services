@@ -105,49 +105,49 @@ export default function MaterialsDashboardPage() {
   const workflowMax = Math.max(...workflow.map((item) => item.value), 1);
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[30px] border border-white/80 bg-white p-6 shadow-[0_22px_48px_-40px_rgba(15,23,42,0.24)]">
+    <div className="space-y-5">
+      <section className="rounded-[26px] border border-white/80 bg-white p-5 shadow-[0_18px_38px_-34px_rgba(15,23,42,0.2)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="text-[12px] font-semibold text-[#8a9a98]">إجراءات النظام</div>
-            <h2 className="mt-2 text-[28px] font-extrabold text-[#223738]">اختر نوع الإجراء</h2>
+            <h2 className="mt-1.5 text-[22px] font-extrabold text-[#223738]">اختر نوع الإجراء</h2>
           </div>
           <a
             href="/materials/requests?new=1"
-            className="inline-flex items-center justify-center rounded-[20px] bg-[#163e44] px-5 py-3 text-[15px] font-bold text-white transition hover:bg-[#0f3337]"
+            className="inline-flex items-center justify-center rounded-[16px] bg-[#163e44] px-4 py-2.5 text-[13px] font-bold text-white transition hover:bg-[#0f3337]"
           >
             طلب مواد جديد
           </a>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {requestActions.map((action) => (
             <a
               key={action.title}
               href={action.href}
-              className="group rounded-[24px] border border-[#dde6e4] bg-[#fbfcfc] p-5 transition hover:-translate-y-1 hover:border-[#cfe0dc] hover:bg-white"
+              className="group rounded-[20px] border border-[#dde6e4] bg-[#fbfcfc] p-4 transition hover:-translate-y-0.5 hover:border-[#cfe0dc] hover:bg-white"
             >
-              <div className="inline-flex h-14 w-14 items-center justify-center rounded-[20px] bg-[#eef5f4] text-[#0f5e61]">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#eef5f4] text-[#0f5e61]">
                 {action.icon}
               </div>
-              <div className="mt-4 text-[21px] font-extrabold text-[#223738]">{action.title}</div>
-              <div className="mt-2 text-[13px] leading-7 text-[#70807e]">{action.hint}</div>
+              <div className="mt-3 text-[18px] font-extrabold text-[#223738]">{action.title}</div>
+              <div className="mt-1.5 text-[12px] leading-6 text-[#70807e]">{action.hint}</div>
             </a>
           ))}
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_24px_56px_-40px_rgba(15,23,42,0.28)]">
-        <div className="grid gap-6 p-6 xl:grid-cols-[1.05fr_0.95fr] xl:p-7">
-          <div className="rounded-[28px] bg-[linear-gradient(135deg,#0e5d61_0%,#698b8c_100%)] px-6 py-6 text-white shadow-[0_22px_48px_-34px_rgba(1,101,100,0.72)]">
+      <section className="overflow-hidden rounded-[26px] border border-white/80 bg-white shadow-[0_20px_44px_-36px_rgba(15,23,42,0.22)]">
+        <div className="grid gap-5 p-5 xl:grid-cols-[1.05fr_0.95fr] xl:p-6">
+          <div className="rounded-[24px] bg-[linear-gradient(135deg,#0e5d61_0%,#698b8c_100%)] px-5 py-5 text-white shadow-[0_18px_40px_-32px_rgba(1,101,100,0.58)]">
             <div className="text-[12px] text-white/70">نظام طلب المواد من المخزن</div>
-            <h1 className="mt-3 text-[32px] font-extrabold leading-tight">لوحة تشغيل المواد</h1>
-            <p className="mt-3 max-w-[620px] text-[15px] leading-8 text-white/84">
+            <h1 className="mt-2.5 text-[25px] font-extrabold leading-tight">لوحة تشغيل المواد</h1>
+            <p className="mt-2.5 max-w-[620px] text-[13px] leading-7 text-white/84">
               مركز متابعة يومي يربط بين حالة المخزون وطلبات الصرف والمرتجعات والعهد
               النشطة، مع وصول مباشر إلى أهم الإجراءات التنفيذية.
             </p>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <HeroMetric title="إجمالي الأصناف" value={metrics?.totalInventory ?? 0} />
               <HeroMetric title="مواد متاحة" value={metrics?.availableInventory ?? 0} />
               <HeroMetric title="إشعارات غير مقروءة" value={metrics?.unreadNotifications ?? 0} />
@@ -159,15 +159,15 @@ export default function MaterialsDashboardPage() {
               <a
                 key={card.title}
                 href={card.href}
-                className={`rounded-[26px] bg-gradient-to-l ${card.accent} px-5 py-5 text-white shadow-[0_18px_42px_-34px_rgba(15,23,42,0.36)] transition hover:-translate-y-1`}
+                className={`rounded-[22px] bg-gradient-to-l ${card.accent} px-4 py-4 text-white shadow-[0_16px_32px_-30px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5`}
               >
                 <div className="text-[12px] text-white/72">أولوية تنفيذ</div>
                 <div className="mt-2 flex items-end justify-between gap-4">
                   <div>
-                    <div className="text-[24px] font-extrabold">{card.title}</div>
-                    <div className="mt-2 text-[13px] text-white/82">{card.hint}</div>
+                    <div className="text-[19px] font-extrabold">{card.title}</div>
+                    <div className="mt-1.5 text-[12px] text-white/82">{card.hint}</div>
                   </div>
-                  <div className="text-[40px] font-extrabold leading-none">{card.value}</div>
+                  <div className="text-[30px] font-extrabold leading-none">{card.value}</div>
                 </div>
               </a>
             ))}
@@ -175,10 +175,10 @@ export default function MaterialsDashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-[30px] border border-[#dde6e4] bg-white p-6 shadow-[0_18px_44px_-38px_rgba(15,23,42,0.24)]">
+      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-[26px] border border-[#dde6e4] bg-white p-5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)]">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[22px] font-extrabold text-[#223738]">حالة المخزون</h2>
+            <h2 className="text-[19px] font-extrabold text-[#223738]">حالة المخزون</h2>
             <a href="/materials/inventory" className="text-[13px] font-semibold text-[#0f5e61]">
               فتح المخزون
             </a>
@@ -188,13 +188,13 @@ export default function MaterialsDashboardPage() {
             <DonutChart series={stockSeries.rows} total={stockSeries.total} />
             <div className="flex-1 space-y-3">
               {stockSeries.rows.map((item) => (
-                <div key={item.label} className="rounded-[20px] border border-[#edf1f1] bg-[#f8fbfb] px-4 py-3">
+                <div key={item.label} className="rounded-[18px] border border-[#edf1f1] bg-[#f8fbfb] px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                      <span className="text-[15px] font-semibold text-[#244141]">{item.label}</span>
+                      <span className="text-[14px] font-semibold text-[#244141]">{item.label}</span>
                     </div>
-                    <span className="text-[22px] font-extrabold text-[#223738]">{item.value}</span>
+                    <span className="text-[18px] font-extrabold text-[#223738]">{item.value}</span>
                   </div>
                 </div>
               ))}
@@ -207,9 +207,9 @@ export default function MaterialsDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-[30px] border border-[#dde6e4] bg-white p-6 shadow-[0_18px_44px_-38px_rgba(15,23,42,0.24)]">
+        <div className="rounded-[26px] border border-[#dde6e4] bg-white p-5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)]">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[22px] font-extrabold text-[#223738]">مسار التنفيذ اليومي</h2>
+            <h2 className="text-[19px] font-extrabold text-[#223738]">مسار التنفيذ اليومي</h2>
             <span className="rounded-full bg-[#f3f7f6] px-3 py-1 text-[12px] text-[#6f8080]">
               تشغيل حي قابل للتنفيذ
             </span>
@@ -232,15 +232,15 @@ export default function MaterialsDashboardPage() {
             ))}
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-2">
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
             {quickActions.map((card) => (
               <a
                 key={card.title}
                 href={card.href}
-                className="rounded-[22px] border border-[#dde6e4] bg-[#fbfcfc] px-5 py-5 transition hover:-translate-y-0.5 hover:border-[#cfe0dc] hover:bg-white"
+                className="rounded-[18px] border border-[#dde6e4] bg-[#fbfcfc] px-4 py-4 transition hover:-translate-y-0.5 hover:border-[#cfe0dc] hover:bg-white"
               >
-                <div className="text-[18px] font-extrabold text-[#223738]">{card.title}</div>
-                <div className="mt-2 text-[13px] leading-7 text-[#70807e]">{card.hint}</div>
+                <div className="text-[16px] font-extrabold text-[#223738]">{card.title}</div>
+                <div className="mt-1.5 text-[12px] leading-6 text-[#70807e]">{card.hint}</div>
               </a>
             ))}
           </div>
@@ -252,18 +252,18 @@ export default function MaterialsDashboardPage() {
 
 function HeroMetric({ title, value }: { title: string; value: number }) {
   return (
-    <div className="rounded-[22px] border border-white/12 bg-white/10 px-4 py-4 backdrop-blur-sm">
+    <div className="rounded-[18px] border border-white/12 bg-white/10 px-4 py-3.5 backdrop-blur-sm">
       <div className="text-[12px] text-white/70">{title}</div>
-      <div className="mt-2 text-[32px] font-extrabold">{value}</div>
+      <div className="mt-1.5 text-[24px] font-extrabold">{value}</div>
     </div>
   );
 }
 
 function MiniInsight({ title, value }: { title: string; value: number }) {
   return (
-    <div className="rounded-[20px] border border-[#edf1f1] bg-[#fbfcfc] px-4 py-4 text-center">
+    <div className="rounded-[18px] border border-[#edf1f1] bg-[#fbfcfc] px-4 py-3.5 text-center">
       <div className="text-[12px] text-[#879795]">{title}</div>
-      <div className="mt-2 text-[28px] font-extrabold text-[#223738]">{value}</div>
+      <div className="mt-1.5 text-[22px] font-extrabold text-[#223738]">{value}</div>
     </div>
   );
 }
@@ -280,7 +280,7 @@ function DonutChart({
   const circumference = 2 * Math.PI * radius;
 
   return (
-    <div className="relative h-[170px] w-[170px] shrink-0 self-center">
+    <div className="relative h-[154px] w-[154px] shrink-0 self-center">
       <svg viewBox="0 0 160 160" className="h-full w-full -rotate-90">
         <circle cx="80" cy="80" r={radius} fill="none" stroke="#eaf0ef" strokeWidth="16" />
         {series.map((item) => {
@@ -306,7 +306,7 @@ function DonutChart({
       <div className="absolute inset-0 flex items-center justify-center text-center">
         <div>
           <div className="text-[11px] text-[#8b9999]">إجمالي الحالة</div>
-          <div className="text-[30px] font-extrabold text-[#223738]">{total}</div>
+          <div className="text-[24px] font-extrabold text-[#223738]">{total}</div>
         </div>
       </div>
     </div>

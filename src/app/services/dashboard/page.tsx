@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 type SummaryMetrics = {
   maintenancePending: number;
@@ -12,6 +13,7 @@ type SummaryMetrics = {
 
 export default function ServicesDashboardPage() {
   const [metrics, setMetrics] = useState<SummaryMetrics | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     fetch('/api/dashboard-summary', { cache: 'no-store' })
@@ -40,32 +42,69 @@ export default function ServicesDashboardPage() {
     { title: 'المراسلات الداخلية', hint: 'تواصل رسمي داخلي', href: '/services/messages' },
   ];
 
-  const requestActions = [
-    {
-      title: 'طلب صيانة',
-      hint: 'رفع طلب أعمال الصيانة',
-      href: '/suggestions?type=MAINTENANCE&new=1',
-      icon: <MaintenanceIcon />,
-    },
-    {
-      title: 'طلب نظافة',
-      hint: 'رفع طلب خدمات النظافة',
-      href: '/suggestions?type=CLEANING&new=1',
-      icon: <CleaningIcon />,
-    },
-    {
-      title: 'شراء مباشر',
-      hint: 'رفع طلب شراء مباشر',
-      href: '/suggestions?type=PURCHASE&new=1',
-      icon: <PurchaseIcon />,
-    },
-    {
-      title: 'مراسلات',
-      hint: 'الداخلية والخارجية',
-      href: '/services/messages',
-      icon: <MessagesIcon />,
-    },
-  ];
+  const requestActions = useMemo(() => {
+    if (user?.role === 'user') {
+      return [
+        {
+          title: 'طلب صيانة',
+          hint: 'رفع طلب أعمال الصيانة',
+          href: '/suggestions?type=MAINTENANCE&new=1',
+          icon: <MaintenanceIcon />,
+        },
+        {
+          title: 'طلب نظافة',
+          hint: 'رفع طلب خدمات النظافة',
+          href: '/suggestions?type=CLEANING&new=1',
+          icon: <CleaningIcon />,
+        },
+        {
+          title: 'شراء مباشر',
+          hint: 'رفع طلب شراء مباشر',
+          href: '/suggestions?type=PURCHASE&new=1',
+          icon: <PurchaseIcon />,
+        },
+        {
+          title: 'مراسلات',
+          hint: 'الداخلية والخارجية',
+          href: '/services/messages',
+          icon: <MessagesIcon />,
+        },
+      ];
+    }
+
+    return [
+      {
+        title: 'بوابة الطلبات',
+        hint: 'متابعة جميع طلبات الخدمات',
+        href: '/services/requests',
+        icon: <MaintenanceIcon />,
+      },
+      {
+        title: 'اعتماد الطلبات',
+        hint: 'الطلبات التي تحتاج قراراً أو موافقة',
+        href: '/services/approvals',
+        icon: <PurchaseIcon />,
+      },
+      {
+        title: 'المراسلات الخارجية',
+        hint: 'مسودات البريد ومتابعتها',
+        href: '/services/email-drafts',
+        icon: <MessagesIcon />,
+      },
+      {
+        title: 'المراسلات الداخلية',
+        hint: 'التواصل الرسمي داخل النظام',
+        href: '/services/messages',
+        icon: <MessagesIcon />,
+      },
+    ];
+  }, [user?.role]);
+
+  const sectionTitle = user?.role === 'user' ? 'اختر نوع الطلب' : 'متابعة الخدمات';
+  const primaryAction =
+    user?.role === 'user'
+      ? { label: 'بوابة الطلبات', href: '/services/requests' }
+      : { label: 'اعتماد الطلبات', href: '/services/approvals' };
 
   const priorityCards = [
     {
@@ -97,13 +136,13 @@ export default function ServicesDashboardPage() {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="text-[12px] font-semibold text-[#8a9a98]">إجراءات النظام</div>
-            <h2 className="mt-1.5 text-[22px] font-extrabold text-[#223738]">اختر نوع الطلب</h2>
+            <h2 className="mt-1.5 text-[22px] font-extrabold text-[#223738]">{sectionTitle}</h2>
           </div>
           <a
-            href="/services/requests"
+            href={primaryAction.href}
             className="inline-flex items-center justify-center rounded-[16px] bg-[#163e44] px-4 py-2.5 text-[13px] font-bold text-white transition hover:bg-[#0f3337]"
           >
-            بوابة الطلبات
+            {primaryAction.label}
           </a>
         </div>
 

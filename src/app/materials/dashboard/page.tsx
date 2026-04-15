@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 type SummaryMetrics = {
   totalInventory: number;
@@ -20,6 +21,7 @@ type SummaryMetrics = {
 
 export default function MaterialsDashboardPage() {
   const [metrics, setMetrics] = useState<SummaryMetrics | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     fetch('/api/dashboard-summary', { cache: 'no-store' })
@@ -69,32 +71,102 @@ export default function MaterialsDashboardPage() {
     { title: 'العهد', hint: 'متابعة العهد النشطة والمتأخرة', href: '/materials/custody' },
   ];
 
-  const requestActions = [
-    {
-      title: 'طلب جديد',
-      hint: 'رفع طلب مواد من المخزن',
-      href: '/materials/requests?new=1',
-      icon: <RequestIcon />,
-    },
-    {
-      title: 'المخزون',
-      hint: 'استعراض الأصناف والكميات',
-      href: '/materials/inventory',
-      icon: <InventoryIcon />,
-    },
-    {
-      title: 'المرتجعات',
-      hint: 'طلبات الإرجاع والاستلام',
-      href: '/materials/returns',
-      icon: <ReturnIcon />,
-    },
-    {
-      title: 'العهد',
-      hint: 'العهد النشطة والمتأخرة',
-      href: '/materials/custody',
-      icon: <CustodyIcon />,
-    },
-  ];
+  const requestActions = useMemo(() => {
+    if (user?.role === 'user') {
+      return [
+        {
+          title: 'طلب جديد',
+          hint: 'رفع طلب مواد من المخزن',
+          href: '/materials/requests?new=1',
+          icon: <RequestIcon />,
+        },
+        {
+          title: 'المخزون',
+          hint: 'استعراض الأصناف والكميات',
+          href: '/materials/inventory',
+          icon: <InventoryIcon />,
+        },
+        {
+          title: 'المرتجعات',
+          hint: 'طلبات الإرجاع والاستلام',
+          href: '/materials/returns',
+          icon: <ReturnIcon />,
+        },
+        {
+          title: 'العهد',
+          hint: 'العهد النشطة والمتأخرة',
+          href: '/materials/custody',
+          icon: <CustodyIcon />,
+        },
+      ];
+    }
+
+    if (user?.role === 'warehouse') {
+      return [
+        {
+          title: 'طلبات الصرف',
+          hint: 'تنفيذ الطلبات المعتمدة من المستودع',
+          href: '/materials/requests',
+          icon: <RequestIcon />,
+        },
+        {
+          title: 'المخزون',
+          hint: 'إدارة الأصناف والكميات والحالة',
+          href: '/materials/inventory',
+          icon: <InventoryIcon />,
+        },
+        {
+          title: 'موافقة الإرجاع',
+          hint: 'استلام المرتجعات وتوثيق حالتها',
+          href: '/materials/returns',
+          icon: <ReturnIcon />,
+        },
+        {
+          title: 'العهد',
+          hint: 'متابعة العهد المرتبطة بالمخزن',
+          href: '/materials/custody',
+          icon: <CustodyIcon />,
+        },
+      ];
+    }
+
+    return [
+      {
+        title: 'طلبات المواد',
+        hint: 'متابعة جميع طلبات المواد والحالات',
+        href: '/materials/requests',
+        icon: <RequestIcon />,
+      },
+      {
+        title: 'المخزون',
+        hint: 'متابعة توفر الأصناف ومستوى المخزون',
+        href: '/materials/inventory',
+        icon: <InventoryIcon />,
+      },
+      {
+        title: 'المرتجعات',
+        hint: 'متابعة حالات الإرجاع والاستلام',
+        href: '/materials/returns',
+        icon: <ReturnIcon />,
+      },
+      {
+        title: 'العهد',
+        hint: 'متابعة العهد النشطة والمتأخرة',
+        href: '/materials/custody',
+        icon: <CustodyIcon />,
+      },
+    ];
+  }, [user?.role]);
+
+  const sectionTitle =
+    user?.role === 'user' ? 'اختر نوع الإجراء' : user?.role === 'warehouse' ? 'مهام المستودع' : 'متابعة المواد';
+
+  const primaryAction =
+    user?.role === 'user'
+      ? { label: 'طلب مواد جديد', href: '/materials/requests?new=1' }
+      : user?.role === 'warehouse'
+        ? { label: 'طلبات الصرف', href: '/materials/requests' }
+        : { label: 'جميع طلبات المواد', href: '/materials/requests' };
 
   const workflow = [
     { label: 'طلبات بانتظار الإجراء', value: metrics?.pendingRequests ?? 0 },
@@ -110,13 +182,13 @@ export default function MaterialsDashboardPage() {
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="text-[12px] font-semibold text-[#8a9a98]">إجراءات النظام</div>
-            <h2 className="mt-1.5 text-[22px] font-extrabold text-[#223738]">اختر نوع الإجراء</h2>
+            <h2 className="mt-1.5 text-[22px] font-extrabold text-[#223738]">{sectionTitle}</h2>
           </div>
           <a
-            href="/materials/requests?new=1"
+            href={primaryAction.href}
             className="inline-flex items-center justify-center rounded-[16px] bg-[#163e44] px-4 py-2.5 text-[13px] font-bold text-white transition hover:bg-[#0f3337]"
           >
-            طلب مواد جديد
+            {primaryAction.label}
           </a>
         </div>
 

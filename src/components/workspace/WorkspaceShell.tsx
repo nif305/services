@@ -5,18 +5,11 @@ import { useRouter } from 'next/navigation';
 import { WorkspaceHeader } from './WorkspaceHeader';
 import { WorkspaceSidebar } from './WorkspaceSidebar';
 import { useAuth } from '@/context/AuthContext';
-import {
-  type AppRole,
-  type WorkspaceKey,
-  canAccessWorkspace,
-  getDefaultWorkspacePath,
-  normalizeRole,
-} from '@/lib/workspace';
+import { type AppRole, type WorkspaceKey, canAccessWorkspace, getDefaultWorkspacePath, normalizeRole } from '@/lib/workspace';
 
 export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKey; children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-
   const role = normalizeRole(user?.role) as AppRole;
 
   useEffect(() => {
@@ -33,7 +26,7 @@ export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKe
   if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f5f7f7]">
-        <div className="rounded-[20px] border border-[#dbe6e4] bg-white px-6 py-4 text-sm text-[#385454] shadow-soft">
+        <div className="rounded-3xl border border-[#dde6e4] bg-white px-8 py-6 text-center shadow-[0_18px_40px_-34px_rgba(15,23,42,0.35)]">
           جاري تجهيز بيئة العمل...
         </div>
       </div>
@@ -43,17 +36,17 @@ export function WorkspaceShell({ workspace, children }: { workspace: WorkspaceKe
   if (!canAccessWorkspace(role, workspace)) return null;
 
   return (
-    <div className="min-h-screen bg-[#f4f7f6]">
-      <div className="mx-auto grid min-h-screen max-w-[1680px] grid-cols-1 gap-4 px-3 py-3 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-4 lg:px-4 lg:py-4" dir="ltr">
-        <main className="min-w-0" dir="rtl">
-          <div className="flex min-h-full flex-col gap-4">
+    <div className="min-h-screen bg-[#f5f7f7]">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-4 px-4 py-4 lg:flex-row lg:items-start lg:gap-5 lg:px-5 lg:py-5">
+        <main className="order-2 min-w-0 flex-1 lg:order-1">
+          <div className="flex min-h-screen flex-col gap-4">
             <WorkspaceHeader workspace={workspace} />
             <section className="min-h-0 flex-1">{children}</section>
           </div>
         </main>
-        <aside className="min-w-0" dir="rtl">
+        <div className="order-1 w-full lg:order-2 lg:sticky lg:top-4 lg:w-[300px] lg:flex-none">
           <WorkspaceSidebar workspace={workspace} role={role} />
-        </aside>
+        </div>
       </div>
     </div>
   );

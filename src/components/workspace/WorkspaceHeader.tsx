@@ -1,99 +1,98 @@
 'use client';
 
-import { ChangeEvent, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/context/AuthContext';
-import { type AppRole, type WorkspaceKey, WORKSPACE_DESCRIPTIONS, WORKSPACE_TITLES, getDefaultWorkspacePath } from '@/lib/workspace';
+import { type AppRole, type WorkspaceKey } from '@/lib/workspace';
 
+const ROLE_ORDER: AppRole[] = ['manager', 'warehouse', 'user'];
 const ROLE_LABELS: Record<AppRole, string> = {
   manager: 'مدير',
   warehouse: 'مسؤول مخزن',
   user: 'موظف',
 };
 
-const ROLE_ORDER: AppRole[] = ['manager', 'warehouse', 'user'];
-
 export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
-  const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
   const router = useRouter();
+  const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
 
   const availableRoles = useMemo<AppRole[]>(() => {
     const roles = Array.isArray(originalUser?.roles) ? originalUser.roles : [];
     return ROLE_ORDER.filter((role) => roles.includes(role));
   }, [originalUser?.roles]);
 
-  const handleRoleChange = async (event: ChangeEvent<HTMLSelectElement>) => {
-    const nextRole = event.target.value as AppRole;
-    if (!nextRole) return;
-    await switchViewRole(nextRole);
-    router.push(getDefaultWorkspacePath(nextRole));
-    router.refresh();
+  const onRoleChange = async (role: AppRole) => {
+    await switchViewRole(role);
+    router.push('/portal');
   };
 
   return (
-    <header className="rounded-[24px] border border-[#dde5e3] bg-white px-4 py-4 shadow-[0_12px_35px_-30px_rgba(15,23,42,0.22)] lg:px-5">
+    <header className="rounded-[28px] border border-[#dde6e4] bg-white/95 px-5 py-4 shadow-[0_12px_36px_-28px_rgba(15,23,42,0.24)]">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="order-2 flex flex-col gap-4 xl:order-1 xl:flex-row xl:items-center">
-          <Button variant="ghost" onClick={logout} className="h-12 rounded-[18px] px-5">
-            تسجيل الخروج
-          </Button>
-
-          {canUseRoleSwitch && availableRoles.length > 1 ? (
-            <div className="flex items-center gap-3 rounded-[20px] border border-[#dde5e3] bg-[#fbfcfc] px-4 py-2.5">
-              <span className="text-sm font-semibold text-[#2f4d4d]">الدور</span>
-              <select
-                id="workspace-role-switcher"
-                value={user?.role || 'user'}
-                onChange={handleRoleChange}
-                className="h-10 min-w-[220px] rounded-[14px] border border-[#dde5e3] bg-white px-3 text-sm text-[#223b3b] outline-none transition focus:border-[#2A6364]"
-              >
-                {availableRoles.map((role) => (
-                  <option key={role} value={role}>
-                    {ROLE_LABELS[role]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="order-1 flex flex-wrap items-center justify-between gap-3 xl:order-2 xl:justify-end">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={() => router.push('/portal')}
-            className="inline-flex h-12 items-center gap-2 rounded-[18px] border border-[#dde5e3] bg-white px-4 text-sm font-semibold text-[#2A6364] transition hover:bg-[#f7faf9]"
+            className="inline-flex h-12 items-center rounded-2xl border border-[#dbe5e3] bg-[#f7f9f9] px-4 text-[14px] font-semibold text-[#27494a] transition hover:border-[#2A6364]/35 hover:bg-white"
           >
             اختيار النظام
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-              <path d="M8 5h8l3 3v8l-3 3H8l-3-3V8l3-3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-              <path d="M9 12h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
           </button>
+
+          <div className="flex items-center gap-2 rounded-2xl border border-[#dbe5e3] bg-[#fbfcfc] px-3 py-2">
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#e3ecea] bg-white text-[#2A6364]"
+              aria-label="الإشعارات"
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                <path d="M6.5 16.5h11l-1.25-1.7v-4a4.75 4.75 0 10-9.5 0v4L5.5 16.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                <path d="M10.5 19a1.75 1.75 0 003.5 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <div className="flex items-center gap-3 rounded-xl bg-white px-3 py-2">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#f4f8f8] text-[#2A6364]">
+                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                  <circle cx="12" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.7" />
+                  <path d="M5.5 19c1.65-3.1 4.35-4.65 6.5-4.65S16.85 15.9 18.5 19" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-[17px] font-bold text-[#223738]">{user?.fullName || 'مستخدم النظام'}</div>
+                <div className="truncate text-[12px] text-[#7a8d8b]">{user?.email || ''}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {canUseRoleSwitch && availableRoles.length > 1 ? (
+            <div className="inline-flex items-center gap-1 rounded-[20px] border border-[#dbe5e3] bg-[#f7f9f9] p-1">
+              {availableRoles.map((role) => {
+                const active = user?.role === role;
+                return (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => onRoleChange(role)}
+                    className={active
+                      ? 'min-w-[116px] rounded-[16px] bg-[#2A6364] px-4 py-2.5 text-[15px] font-semibold text-white shadow-[0_14px_28px_-22px_rgba(42,99,100,0.8)]'
+                      : 'min-w-[116px] rounded-[16px] px-4 py-2.5 text-[15px] font-semibold text-[#3e5756] transition hover:bg-white'}
+                  >
+                    {ROLE_LABELS[role]}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           <button
             type="button"
-            className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-[#dde5e3] bg-white text-[#2A6364]"
-            aria-label="الإشعارات"
+            onClick={logout}
+            className="inline-flex h-12 items-center rounded-2xl border border-[#dbe5e3] bg-white px-5 text-[14px] font-semibold text-[#2f4a4a] transition hover:border-[#2A6364]/35 hover:bg-[#f8fbfb]"
           >
-            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-              <path d="M6 16.5h12l-1.5-2V10a4.5 4.5 0 1 0-9 0v4.5l-1.5 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-              <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
+            تسجيل الخروج
           </button>
-
-          <div className="flex min-w-[250px] items-center gap-3 rounded-[20px] border border-[#dde5e3] bg-white px-4 py-2.5">
-            <div className="min-w-0 flex-1 text-right">
-              <div className="truncate text-[16px] font-bold text-[#1e3939]">{user?.fullName || 'مستخدم النظام'}</div>
-              <div className="truncate text-[13px] text-[#7a8c8a]">{user?.email || ''}</div>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-[#f5f8f8] text-[#2A6364]">
-              <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-                <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M5 19c1.7-3.1 4.5-4.7 7-4.7s5.3 1.6 7 4.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </div>
-          </div>
         </div>
       </div>
     </header>

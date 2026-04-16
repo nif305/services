@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Role, Status } from '@prisma/client';
+import { Role, Status, SuggestionStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 type JsonObject = Record<string, any>;
@@ -60,11 +60,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const suggestions = await prisma.suggestion.findMany({ select: { id: true, justification: true, adminNotes: true } });
     let attachments: AttachmentPayload[] = [];
+    let linkedSuggestionId = '';
     for (const item of suggestions) {
       const admin = parseJsonObject(item.adminNotes);
       if (String(admin.linkedDraftId || '') === draft.id || item.id === draft.sourceId || String(admin.linkedEntityId || '') === draft.sourceId) {
         const justification = parseJsonObject(item.justification);
         attachments = Array.isArray(justification.attachments) ? justification.attachments as AttachmentPayload[] : [];
+        linkedSuggestionId = item.id;
         break;
       }
     }
@@ -116,6 +118,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const encodedName = encodeURIComponent(`${subject || 'email-draft'}.eml`);
 
     await prisma.emailDraft.update({ where: { id: draft.id }, data: { status: 'COPIED', copiedAt: new Date() } });
+    if (linkedSuggestionId) {
+      await prisma.suggestion.update({
+        where: { id: linkedSuggestionId },
+        data: { status: SuggestionStatus.IMPLEMENTED },
+      });
+    }
 
     const buffer = new TextEncoder().encode(eml);
     return new NextResponse(buffer, {

@@ -92,7 +92,7 @@ function buildLegacyTarget(pathname: string, search: string, role?: string): str
   };
 
   if (pathname === '/suggestions') {
-    return `/services/suggestions${suffix}`;
+    return `/services/requests${suffix}`;
   }
 
   const direct = redirects[pathname];

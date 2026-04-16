@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { ServiceRequestTypePage } from '@/components/services/ServiceRequestTypePage';
 
-export default function CleaningRedirectPage() {
-  redirect('/services/suggestions?type=CLEANING');
+export default function CleaningPage() {
+  return <ServiceRequestTypePage type="CLEANING" />;
 }

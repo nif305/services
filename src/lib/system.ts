@@ -42,7 +42,7 @@ function mapLegacyPath(pathname: string, role?: string | null): string | null {
   if (pathname === '/cleaning') return '/services/cleaning';
   if (pathname === '/purchases') return '/services/purchases';
   if (pathname === '/other') return '/services/other';
-  if (pathname === '/suggestions') return '/services/suggestions';
+  if (pathname === '/suggestions') return '/services/requests';
   if (pathname === '/email-drafts') return '/services/email-drafts';
   if (pathname === '/messages') return managerPath('/materials/messages', '/services/messages');
   if (pathname === '/reports') return managerPath('/materials/reports', '/services/reports');

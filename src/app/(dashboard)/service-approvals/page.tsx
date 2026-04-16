@@ -4,22 +4,22 @@ const approvalCards = [
   {
     title: 'طلبات الصيانة',
     description: 'مراجعة واعتماد طلبات الصيانة التشغيلية قبل تحويلها إلى المراسلات الخارجية.',
-    href: '/services/suggestions?type=MAINTENANCE',
+    href: '/services/maintenance',
   },
   {
     title: 'طلبات النظافة',
     description: 'مراجعة طلبات النظافة واعتمادها أو إعادتها أو رفضها حسب الحاجة.',
-    href: '/services/suggestions?type=CLEANING',
+    href: '/services/cleaning',
   },
   {
     title: 'طلبات الشراء المباشر',
     description: 'اعتماد طلبات الشراء المباشر وإحالتها للمسار الخارجي المناسب.',
-    href: '/services/suggestions?type=PURCHASE',
+    href: '/services/purchases',
   },
   {
     title: 'الطلبات الأخرى',
     description: 'مراجعة الطلبات التشغيلية الأخرى وتحديد الجهة المستلمة قبل الإحالة.',
-    href: '/services/suggestions?type=OTHER',
+    href: '/services/other',
   },
 ];
 

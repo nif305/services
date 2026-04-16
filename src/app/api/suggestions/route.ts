@@ -105,6 +105,19 @@ function categoryMeta(category: SuggestionCategory) {
   }
 }
 
+function categoryRoute(category: SuggestionCategory) {
+  switch (category) {
+    case 'MAINTENANCE':
+      return '/services/maintenance';
+    case 'CLEANING':
+      return '/services/cleaning';
+    case 'PURCHASE':
+      return '/services/purchases';
+    default:
+      return '/services/other';
+  }
+}
+
 async function generatePublicCode(category: SuggestionCategory) {
   const year = new Date().getFullYear();
   const prefix = categoryMeta(category).prefix;
@@ -227,7 +240,7 @@ async function notifyManagersAboutSuggestion(params: { suggestionId: string; cat
       type: 'SUGGESTION_PENDING',
       title: buildNotificationTitle(params.category),
       message: `تم رفع ${categoryMeta(params.category).label} برقم ${params.code} من ${params.requesterName}`,
-      link: '/services/suggestions',
+      link: categoryRoute(params.category),
       entityId: params.suggestionId,
       entityType: 'suggestion',
     })),
@@ -241,7 +254,7 @@ async function notifyRequesterAboutSuggestion(params: { requesterId: string; sug
       type: `SUGGESTION_${params.action}`,
       title: params.action === 'APPROVED' ? `${categoryMeta(params.category).label} تمت الموافقة عليه` : `${categoryMeta(params.category).label} تم رفضه`,
       message: params.action === 'APPROVED' ? `تم اعتماد ${params.title}` : `تم رفض ${params.title}${params.reason ? `: ${params.reason}` : ''}`,
-      link: '/services/suggestions',
+      link: categoryRoute(params.category),
       entityId: params.suggestionId,
       entityType: 'suggestion',
     },
@@ -289,13 +302,54 @@ export async function GET(request: NextRequest) {
     const sessionUser = await resolveSessionUser(request);
     const categoryParam = request.nextUrl.searchParams.get('category') || request.nextUrl.searchParams.get('type') || '';
     const category = categoryParam ? normalizeCategory(categoryParam) : null;
+    const scope = String(request.nextUrl.searchParams.get('scope') || 'active').toLowerCase();
+    const page = Math.max(1, Number(request.nextUrl.searchParams.get('page') || 1));
+    const limit = Math.min(50, Math.max(1, Number(request.nextUrl.searchParams.get('limit') || 20)));
+
+    const statusFilter =
+      scope === 'archive'
+        ? { in: [SuggestionStatus.REJECTED] }
+        : scope === 'all'
+          ? undefined
+          : { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW, SuggestionStatus.REJECTED] };
 
     const where: any = {
       ...(category ? { category } : {}),
       ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+      ...(statusFilter ? { status: statusFilter } : {}),
     };
 
-    const suggestions = await prisma.suggestion.findMany({ where, orderBy: { createdAt: 'desc' } });
+    const [total, suggestions, pendingCount, approvedCount, rejectedCount] = await Promise.all([
+      prisma.suggestion.count({ where }),
+      prisma.suggestion.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.suggestion.count({
+        where: {
+          ...(category ? { category } : {}),
+          ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+          status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] },
+        },
+      }),
+      prisma.suggestion.count({
+        where: {
+          ...(category ? { category } : {}),
+          ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+          status: { in: [SuggestionStatus.APPROVED, SuggestionStatus.IMPLEMENTED] },
+        },
+      }),
+      prisma.suggestion.count({
+        where: {
+          ...(category ? { category } : {}),
+          ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+          status: SuggestionStatus.REJECTED,
+        },
+      }),
+    ]);
+
     const users = await prisma.user.findMany({
       where: { id: { in: [...new Set(suggestions.map((s) => s.requesterId))] } },
       select: { id: true, fullName: true, department: true, email: true, mobile: true, jobTitle: true, roles: true },
@@ -303,20 +357,42 @@ export async function GET(request: NextRequest) {
     const requesterMap = new Map(users.map((u) => [u.id, { ...u, role: u.roles?.[0] || Role.USER, extension: u.jobTitle || '' }]));
     const rows = suggestions.map((item) => mapSuggestionRow(item, requesterMap));
 
-    const statsBase = sessionUser.role === Role.MANAGER ? suggestions : suggestions.filter((s) => s.requesterId === sessionUser.id);
-    const countBy = (cat: SuggestionCategory, status?: SuggestionStatus) => statsBase.filter((row) => row.category === cat && (!status || row.status === status)).length;
+    const scopedWhere = {
+      ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+    };
+    const countBy = async (cat: SuggestionCategory, status?: SuggestionStatus) =>
+      prisma.suggestion.count({
+        where: {
+          ...scopedWhere,
+          category: cat,
+          ...(status ? { status } : {}),
+        },
+      });
+
+    const [maintenancePending, cleaningPending, purchasePending, otherPending] = await Promise.all([
+      countBy('MAINTENANCE', SuggestionStatus.PENDING),
+      countBy('CLEANING', SuggestionStatus.PENDING),
+      countBy('PURCHASE', SuggestionStatus.PENDING),
+      countBy('OTHER', SuggestionStatus.PENDING),
+    ]);
 
     return NextResponse.json({
       data: rows,
       stats: {
-        total: statsBase.length,
-        pending: statsBase.filter((row) => row.status === SuggestionStatus.PENDING).length,
-        approved: statsBase.filter((row) => row.status === SuggestionStatus.APPROVED || row.status === SuggestionStatus.IMPLEMENTED).length,
-        rejected: statsBase.filter((row) => row.status === SuggestionStatus.REJECTED).length,
-        maintenancePending: countBy('MAINTENANCE', SuggestionStatus.PENDING),
-        cleaningPending: countBy('CLEANING', SuggestionStatus.PENDING),
-        purchasePending: countBy('PURCHASE', SuggestionStatus.PENDING),
-        otherPending: countBy('OTHER', SuggestionStatus.PENDING),
+        total,
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: rejectedCount,
+        maintenancePending,
+        cleaningPending,
+        purchasePending,
+        otherPending,
+      },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     });
   } catch (error: any) {

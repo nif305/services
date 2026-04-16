@@ -96,7 +96,7 @@ export default function ArchivePage() {
           fetch('/api/requests?limit=200', { cache: 'no-store' }),
           fetch('/api/returns?limit=200', { cache: 'no-store' }),
           fetch('/api/custody?status=RETURNED&limit=200', { cache: 'no-store' }),
-          fetch('/api/suggestions', { cache: 'no-store' }),
+          fetch('/api/suggestions?scope=archive&limit=200', { cache: 'no-store' }),
           fetch('/api/email-drafts?scope=archived', { cache: 'no-store' }),
         ]);
         const [requestsJson, returnsJson, custodyJson, suggestionsJson, draftsJson] = await Promise.all([
@@ -169,7 +169,7 @@ export default function ArchivePage() {
         ];
 
         const serviceRows: ArchiveRow[] = [
-          ...(Array.isArray(suggestionsJson?.data) ? suggestionsJson.data : []).filter((item: any) => ['IMPLEMENTED', 'REJECTED'].includes(String(item.status || ''))).map((item: any) => ({
+          ...(Array.isArray(suggestionsJson?.data) ? suggestionsJson.data : []).filter((item: any) => ['REJECTED'].includes(String(item.status || ''))).map((item: any) => ({
             id: `suggestion-${item.id}`,
             source: 'service' as const,
             folder: item.category === 'MAINTENANCE' ? 'service-maintenance' as const : item.category === 'CLEANING' ? 'service-cleaning' as const : item.category === 'PURCHASE' ? 'service-purchase' as const : 'service-other' as const,

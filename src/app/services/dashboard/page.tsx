@@ -49,25 +49,25 @@ export default function ServicesDashboardPage() {
         {
           title: 'طلب صيانة',
           hint: 'رفع طلب أعمال الصيانة',
-          href: '/services/suggestions?type=MAINTENANCE&new=1',
+          href: '/services/maintenance?new=1',
           icon: <MaintenanceIcon />,
         },
         {
           title: 'طلب نظافة',
           hint: 'رفع طلب خدمات النظافة',
-          href: '/services/suggestions?type=CLEANING&new=1',
+          href: '/services/cleaning?new=1',
           icon: <CleaningIcon />,
         },
         {
           title: 'شراء مباشر',
           hint: 'رفع طلب شراء مباشر',
-          href: '/services/suggestions?type=PURCHASE&new=1',
+          href: '/services/purchases?new=1',
           icon: <PurchaseIcon />,
         },
         {
-          title: 'مراسلات',
-          hint: 'الداخلية والخارجية',
-          href: '/services/messages',
+          title: 'طلب آخر',
+          hint: 'رفع طلب خدمات عامة أخرى',
+          href: '/services/other?new=1',
           icon: <MessagesIcon />,
         },
       ];

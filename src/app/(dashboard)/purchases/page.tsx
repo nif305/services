@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { ServiceRequestTypePage } from '@/components/services/ServiceRequestTypePage';
 
-export default function PurchasesRedirectPage() {
-  redirect('/services/suggestions?type=PURCHASE');
+export default function PurchasesPage() {
+  return <ServiceRequestTypePage type="PURCHASE" />;
 }

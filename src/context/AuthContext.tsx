@@ -311,7 +311,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveStoredUser(AUTH_STORAGE_KEY, nextUser);
 
       if (typeof window !== 'undefined') {
-        const targetPath = '/portal';
+        const targetPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         window.location.assign(targetPath);
       }
     },

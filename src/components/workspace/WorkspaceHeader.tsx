@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { type AppRole, type WorkspaceKey } from '@/lib/workspace';
 
@@ -14,6 +14,7 @@ const ROLE_LABELS: Record<AppRole, string> = {
 
 export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
 
   const availableRoles = useMemo<AppRole[]>(() => {
@@ -23,7 +24,8 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
 
   const onRoleChange = async (role: AppRole) => {
     await switchViewRole(role);
-    router.push('/portal');
+    router.replace(pathname);
+    router.refresh();
   };
 
   return (

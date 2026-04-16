@@ -148,7 +148,7 @@ export function SystemShell({ system, children }: { system: SystemKey; children:
                         <button
                           key={r}
                           type="button"
-                          onClick={async () => { await switchViewRole(r); router.push('/portal'); }}
+                          onClick={async () => { await switchViewRole(r); router.replace(pathname); router.refresh(); }}
                           className={`min-w-[96px] rounded-full px-4 py-2.5 text-[15px] font-semibold transition ${role === r ? 'bg-[#2A6364] text-white' : 'bg-transparent text-[#4b5f5f] hover:bg-[#f1f6f5]'}`}
                         >
                           {ROLE_LABELS[r]}

@@ -1,7 +1,7 @@
 'use client';
 
 import { ChangeEvent, useMemo } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
 
@@ -13,14 +13,9 @@ const ROLE_LABELS: Record<Role, string> = {
   user: 'موظف',
 };
 
-function getDefaultRouteForRole(role: Role) {
-  return '/portal';
-}
-
 export function Header() {
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
 
   const availableRoles = useMemo<Role[]>(() => {
     const roles = Array.isArray(originalUser?.roles) ? originalUser.roles : [];
@@ -35,15 +30,9 @@ export function Header() {
 
     if (!role) return;
 
-    switchViewRole(role);
-
-    const targetRoute = getDefaultRouteForRole(role);
-    if (pathname !== targetRoute) {
-      router.push(targetRoute);
-      return;
-    }
-
-    router.refresh();
+    switchViewRole(role).then(() => {
+      router.refresh();
+    });
   };
 
   return (

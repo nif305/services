@@ -744,7 +744,7 @@ function DashboardLayoutContent({
                     <div className="flex w-full flex-wrap items-center rounded-[20px] border border-slate-200 bg-[#f7f9f9] p-1 shadow-inner sm:w-auto sm:rounded-full">
                       {Array.isArray(originalUser?.roles) && originalUser.roles.includes('manager') ? (
                         <button
-                          onClick={async () => { await switchViewRole('manager'); router.push(getDefaultRouteForRole('manager')); }}
+                          onClick={async () => { await switchViewRole('manager'); router.replace(getDefaultRouteForRole('manager')); router.refresh(); }}
                           className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
                             user?.role === 'manager'
                               ? 'bg-[#016564] text-white shadow-sm'
@@ -757,7 +757,7 @@ function DashboardLayoutContent({
 
                       {Array.isArray(originalUser?.roles) && originalUser.roles.includes('warehouse') ? (
                         <button
-                          onClick={async () => { await switchViewRole('warehouse'); router.push(getDefaultRouteForRole('warehouse')); }}
+                          onClick={async () => { await switchViewRole('warehouse'); router.replace(getDefaultRouteForRole('warehouse')); router.refresh(); }}
                           className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
                             user?.role === 'warehouse'
                               ? 'bg-[#016564] text-white shadow-sm'
@@ -770,7 +770,7 @@ function DashboardLayoutContent({
 
                       {Array.isArray(originalUser?.roles) && originalUser.roles.includes('user') ? (
                         <button
-                          onClick={async () => { await switchViewRole('user'); router.push(getDefaultRouteForRole('user')); }}
+                          onClick={async () => { await switchViewRole('user'); router.replace(getDefaultRouteForRole('user')); router.refresh(); }}
                           className={`flex-1 rounded-full px-3 py-2 text-[13px] leading-none transition sm:flex-none sm:px-4 ${
                             user?.role === 'user'
                               ? 'bg-[#016564] text-white shadow-sm'

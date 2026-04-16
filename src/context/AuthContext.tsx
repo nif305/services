@@ -309,11 +309,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(nextUser);
       saveStoredUser(AUTH_STORAGE_KEY, nextUser);
-
-      if (typeof window !== 'undefined') {
-        const targetPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-        window.location.assign(targetPath);
-      }
     },
     [originalUser]
   );

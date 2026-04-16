@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
@@ -41,20 +42,42 @@ function actionVariant(action: string): 'neutral' | 'success' | 'warning' | 'dan
 }
 
 export default function AuditLogsPage() {
+  const pathname = usePathname();
   const { user } = useAuth();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<AuditRow | null>(null);
+  const [days, setDays] = useState('30');
+  const [actionFilter, setActionFilter] = useState('');
+  const [entityFilter, setEntityFilter] = useState('');
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const system = pathname?.startsWith('/services') ? 'services' : 'materials';
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/audit-logs?limit=300', { cache: 'no-store' });
+        const params = new URLSearchParams({
+          limit: '50',
+          page: String(pagination.page),
+          system,
+          days,
+        });
+        if (actionFilter) params.set('action', actionFilter);
+        if (entityFilter) params.set('entity', entityFilter);
+        if (search.trim()) params.set('search', search.trim());
+        const res = await fetch(`/api/audit-logs?${params.toString()}`, { cache: 'no-store' });
         const json = await res.json().catch(() => null);
-        if (mounted) setRows(Array.isArray(json?.data) ? json.data : []);
+        if (mounted) {
+          setRows(Array.isArray(json?.data) ? json.data : []);
+          setPagination({
+            page: Number(json?.pagination?.page || 1),
+            totalPages: Number(json?.pagination?.totalPages || 1),
+            total: Number(json?.pagination?.total || 0),
+          });
+        }
       } catch {
         if (mounted) setRows([]);
       } finally {
@@ -62,22 +85,36 @@ export default function AuditLogsPage() {
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [system, days, actionFilter, entityFilter, search, pagination.page]);
 
   const filteredRows = useMemo(() => {
-    const q = normalizeArabic(search);
-    return rows.filter((row) => {
-      const haystack = normalizeArabic([row.action, row.entity, row.entityId, row.details, row.user?.fullName, row.user?.email, row.user?.role].filter(Boolean).join(' '));
-      return q ? haystack.includes(q) : true;
-    });
-  }, [rows, search]);
+    return rows;
+  }, [rows]);
 
   const stats = useMemo(() => ({
-    total: rows.length,
+    total: pagination.total,
     creates: rows.filter((row) => /create|add|new/i.test(row.action)).length,
     updates: rows.filter((row) => /update|edit|adjust/i.test(row.action)).length,
     decisions: rows.filter((row) => /approve|reject|issue|close|return|complete/i.test(row.action)).length,
-  }), [rows]);
+  }), [rows, pagination.total]);
+
+  const entityOptions = system === 'services'
+    ? ['Suggestion', 'MaintenanceRequest', 'PurchaseRequest', 'EmailDraft', 'InternalMessage']
+    : ['Request', 'ReturnRequest', 'CustodyRecord', 'InventoryItem'];
+
+  function prettyDetails(value?: string | null) {
+    if (!value) return '—';
+    try {
+      const parsed = JSON.parse(value);
+      return Object.entries(parsed).map(([key, val]) => `${key}: ${typeof val === 'object' ? JSON.stringify(val) : String(val)}`).join('\n');
+    } catch {
+      return value;
+    }
+  }
+
+  function goToPage(nextPage: number) {
+    setPagination((prev) => ({ ...prev, page: Math.min(Math.max(1, nextPage), Math.max(1, prev.totalPages)) }));
+  }
 
   if (user?.role !== 'manager') {
     return <div className="rounded-[22px] border border-red-200 bg-red-50 p-6 text-center text-red-700">غير مصرح لك بالوصول لهذه الصفحة</div>;
@@ -87,8 +124,8 @@ export default function AuditLogsPage() {
     <div className="space-y-4 sm:space-y-5">
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="space-y-2">
-          <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">سجل التدقيق</h1>
-          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">سجل موحد لتتبع الأعمال المنفذة داخل المنصة مع اسم المنفذ والكيان والوقت والتفاصيل.</p>
+          <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">{system === 'services' ? 'سجل تدقيق الخدمات' : 'سجل تدقيق المواد'}</h1>
+          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">سجل تدقيق محسّن مع تصفية حسب النظام والزمن والكيان والإجراء، لعرض السجلات الصحيحة فقط دون ضوضاء.</p>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
           <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي السجلات</div><div className="mt-1 text-[22px] font-extrabold text-[#016564]">{stats.total}</div></Card>
@@ -99,7 +136,29 @@ export default function AuditLogsPage() {
       </section>
 
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
-        <Input label="بحث في السجل" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="الإجراء، الكيان، الرقم المرجعي، اسم المستخدم، أو الملاحظات" />
+        <div className="grid gap-3 xl:grid-cols-4">
+          <Input label="بحث في السجل" value={search} onChange={(e) => { setPagination((prev) => ({ ...prev, page: 1 })); setSearch(e.target.value); }} placeholder="الإجراء، الكيان، الرقم المرجعي، اسم المستخدم، أو الملاحظات" />
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">الفترة</label>
+            <select value={days} onChange={(e) => { setPagination((prev) => ({ ...prev, page: 1 })); setDays(e.target.value); }} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10">
+              <option value="7">آخر 7 أيام</option>
+              <option value="30">آخر 30 يومًا</option>
+              <option value="90">آخر 90 يومًا</option>
+              <option value="0">كل الفترات</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">الإجراء</label>
+            <input value={actionFilter} onChange={(e) => { setPagination((prev) => ({ ...prev, page: 1 })); setActionFilter(e.target.value); }} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="مثل APPROVE أو CREATE" />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">الكيان</label>
+            <select value={entityFilter} onChange={(e) => { setPagination((prev) => ({ ...prev, page: 1 })); setEntityFilter(e.target.value); }} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10">
+              <option value="">كل الكيانات</option>
+              {entityOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </div>
+        </div>
       </section>
 
       <section className="space-y-3">
@@ -119,13 +178,21 @@ export default function AuditLogsPage() {
                   <div><span className="font-semibold text-[#016564]">الدور: </span>{row.user?.role || '—'}</div>
                   <div><span className="font-semibold text-[#016564]">الوقت: </span>{formatDate(row.createdAt)}</div>
                 </div>
-                {row.details ? <p className="text-sm leading-7 text-[#61706f]">{row.details}</p> : null}
+                {row.details ? <p className="text-sm leading-7 text-[#61706f] whitespace-pre-wrap">{prettyDetails(row.details)}</p> : null}
               </div>
               <div className="flex w-full flex-col gap-2 lg:w-auto"><Button className="w-full lg:w-36" onClick={() => setSelected(row)}>فتح التفاصيل</Button></div>
             </div>
           </Card>
         ))}
       </section>
+
+      {!loading && pagination.totalPages > 1 ? (
+        <section className="flex items-center justify-between rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-3 shadow-sm">
+          <button type="button" onClick={() => goToPage(pagination.page - 1)} disabled={pagination.page <= 1} className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40">السابق</button>
+          <div className="text-sm font-bold text-[#016564]">الصفحة {pagination.page} من {pagination.totalPages}</div>
+          <button type="button" onClick={() => goToPage(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages} className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40">التالي</button>
+        </section>
+      ) : null}
 
       <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل السجل: ${selected.action}` : 'تفاصيل السجل'} maxWidth="4xl">
         {selected ? (
@@ -148,7 +215,7 @@ export default function AuditLogsPage() {
             ))}
             <div className="sm:col-span-2 rounded-2xl border border-[#e7ebea] bg-[#fcfdfd] p-3">
               <div className="text-xs font-bold text-[#016564]">التفاصيل</div>
-              <div className="mt-1 whitespace-pre-wrap break-words text-sm leading-7 text-[#425554]">{selected.details || '—'}</div>
+              <div className="mt-1 whitespace-pre-wrap break-words text-sm leading-7 text-[#425554]">{prettyDetails(selected.details)}</div>
             </div>
           </div>
         ) : null}

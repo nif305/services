@@ -20,9 +20,18 @@ function startOfCurrentYear() {
   return new Date(now.getFullYear(), 0, 1);
 }
 
+function resolvePeriodStart(period?: string | null) {
+  const value = String(period || 'year').toLowerCase();
+  const now = new Date();
+  if (value === '30d') return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  if (value === '90d') return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  if (value === 'all') return new Date(0);
+  return startOfCurrentYear();
+}
+
 export const ReportService = {
-  getExecutiveSummary: async () => {
-    const yearStart = startOfCurrentYear();
+  getMaterialsExecutiveSummary: async (period?: string | null) => {
+    const yearStart = resolvePeriodStart(period);
 
     const [
       totalItems,
@@ -201,6 +210,7 @@ export const ReportService = {
         : 0;
 
     return {
+      system: 'materials',
       totalItems,
       lowStockItems,
       outOfStockItems,
@@ -223,6 +233,118 @@ export const ReportService = {
       userConsumption: Array.from(userConsumptionMap.values())
         .sort((a, b) => b.quantity - a.quantity)
         .slice(0, 20),
+      requestsByStatus: {
+        pending: pendingRequests,
+        rejected: rejectedRequests,
+        issued: issuedRequests.length,
+        returned: returnedRequests.length,
+      },
+      recentRequests: requests
+        .slice()
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 8)
+        .map((request) => ({
+          id: request.id,
+          code: request.code,
+          status: request.status,
+          requesterName: request.requester?.fullName || '—',
+          department: request.requester?.department || '—',
+          createdAt: request.createdAt,
+          itemCount: request.items.length,
+        })),
     };
+  },
+
+  getServicesExecutiveSummary: async (period?: string | null) => {
+    const start = resolvePeriodStart(period);
+    const [suggestions, drafts, users] = await Promise.all([
+      prisma.suggestion.findMany({
+        where: { createdAt: { gte: start } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.emailDraft.findMany({
+        where: { createdAt: { gte: start } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.user.findMany({
+        select: { id: true, fullName: true, department: true },
+      }),
+    ]);
+
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const countCategory = (category: string, statuses?: string[]) =>
+      suggestions.filter((row) => row.category === category && (!statuses || statuses.includes(String(row.status)))).length;
+    const activeRequests = suggestions.filter((row) => ['PENDING', 'UNDER_REVIEW', 'REJECTED'].includes(String(row.status)));
+    const topRequestersMap = new Map<string, { userId: string; fullName: string; department: string; quantity: number }>();
+
+    for (const row of suggestions) {
+      const current = topRequestersMap.get(row.requesterId) || {
+        userId: row.requesterId,
+        fullName: userMap.get(row.requesterId)?.fullName || '—',
+        department: userMap.get(row.requesterId)?.department || '—',
+        quantity: 0,
+      };
+      current.quantity += 1;
+      topRequestersMap.set(row.requesterId, current);
+    }
+
+    return {
+      system: 'services',
+      totalRequests: suggestions.length,
+      activeRequests: activeRequests.length,
+      pendingManager: suggestions.filter((row) => ['PENDING', 'UNDER_REVIEW'].includes(String(row.status))).length,
+      rejectedRequests: suggestions.filter((row) => String(row.status) === 'REJECTED').length,
+      activeDrafts: drafts.filter((row) => String(row.status) === 'DRAFT').length,
+      archivedDrafts: drafts.filter((row) => ['COPIED', 'SENT'].includes(String(row.status))).length,
+      categoryCounts: {
+        maintenance: countCategory('MAINTENANCE'),
+        cleaning: countCategory('CLEANING'),
+        purchase: countCategory('PURCHASE'),
+        other: countCategory('OTHER'),
+      },
+      categoryPending: {
+        maintenance: countCategory('MAINTENANCE', ['PENDING', 'UNDER_REVIEW']),
+        cleaning: countCategory('CLEANING', ['PENDING', 'UNDER_REVIEW']),
+        purchase: countCategory('PURCHASE', ['PENDING', 'UNDER_REVIEW']),
+        other: countCategory('OTHER', ['PENDING', 'UNDER_REVIEW']),
+      },
+      recentRequests: activeRequests.slice(0, 8).map((row) => ({
+        id: row.id,
+        code: (() => {
+          try {
+            const parsed = JSON.parse(String(row.justification || '{}'));
+            return parsed.publicCode || row.id;
+          } catch {
+            return row.id;
+          }
+        })(),
+        title: row.title,
+        status: row.status,
+        category: row.category,
+        requesterName: userMap.get(row.requesterId)?.fullName || '—',
+        department: userMap.get(row.requesterId)?.department || '—',
+        createdAt: row.createdAt,
+      })),
+      topRequesters: Array.from(topRequestersMap.values())
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 10),
+      externalDrafts: drafts
+        .filter((row) => String(row.status) === 'DRAFT')
+        .slice(0, 8)
+        .map((row) => ({
+          id: row.id,
+          subject: row.subject,
+          recipient: row.recipient,
+          createdAt: row.createdAt,
+        })),
+    };
+  },
+
+  getExecutiveSummary: async (system?: string | null, period?: string | null) => {
+    const normalized = String(system || 'materials').toLowerCase();
+    if (normalized === 'services') {
+      return ReportService.getServicesExecutiveSummary(period);
+    }
+    return ReportService.getMaterialsExecutiveSummary(period);
   },
 };

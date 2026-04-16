@@ -534,6 +534,16 @@ export async function PATCH(request: NextRequest) {
         reason: adminNotes,
       });
 
+      await prisma.auditLog.create({
+        data: {
+          userId: sessionUser.id,
+          action: 'REJECT_SUGGESTION',
+          entity: 'Suggestion',
+          entityId: suggestionId,
+          details: JSON.stringify({ code: publicCode, category, note: adminNotes }),
+        },
+      });
+
       return NextResponse.json({ data: { ...updated, code: publicCode } });
     }
 
@@ -735,6 +745,16 @@ export async function PATCH(request: NextRequest) {
       category,
       title: suggestion.title,
       action: 'APPROVED',
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: sessionUser.id,
+        action: 'APPROVE_SUGGESTION',
+        entity: 'Suggestion',
+        entityId: suggestionId,
+        details: JSON.stringify({ code: linkedCode, category, linkedDraftId: draft.id }),
+      },
     });
 
     return NextResponse.json({

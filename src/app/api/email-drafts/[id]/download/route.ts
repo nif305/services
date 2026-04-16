@@ -124,6 +124,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         data: { status: SuggestionStatus.IMPLEMENTED },
       });
     }
+    await prisma.auditLog.create({
+      data: {
+        userId: sessionUser.id,
+        action: 'DOWNLOAD_EMAIL_DRAFT',
+        entity: 'EmailDraft',
+        entityId: draft.id,
+        details: JSON.stringify({ subject, sourceType: draft.sourceType, sourceId: draft.sourceId }),
+      },
+    });
 
     const buffer = new TextEncoder().encode(eml);
     return new NextResponse(buffer, {

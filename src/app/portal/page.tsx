@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -14,6 +15,10 @@ const ROLE_LABELS: Record<Role, string> = {
 
 const ROLE_ORDER: Role[] = ['manager', 'warehouse', 'user'];
 
+function getRoleLabel(role: Role) {
+  return ROLE_LABELS[role];
+}
+
 export default function PortalPage() {
   const router = useRouter();
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
@@ -24,8 +29,8 @@ export default function PortalPage() {
   }, [originalUser?.roles]);
 
   return (
-    <div dir="rtl" className="arabic-surface min-h-screen overflow-hidden bg-[#f7f8f5]">
-      <div className="grid min-h-screen lg:grid-cols-[0.88fr_1.12fr]">
+    <div dir="rtl" className="arabic-surface min-h-screen bg-[#f5f7f4]">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
         <section className="relative hidden overflow-hidden bg-[#2f6666] lg:block">
           <div className="absolute inset-0 opacity-20" style={gridPatternStyle} />
           <div className="absolute left-[10%] top-[18%] h-20 w-20 rounded-full border border-white/10" />
@@ -49,17 +54,17 @@ export default function PortalPage() {
 
         <section className="relative bg-[#f8f8f6] px-5 py-5 lg:px-8 lg:py-6">
           <div className="mx-auto flex max-w-[760px] flex-col">
-            <header className="flex flex-wrap items-center gap-2.5">
+            <header className="grid gap-3 lg:grid-cols-[1fr_auto]">
               <button
                 type="button"
                 onClick={logout}
                 aria-label="تسجيل الخروج"
-                className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#d9e2df] bg-white text-[#315f61] shadow-[0_14px_24px_-22px_rgba(15,23,42,0.18)]"
+                className="order-2 inline-flex h-11 w-11 items-center justify-center justify-self-start rounded-[16px] border border-[#d9e2df] bg-white text-[#315f61] shadow-[0_14px_24px_-22px_rgba(15,23,42,0.18)] lg:order-3"
               >
                 <LogoutIcon />
               </button>
 
-              <div className="flex min-w-[220px] flex-1 items-center justify-between gap-2.5 rounded-[22px] border border-[#d9e2df] bg-white px-4 py-2.5 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.15)]">
+              <div className="order-1 flex min-w-[220px] items-center justify-between gap-3 rounded-[22px] border border-[#d9e2df] bg-white px-4 py-3 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.15)] lg:order-2">
                 <div className="inline-flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#f5f8f7] text-[#315f61]">
                   <UserIcon />
                 </div>
@@ -76,13 +81,13 @@ export default function PortalPage() {
               <button
                 type="button"
                 aria-label="التنبيهات"
-                className="inline-flex h-12 w-12 items-center justify-center rounded-[18px] border border-[#d9e2df] bg-white text-[#315f61] shadow-[0_14px_24px_-22px_rgba(15,23,42,0.18)]"
+                className="order-3 inline-flex h-11 w-11 items-center justify-center justify-self-end rounded-[16px] border border-[#d9e2df] bg-white text-[#315f61] shadow-[0_14px_24px_-22px_rgba(15,23,42,0.18)] lg:order-1"
               >
                 <BellIcon />
               </button>
 
               {canUseRoleSwitch && availableRoles.length > 1 ? (
-                <div className="inline-flex min-w-[280px] flex-1 items-center gap-1 rounded-[20px] border border-[#d9e2df] bg-white p-1 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.15)]">
+                <div className="order-4 col-span-full inline-flex min-w-[280px] w-full items-center gap-1 rounded-[20px] border border-[#d9e2df] bg-white p-1 shadow-[0_14px_24px_-22px_rgba(15,23,42,0.15)]">
                   {availableRoles.map((role) => {
                     const active = user?.role === role;
                     return (
@@ -96,7 +101,7 @@ export default function PortalPage() {
                             : 'flex-1 rounded-[16px] px-4 py-2 text-[12px] font-semibold text-[#576b6b] hover:bg-[#f5f8f7]'
                         }
                       >
-                        {ROLE_LABELS[role]}
+                        {getRoleLabel(role)}
                       </button>
                     );
                   })}
@@ -134,7 +139,7 @@ function PortalCard({
   description,
   onClick,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   description: string;
   onClick: () => void;
@@ -143,14 +148,20 @@ function PortalCard({
     <button
       type="button"
       onClick={onClick}
-      className="block w-full rounded-[24px] border-[2px] border-[#183d45] bg-[#5f8586] px-6 py-7 text-center text-white shadow-[0_14px_24px_-22px_rgba(15,23,42,0.22)] transition hover:-translate-y-0.5 hover:bg-[#557a7b]"
+      className="group flex w-full items-center justify-between gap-4 rounded-[26px] border border-[#d8e2de] bg-white px-5 py-5 text-right shadow-[0_20px_40px_-34px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:border-[#c9dad5] hover:shadow-[0_28px_46px_-36px_rgba(15,23,42,0.22)]"
     >
-      <div className="mx-auto inline-flex h-14 w-14 items-center justify-center text-[#d0b57b]">
-        {icon}
+      <div className="flex-1">
+        <div className="text-[24px] font-extrabold leading-tight text-[#223738]">{title}</div>
+        <div className="mt-2 text-[13px] font-medium leading-6 text-[#6d8381]">{description}</div>
       </div>
-      <div className="mt-3 text-[18px] font-extrabold leading-tight">{title}</div>
-      <div className="mt-3 whitespace-pre-line text-[12px] font-medium leading-6 text-white/90">
-        {description}
+
+      <div className="flex items-center gap-3">
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#eef5f3] text-[#c8ab70]">
+          {icon}
+        </div>
+        <div className="inline-flex h-11 w-11 items-center justify-center rounded-[18px] bg-[#2f6666] text-white transition group-hover:bg-[#255657]">
+          <ArrowLeftIcon />
+        </div>
       </div>
     </button>
   );
@@ -158,21 +169,21 @@ function PortalCard({
 
 function MaterialsIcon() {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className="h-11 w-11">
-      <path d="M14 54V21l18-8 18 8v33" stroke="currentColor" strokeWidth="3.5" />
-      <path d="M22 28h20M22 35h20" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-      <path d="M22 54V42h20v12" stroke="currentColor" strokeWidth="3.5" />
-      <path d="M27 47h.01M37 47h.01" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+    <svg viewBox="0 0 64 64" fill="none" className="h-10 w-10">
+      <path d="M15 51V22l17-9 17 9v29" stroke="currentColor" strokeWidth="3.5" />
+      <path d="M22 29h20M22 36h20" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M22 51V41h20v10" stroke="currentColor" strokeWidth="3.5" />
+      <path d="M27 46h.01M37 46h.01" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
     </svg>
   );
 }
 
 function ServicesIcon() {
   return (
-    <svg viewBox="0 0 64 64" fill="none" className="h-11 w-11">
-      <path d="m18 21 25 25" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
-      <path d="m39 18 7 7-8 8-7-7 8-8Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
-      <path d="M18 46 32 32" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+    <svg viewBox="0 0 64 64" fill="none" className="h-10 w-10">
+      <path d="m18 23 23 23" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+      <path d="m38 18 8 8-8 8-8-8 8-8Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M19 46 31 34" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
       <path d="m17 48 6-6 7 7-6 6a5 5 0 0 1-7 0 5 5 0 0 1 0-7Z" fill="currentColor" />
     </svg>
   );
@@ -202,6 +213,15 @@ function BellIcon() {
     <svg viewBox="0 0 24 24" fill="none" className="h-4.5 w-4.5">
       <path d="M8 10a4 4 0 1 1 8 0v2.6c0 .8.2 1.5.7 2.1l.8 1H6.5l.8-1c.5-.6.7-1.3.7-2.1V10Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       <path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ArrowLeftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+      <path d="M19 12H6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="m10 8-4 4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

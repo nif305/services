@@ -144,7 +144,9 @@ function SystemCard({
       onClick={onClick}
       className="flex w-full flex-col items-center rounded-[26px] border-[3px] border-[#173d45] bg-[#547d7f] px-7 py-8 text-center text-white shadow-[0_16px_34px_-28px_rgba(15,23,42,0.22)] transition hover:-translate-y-0.5"
     >
-      <div className="inline-flex h-20 w-20 items-center justify-center text-[#d2b77a]">{icon}</div>
+      <div className="inline-flex h-20 w-20 items-center justify-center rounded-[24px] bg-[#4f7678] text-[#d7bd82] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+        {icon}
+      </div>
       <div className="mt-3 text-[18px] font-extrabold leading-tight">{title}</div>
       <div className="mt-4 max-w-[250px] text-[11px] font-medium leading-6 text-white/92">{description}</div>
     </button>
@@ -153,22 +155,43 @@ function SystemCard({
 
 function MaterialsIcon() {
   return (
-    <svg viewBox="0 0 96 96" fill="none" className="h-16 w-16">
-      <path d="M22 74V35l26-13 26 13v39" stroke="currentColor" strokeWidth="5.5" />
-      <path d="M34 45h28M34 54h28" stroke="currentColor" strokeLinecap="round" strokeWidth="5.5" />
-      <path d="M34 74V60h28v14" stroke="currentColor" strokeWidth="5.5" />
-      <path d="M42 66h.01M54 66h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="6" />
+    <svg viewBox="0 0 96 96" fill="none" className="h-[58px] w-[58px]">
+      <path
+        d="M20 74V37.5L48 22l28 15.5V74h-8V43H28v31h-8Z"
+        fill="currentColor"
+      />
+      <path
+        d="M34 49h28"
+        stroke="#4f7678"
+        strokeLinecap="round"
+        strokeWidth="4.8"
+      />
+      <path
+        d="M33 59.5h10v10H33zm12.5 0H56v10H45.5zm12.5 0H69v10H58zm-25 12.5h10v10H33zm12.5 0H56v10H45.5z"
+        fill="#4f7678"
+      />
     </svg>
   );
 }
 
 function ServicesIcon() {
   return (
-    <svg viewBox="0 0 96 96" fill="none" className="h-16 w-16">
-      <path d="m29 34 34 34" stroke="currentColor" strokeLinecap="round" strokeWidth="7" />
-      <path d="m59 27 10 10-11 11-10-10 11-11Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="6" />
-      <path d="M30 68 48 50" stroke="currentColor" strokeLinecap="round" strokeWidth="7" />
-      <path d="m28 71 8-8 11 11-8 8a7 7 0 0 1-11 0 7 7 0 0 1 0-11Z" fill="currentColor" />
+    <svg viewBox="0 0 96 96" fill="none" className="h-[58px] w-[58px]">
+      <path
+        d="m29 31 36 36"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="8"
+      />
+      <path
+        d="m56 24 16 16-10 10-16-16 10-10Z"
+        fill="currentColor"
+      />
+      <path
+        d="m26 68 14-14 15 15-14 14a8 8 0 0 1-11.3 0l-3.7-3.7a8 8 0 0 1 0-11.3Z"
+        fill="currentColor"
+      />
+      <circle cx="59" cy="37" r="3.5" fill="#4f7678" />
     </svg>
   );
 }

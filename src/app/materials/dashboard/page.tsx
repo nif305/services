@@ -71,6 +71,9 @@ export default function MaterialsDashboardPage() {
     { title: 'المرتجعات', hint: 'استلام الإرجاع وتوثيق الحالة', href: '/materials/returns' },
     { title: 'العهد', hint: 'متابعة العهد النشطة والمتأخرة', href: '/materials/custody' },
   ];
+  const visibleQuickActions = user?.role === 'user'
+    ? quickActions.filter((card) => card.href !== '/materials/inventory')
+    : quickActions;
 
   const requestActions = useMemo(() => {
     if (user?.role === 'user') {
@@ -80,12 +83,6 @@ export default function MaterialsDashboardPage() {
           hint: 'رفع طلب مواد من المخزن',
           href: '/materials/requests?new=1',
           icon: <RequestIcon />,
-        },
-        {
-          title: 'المخزون',
-          hint: 'استعراض الأصناف والكميات',
-          href: '/materials/inventory',
-          icon: <InventoryIcon />,
         },
         {
           title: 'المرتجعات',
@@ -216,16 +213,29 @@ export default function MaterialsDashboardPage() {
         <div className="grid gap-5 p-5 xl:grid-cols-[1.05fr_0.95fr] xl:p-6">
           <div className="rounded-[24px] bg-[linear-gradient(135deg,#0e5d61_0%,#698b8c_100%)] px-5 py-5 text-white shadow-[0_18px_40px_-32px_rgba(1,101,100,0.58)]">
             <div className="text-[12px] text-white/70">نظام طلب المواد من المخزن</div>
-            <h1 className="mt-2.5 text-[25px] font-extrabold leading-tight">لوحة تشغيل المواد</h1>
+            <h1 className="mt-2.5 text-[25px] font-extrabold leading-tight">
+              {isEmployee ? 'لوحة طلباتي ومتابعتها' : 'لوحة تشغيل المواد'}
+            </h1>
             <p className="mt-2.5 max-w-[620px] text-[13px] leading-7 text-white/84">
-              مركز متابعة يومي يربط بين حالة المخزون وطلبات الصرف والمرتجعات والعهد
-              النشطة، مع وصول مباشر إلى أهم الإجراءات التنفيذية.
+              {isEmployee
+                ? 'مدخل مباشر لرفع طلبات المواد ومتابعة حالتها والعهد والمرتجعات المرتبطة بك دون إظهار تفاصيل المخزون التشغيلية.'
+                : 'مركز متابعة يومي يربط بين حالة المخزون وطلبات الصرف والمرتجعات والعهد النشطة، مع وصول مباشر إلى أهم الإجراءات التنفيذية.'}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <HeroMetric title="إجمالي الأصناف" value={metrics?.totalInventory ?? 0} />
-              <HeroMetric title="مواد متاحة" value={metrics?.availableInventory ?? 0} />
-              <HeroMetric title="إشعارات غير مقروءة" value={metrics?.unreadNotifications ?? 0} />
+              {isEmployee ? (
+                <>
+                  <HeroMetric title="طلبات بانتظار الإجراء" value={metrics?.pendingRequests ?? 0} />
+                  <HeroMetric title="طلبات تم صرفها" value={metrics?.issuedRequests ?? 0} />
+                  <HeroMetric title="إشعارات غير مقروءة" value={metrics?.unreadNotifications ?? 0} />
+                </>
+              ) : (
+                <>
+                  <HeroMetric title="إجمالي الأصناف" value={metrics?.totalInventory ?? 0} />
+                  <HeroMetric title="مواد متاحة" value={metrics?.availableInventory ?? 0} />
+                  <HeroMetric title="إشعارات غير مقروءة" value={metrics?.unreadNotifications ?? 0} />
+                </>
+              )}
             </div>
           </div>
 
@@ -250,7 +260,8 @@ export default function MaterialsDashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className={`grid gap-4 ${isEmployee ? '' : 'xl:grid-cols-[0.9fr_1.1fr]'}`}>
+        {!isEmployee ? (
         <div className="rounded-[26px] border border-[#dde6e4] bg-white p-5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)]">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-[19px] font-extrabold text-[#223738]">حالة المخزون</h2>
@@ -281,6 +292,7 @@ export default function MaterialsDashboardPage() {
             </div>
           </div>
         </div>
+        ) : null}
 
         <div className="rounded-[26px] border border-[#dde6e4] bg-white p-5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)]">
           <div className="mb-4 flex items-center justify-between">
@@ -308,7 +320,7 @@ export default function MaterialsDashboardPage() {
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {quickActions.map((card) => (
+            {visibleQuickActions.map((card) => (
               <a
                 key={card.title}
                 href={card.href}

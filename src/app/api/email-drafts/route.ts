@@ -137,8 +137,10 @@ function findLinkedSuggestion(
   return suggestion || null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const url = new URL(request.url);
+    const scope = String(url.searchParams.get('scope') || 'active').toLowerCase();
     const suggestions = await prisma.suggestion.findMany({
       select: {
         id: true,
@@ -205,8 +207,16 @@ export async function GET() {
       await prisma.suggestion.update({ where: { id: suggestion.id }, data: { adminNotes: JSON.stringify({ ...admin, linkedDraftId: draft.id }) } });
     }
 
+    const draftWhere =
+      scope === 'archived'
+        ? { status: { in: ['COPIED', 'SENT'] as const } }
+        : scope === 'all'
+          ? {}
+          : { status: 'DRAFT' as const };
+
     const [drafts, users] = await Promise.all([
       prisma.emailDraft.findMany({
+        where: draftWhere,
         orderBy: { createdAt: 'desc' },
       }),
       prisma.user.findMany({
@@ -264,7 +274,13 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ data });
+    const sorted = data.sort((a, b) => {
+      const aDate = new Date((a.updatedAt || a.createdAt || 0) as any).getTime();
+      const bDate = new Date((b.updatedAt || b.createdAt || 0) as any).getTime();
+      return bDate - aDate;
+    });
+
+    return NextResponse.json({ data: sorted });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'تعذر جلب المراسلات الخارجية' },

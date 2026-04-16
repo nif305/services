@@ -75,7 +75,7 @@ export default function EmailDraftsPage() {
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch('/api/email-drafts', { cache: 'no-store' });
+      const res = await fetch('/api/email-drafts?scope=active', { cache: 'no-store' });
       const data = await res.json();
       setRows(Array.isArray(data?.data) ? data.data : []);
     } catch {
@@ -109,8 +109,6 @@ export default function EmailDraftsPage() {
   const stats = useMemo(() => ({
     total: rows.length,
     drafts: rows.filter((r) => r.status === 'DRAFT').length,
-    copied: rows.filter((r) => r.status === 'COPIED').length,
-    sent: rows.filter((r) => r.status === 'SENT').length,
   }), [rows]);
 
   async function handleDownload(id: string) {
@@ -149,13 +147,11 @@ export default function EmailDraftsPage() {
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="space-y-2">
           <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">المراسلات الخارجية</h1>
-          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">استعراض المسودات الخارجية الجاهزة للتنزيل بصيغة بريد قابلة للتعديل.</p>
+          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">استعراض المسودات الخارجية النشطة فقط، مرتبة من الأحدث إلى الأقدم وجاهزة للتنزيل بصيغة بريد قابلة للتعديل.</p>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي العناصر</div><div className="mt-1 text-[22px] font-extrabold text-[#016564]">{stats.total}</div></Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المسودات</div><div className="mt-1 text-[22px] font-extrabold text-slate-700">{stats.drafts}</div></Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المؤرشفة بعد التنزيل</div><div className="mt-1 text-[22px] font-extrabold text-[#d0b284]">{stats.copied}</div></Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">المرسلة</div><div className="mt-1 text-[22px] font-extrabold text-[#498983]">{stats.sent}</div></Card>
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:max-w-[420px]">
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي المسودات النشطة</div><div className="mt-1 text-[22px] font-extrabold text-[#016564]">{stats.total}</div></Card>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">جاهزة للتنزيل</div><div className="mt-1 text-[22px] font-extrabold text-slate-700">{stats.drafts}</div></Card>
         </div>
       </section>
 

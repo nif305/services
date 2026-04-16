@@ -26,9 +26,9 @@ export default function PortalReferenceLayout() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#f6f7f3] px-5 py-5 lg:px-7 lg:py-6">
-      <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-[1740px] overflow-hidden rounded-[30px] border border-[#dde5e1] bg-white shadow-[0_22px_60px_-44px_rgba(15,23,42,0.20)] lg:grid-cols-[1.02fr_0.88fr]">
-        <section className="order-2 flex flex-col bg-white px-8 py-6 lg:order-1 lg:px-10 lg:py-7">
-          <header className="flex flex-wrap items-center gap-3">
+      <div dir="ltr" className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-[1740px] overflow-hidden rounded-[30px] border border-[#dde5e1] bg-white shadow-[0_22px_60px_-44px_rgba(15,23,42,0.20)] lg:grid-cols-[1fr_0.84fr]">
+        <section dir="rtl" className="order-1 flex flex-col bg-white px-8 py-6 lg:px-10 lg:py-7">
+          <header dir="ltr" className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={logout}
@@ -38,7 +38,7 @@ export default function PortalReferenceLayout() {
               <LogoutIcon />
             </button>
 
-            <div className="flex h-14 min-w-[320px] flex-1 items-center justify-between rounded-[24px] border border-[#dde5e1] bg-white px-5 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.16)]">
+            <div className="flex h-14 w-[330px] items-center justify-between rounded-[24px] border border-[#dde5e1] bg-white px-5 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.16)]">
               <div className="inline-flex h-10 w-10 items-center justify-center rounded-[16px] text-[#315f61]">
                 <UserIcon />
               </div>
@@ -61,7 +61,7 @@ export default function PortalReferenceLayout() {
             </button>
 
             {canUseRoleSwitch && availableRoles.length > 1 ? (
-              <div className="inline-flex h-14 min-w-[360px] flex-1 items-center gap-1 rounded-[24px] border border-[#dde5e1] bg-white p-1 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.16)]">
+              <div dir="rtl" className="inline-flex h-14 w-[360px] items-center gap-1 rounded-[24px] border border-[#dde5e1] bg-white p-1 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.16)]">
                 {availableRoles.map((role) => {
                   const active = user?.role === role;
                   return (
@@ -102,7 +102,7 @@ export default function PortalReferenceLayout() {
           </div>
         </section>
 
-        <section className="order-1 relative overflow-hidden bg-[#2f6666] text-white lg:order-2">
+        <section dir="rtl" className="order-2 relative overflow-hidden bg-[#2f6666] text-white">
           <div className="absolute inset-0 opacity-[0.08]" style={gridPatternStyle} />
           <div className="absolute left-[12%] top-[16%] h-24 w-24 rounded-full border border-white/10" />
           <div className="absolute bottom-[15%] right-[12%] h-28 w-28 rounded-full border border-white/10" />

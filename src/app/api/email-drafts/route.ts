@@ -1,14 +1,18 @@
 import { DraftStatus, Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import {
+  AttachmentPayload,
+  buildAttachmentSummary,
+  buildExternalEmailHtml,
+  buildRecipientLabel,
+  buildRecipientsFromCategory,
+  friendlyAttachmentName,
+  normalizeRequestType,
+  stripHtmlToText,
+} from '@/lib/external-email';
 
 type JsonObject = Record<string, any>;
-
-type AttachmentPayload = {
-  filename?: string;
-  contentType?: string;
-  base64Content?: string;
-};
 
 type SuggestionRecord = {
   id: string;
@@ -34,49 +38,6 @@ function parseJsonObject(value: any): JsonObject {
   }
 }
 
-function stripHtmlToText(html?: string | null) {
-  return String(html || '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/tr>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<li>/gi, 'â€¢ ')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
-
-function normalizeRequestType(sourceType?: string | null) {
-  const normalized = String(sourceType || '').trim().toLowerCase();
-  if (normalized === 'maintenance') return { code: 'MAINTENANCE', label: 'ط·ظ„ط¨ طµظٹط§ظ†ط©' };
-  if (normalized === 'cleaning') return { code: 'CLEANING', label: 'ط·ظ„ط¨ ظ†ط¸ط§ظپط©' };
-  if (normalized === 'purchase') return { code: 'PURCHASE', label: 'ط·ظ„ط¨ ط´ط±ط§ط، ظ…ط¨ط§ط´ط±' };
-  return { code: 'OTHER', label: 'ط·ظ„ط¨ ط¢ط®ط±' };
-}
-
-function friendlyAttachmentName(item: AttachmentPayload, index: number) {
-  const contentType = String(item?.contentType || '').toLowerCase();
-  const filename = String(item?.filename || '').toLowerCase();
-  if (contentType.startsWith('image/') || /\.(png|jpg|jpeg|gif|webp|bmp|svg)$/.test(filename)) {
-    return `طµظˆط±ط© ظ…ط±ظپظ‚ط© ${index + 1}`;
-  }
-  if (contentType.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm)$/.test(filename)) {
-    return `ظپظٹط¯ظٹظˆ ظ…ط±ظپظ‚ ${index + 1}`;
-  }
-  if (contentType.includes('pdf') || filename.endsWith('.pdf')) {
-    return `ظ…ظ„ظپ PDF ظ…ط±ظپظ‚ ${index + 1}`;
-  }
-  return `ظ…ظ„ظپ ظ…ط±ظپظ‚ ${index + 1}`;
-}
-
 function extractCodeCandidates(draft: { subject?: string | null; body?: string | null }) {
   const text = `${draft.subject || ''} ${stripHtmlToText(draft.body || '')}`;
   const matches = text.match(/[A-Z]{3}-\d{4}-\d{4}/g) || [];
@@ -89,48 +50,6 @@ function extractPrimaryCode(suggestion: Pick<SuggestionRecord, 'justification' |
   return String(justification.publicCode || admin.linkedCode || '').trim();
 }
 
-function buildRecipientsFromCategory(category?: string | null, provided?: string | null) {
-  const normalized = String(category || '').trim().toUpperCase();
-  if (normalized === 'PURCHASE') return 'wa.n1@nauss.edu.sa';
-  if (normalized === 'MAINTENANCE' || normalized === 'CLEANING') return 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa';
-  return String(provided || '').trim();
-}
-
-function buildFallbackExternalDraftHtml(params: {
-  recipientLabel: string;
-  requestCode: string;
-  requestTitle: string;
-  requesterName: string;
-  requesterEmail: string;
-  requesterMobile?: string;
-  location?: string;
-  itemName?: string;
-  description: string;
-  attachmentsSummary?: string;
-}) {
-  const rows = [
-    ['ط±ظ‚ظ… ط§ظ„ط·ظ„ط¨', params.requestCode],
-    ['ظ†ظˆط¹ ط§ظ„ط·ظ„ط¨', params.requestTitle],
-    ['ظ…ظ‚ط¯ظ… ط§ظ„ط·ظ„ط¨', params.requesterName],
-    ['ط§ظ„ط¥ط¯ط§ط±ط©', 'ط¥ط¯ط§ط±ط© ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھط¯ط±ظٹط¨'],
-    ['ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ', params.requesterEmail || 'â€”'],
-    ['ط§ظ„ط¬ظˆط§ظ„', params.requesterMobile || 'â€”'],
-    ['ط§ظ„ظ…ظˆظ‚ط¹', params.location || 'â€”'],
-    ['ط§ظ„ط¹ظ†ط§طµط± ط§ظ„ظ…ط·ظ„ظˆط¨ط©', params.itemName || 'â€”'],
-    ['ط§ظ„ظˆطµظپ', params.description || 'â€”'],
-  ];
-  if (params.attachmentsSummary) rows.push(['ط§ظ„ظ…ط±ظپظ‚ط§طھ', params.attachmentsSummary]);
-
-  const tableRows = rows
-    .map(
-      ([label, value]) =>
-        `<tr><td style="padding:10px 12px;border:1px solid #d6d7d4;font-weight:700;background:#f8fbfb;width:180px;">${label}</td><td style="padding:10px 12px;border:1px solid #d6d7d4;">${value}</td></tr>`
-    )
-    .join('');
-
-  return `<div dir="rtl" style="font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937;line-height:2;"><div style="font-size:18px;font-weight:700;margin-bottom:12px;">${params.recipientLabel}</div><div style="margin-bottom:12px;">ط§ظ„ط³ظ„ط§ظ… ط¹ظ„ظٹظƒظ… ظˆط±ط­ظ…ط© ط§ظ„ظ„ظ‡ ظˆط¨ط±ظƒط§طھظ‡طŒ</div><div style="margin-bottom:12px;">طھط­ظٹط© ط·ظٹط¨ط© ظˆط¨ط¹ط¯طŒ</div><div style="margin-bottom:12px;">ظ†ط£ظ…ظ„ ط§ظ„طھظƒط±ظ… ط¨ط§ظ„ط§ط·ظ„ط§ط¹ ط¹ظ„ظ‰ ط§ظ„ط·ظ„ط¨ ط§ظ„ظ…ط±ظپظˆط¹ ط£ط¯ظ†ط§ظ‡ ظˆط§طھط®ط§ط° ظ…ط§ ظٹظ„ط²ظ… ط­ظٹط§ظ„ ظ…ط¹ط§ظ„ط¬طھظ‡.</div><table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">${tableRows}</table><div style="margin-top:14px;">ظˆطھظپط¶ظ„ظˆط§ ط¨ظ‚ط¨ظˆظ„ ط®ط§ظ„طµ ط§ظ„طھط­ظٹط© ظˆط§ظ„طھظ‚ط¯ظٹط±.</div><div style="margin-top:18px;font-weight:700;">ظپط±ظٹظ‚ ط¹ظ…ظ„ ط¥ط¯ط§ط±ط© ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھط¯ط±ظٹط¨<br/>ظˆظƒط§ظ„ط© ط§ظ„ط¬ط§ظ…ط¹ط© ظ„ظ„طھط¯ط±ظٹط¨</div></div>`;
-}
-
 function buildDraftPayloadFromSuggestion(params: {
   suggestion: SuggestionRecord;
   requester: { fullName: string | null; email: string | null; mobile: string | null } | null;
@@ -138,32 +57,28 @@ function buildDraftPayloadFromSuggestion(params: {
 }) {
   const justification = parseJsonObject(params.suggestion.justification);
   const attachments = Array.isArray(justification.attachments) ? justification.attachments : [];
-  const attachmentsSummary = attachments
-    .map((item: any, index: number) => friendlyAttachmentName(item, index))
-    .join('طŒ ');
+  const attachmentsSummary = buildAttachmentSummary(attachments);
   const recipient = buildRecipientsFromCategory(params.suggestion.category, justification.externalRecipient);
-  const recipientLabel =
-    params.suggestion.category === 'PURCHASE'
-      ? 'ط³ط¹ط§ط¯ط© ط§ظ„ط£ط³طھط§ط°/ ظ†ظˆط§ظپ ط§ظ„ظ…ط­ط§ط±ط¨ ط³ظ„ظ…ظ‡ ط§ظ„ظ„ظ‡'
-      : params.suggestion.category === 'MAINTENANCE' || params.suggestion.category === 'CLEANING'
-        ? 'ط³ط¹ط§ط¯ط© ظ…ط¯ظٹط± ط¥ط¯ط§ط±ط© ط§ظ„ط®ط¯ظ…ط§طھ ط§ظ„ظ…ط³ط§ظ†ط¯ط© ط³ظ„ظ…ظ‡ ط§ظ„ظ„ظ‡'
-        : 'ط¥ظ„ظ‰ ظ…ظ† ظٹظ‡ظ…ظ‡ ط§ظ„ط£ظ…ط±';
   const serviceItems = Array.isArray(justification.serviceItems) ? justification.serviceItems : [];
-  const itemName = String(justification.itemName || serviceItems.join('طŒ ') || params.suggestion.title || 'â€”');
+  const requestType = normalizeRequestType(params.suggestion.category);
+  const itemName = String(justification.itemName || serviceItems.join('، ') || params.suggestion.title || '—');
 
   return {
     recipient,
     subject: `${params.suggestion.title} - ${params.requestCode}`,
-    body: buildFallbackExternalDraftHtml({
-      recipientLabel,
+    body: buildExternalEmailHtml({
+      recipientLabel: buildRecipientLabel(params.suggestion.category),
       requestCode: params.requestCode,
-      requestTitle: normalizeRequestType(params.suggestion.category).label,
-      requesterName: params.requester?.fullName || 'â€”',
-      requesterEmail: params.requester?.email || 'â€”',
-      requesterMobile: params.requester?.mobile || 'â€”',
-      location: String(justification.location || 'â€”'),
+      requestTitle: requestType.label,
+      createdAt: params.suggestion.createdAt,
+      requesterName: params.requester?.fullName || '—',
+      requesterDepartment: 'إدارة عمليات التدريب',
+      requesterEmail: params.requester?.email || '—',
+      requesterMobile: params.requester?.mobile || '—',
+      requesterExtension: '—',
+      location: String(justification.location || '—'),
       itemName,
-      description: params.suggestion.description || 'â€”',
+      description: params.suggestion.description || '—',
       attachmentsSummary,
     }),
   };
@@ -369,6 +284,12 @@ export async function GET(request: Request) {
         requester,
         requestCode,
       });
+      const shouldRefreshDraftContent = !!existingDraft && isDraftValid && (
+        existingDraft.recipient !== draftPayload.recipient ||
+        existingDraft.subject !== draftPayload.subject ||
+        existingDraft.body !== draftPayload.body ||
+        existingDraft.status !== DraftStatus.DRAFT
+      );
 
       let draft = existingDraft;
 
@@ -392,6 +313,17 @@ export async function GET(request: Request) {
             subject: draftPayload.subject,
             body: draftPayload.body,
             status: DraftStatus.DRAFT,
+          },
+        });
+      } else if (shouldRefreshDraftContent) {
+        draft = await prisma.emailDraft.update({
+          where: { id: draft.id },
+          data: {
+            recipient: draftPayload.recipient,
+            subject: draftPayload.subject,
+            body: draftPayload.body,
+            status: DraftStatus.DRAFT,
+            copiedAt: null,
           },
         });
       }
@@ -482,7 +414,9 @@ export async function GET(request: Request) {
         ? (justification.attachments as AttachmentPayload[])
         : [];
       const requestType = normalizeRequestType(linkedSuggestion?.category || draft.sourceType);
-      const requestCode = String(extractPrimaryCode(linkedSuggestion || { justification: null, adminNotes: null } as any) || draft.sourceId || draft.id);
+      const requestCode = String(
+        (linkedSuggestion ? extractPrimaryCode(linkedSuggestion) : '') || draft.sourceId || draft.id
+      );
       const approvalAt = linkedSuggestion ? approvalAtBySuggestionId.get(linkedSuggestion.id) : null;
       const sortDate =
         draft.status === DraftStatus.DRAFT
@@ -498,7 +432,7 @@ export async function GET(request: Request) {
       return {
         id: draft.id,
         subject: draft.subject,
-        to: draft.recipient,
+        to: draft.recipient.split(',').map((item) => item.trim()).filter(Boolean).join(', '),
         cc: null,
         body: draft.body,
         status: mappedStatus,
@@ -512,18 +446,18 @@ export async function GET(request: Request) {
         requestCode,
         requestType: requestType.code,
         requestTypeLabel: requestType.label,
-        requesterName: requester?.fullName || 'â€”',
-        requesterEmail: requester?.email || 'â€”',
-        requesterMobile: requester?.mobile || 'â€”',
-        requesterDepartment: 'ط¥ط¯ط§ط±ط© ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھط¯ط±ظٹط¨',
-        requesterJobTitle: requester?.jobTitle || 'â€”',
-        location: String(justification.location || admin.location || 'â€”'),
+        requesterName: requester?.fullName || '—',
+        requesterEmail: requester?.email || '—',
+        requesterMobile: requester?.mobile || '—',
+        requesterDepartment: 'إدارة عمليات التدريب',
+        requesterJobTitle: requester?.jobTitle || '—',
+        location: String(justification.location || admin.location || '—'),
         itemName: String(
           justification.itemName ||
-            (Array.isArray(justification.serviceItems) ? justification.serviceItems.join('طŒ ') : '') ||
+            (Array.isArray(justification.serviceItems) ? justification.serviceItems.join('، ') : '') ||
             admin.itemName ||
             linkedSuggestion?.title ||
-            'â€”'
+            '—'
         ),
         description: linkedSuggestion?.description || stripHtmlToText(draft.body),
         attachments: attachments.map((item, index) => ({
@@ -542,7 +476,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: sorted });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error?.message || 'طھط¹ط°ط± ط¬ظ„ط¨ ط§ظ„ظ…ط±ط§ط³ظ„ط§طھ ط§ظ„ط®ط§ط±ط¬ظٹط©' },
+      { error: error?.message || 'تعذر جلب المراسلات الخارجية' },
       { status: 500 }
     );
   }

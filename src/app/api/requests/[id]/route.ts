@@ -42,7 +42,8 @@ async function handleMutation(
     }
 
     if (action === 'reject') {
-      if (![Role.MANAGER, Role.WAREHOUSE].includes(session.role)) {
+      const rejectingRoles: Role[] = [Role.MANAGER, Role.WAREHOUSE];
+      if (!rejectingRoles.includes(session.role)) {
         return NextResponse.json({ error: 'الرفض متاح للمدير أو المستودع فقط' }, { status: 403 });
       }
 

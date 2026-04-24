@@ -166,9 +166,7 @@ export default function InventoryPage() {
 
   const canModify =
     user?.role === 'manager' ||
-    user?.role === 'warehouse' ||
-    user?.role === 'MANAGER' ||
-    user?.role === 'WAREHOUSE';
+    user?.role === 'warehouse';
 
   const fetchInventory = useCallback(async () => {
     setLoading(true);

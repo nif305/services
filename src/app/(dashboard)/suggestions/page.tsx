@@ -57,6 +57,14 @@ type FormState = {
   otherRecipient: string;
 };
 
+type AttachmentSummary = {
+  name: string;
+  originalSize: number;
+  finalSize?: number;
+  status: 'queued' | 'processing' | 'ready' | 'error';
+  message?: string;
+};
+
 const DEFAULT_FORM: FormState = {
   scope: 'BUILDING', programName: '', location: '', area: '', customArea: '', serviceItems: [], customServiceItems: '', issueSummary: '', itemName: '', quantity: '1', otherTitle: '', otherRecipient: ''
 };
@@ -128,10 +136,14 @@ async function compressImageFile(file: File, maxDimension = 1600, maxBytes = 350
 
 async function buildAttachmentPayloads(
   files: File[],
-  onSummary: (items: Array<{ name: string; originalSize: number; finalSize?: number; status: 'queued' | 'processing' | 'ready' | 'error'; message?: string }>) => void,
+  onSummary: (items: AttachmentSummary[]) => void,
   onProgress: (progress: number) => void,
 ) {
-  const summaries = files.map((file) => ({ name: file.name, originalSize: file.size, status: 'queued' as const }));
+  const summaries: AttachmentSummary[] = files.map((file) => ({
+    name: file.name,
+    originalSize: file.size,
+    status: 'queued',
+  }));
   onSummary(summaries);
   const payload: Array<{ filename: string; contentType: string; base64Content: string }> = [];
 
@@ -204,7 +216,7 @@ export default function SuggestionsPage() {
   const [feedback, setFeedback] = useState<{type:'success'|'error'; message:string}|null>(null);
   const [uploadStage, setUploadStage] = useState<'idle'|'preparing'|'uploading'>('idle');
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [attachmentSummaries, setAttachmentSummaries] = useState<Array<{ name: string; originalSize: number; finalSize?: number; status: 'queued' | 'processing' | 'ready' | 'error'; message?: string }>>([]);
+  const [attachmentSummaries, setAttachmentSummaries] = useState<AttachmentSummary[]>([]);
 
   const canManage = user?.role === 'manager';
   const requestedType = (searchParams.get('type') || '').toUpperCase() as SuggestionType;

@@ -139,6 +139,7 @@ async function generateLinkedCode(category: SuggestionCategory) {
   const year = new Date().getFullYear();
   const prefix = categoryMeta(category).prefix;
   let maxSerial = 0;
+  const codePattern = new RegExp(`^${prefix}-${year}-(\\d{4})$`);
 
   const suggestionRows = await prisma.suggestion.findMany({
     where: { category },
@@ -148,21 +149,21 @@ async function generateLinkedCode(category: SuggestionCategory) {
   for (const row of suggestionRows) {
     const parsed = parseJsonObject(row.adminNotes);
     const code = String(parsed.linkedCode || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(codePattern);
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
   const maintenanceRows = await prisma.maintenanceRequest.findMany({ select: { code: true } });
   for (const row of maintenanceRows) {
     const code = String(row.code || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(codePattern);
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
   const purchaseRows = await prisma.purchaseRequest.findMany({ select: { code: true } });
   for (const row of purchaseRows) {
     const code = String(row.code || '');
-    const match = code.match(new RegExp(`^${prefix}-${year}-(\d{4})$`));
+    const match = code.match(codePattern);
     if (match) maxSerial = Math.max(maxSerial, Number(match[1]));
   }
 
@@ -553,7 +554,7 @@ export async function PATCH(request: NextRequest) {
 
     let linkedEntityType = String(adminData.linkedEntityType || '');
     let linkedEntityId = String(adminData.linkedEntityId || '');
-    let linkedCode = String(adminData.linkedCode || '');
+    let linkedCode = String(adminData.linkedCode || publicCode || '').trim();
 
     if (category === 'MAINTENANCE' || category === 'CLEANING') {
       if (linkedEntityId) {
@@ -565,7 +566,7 @@ export async function PATCH(request: NextRequest) {
         }
       }
 
-      if (!linkedEntityId && linkedCode) {
+      if (!linkedEntityId && linkedCode && linkedCode !== publicCode) {
         const existing = await prisma.maintenanceRequest.findFirst({ where: { code: linkedCode } });
         if (existing) {
           linkedEntityId = existing.id;
@@ -575,7 +576,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       if (!linkedEntityId) {
-        linkedCode = linkedCode || await generateLinkedCode(category);
+        linkedCode = linkedCode || publicCode || await generateLinkedCode(category);
         try {
           const maintenance = await prisma.maintenanceRequest.create({
             data: {
@@ -609,7 +610,7 @@ export async function PATCH(request: NextRequest) {
         }
       }
 
-      if (!linkedEntityId && linkedCode) {
+      if (!linkedEntityId && linkedCode && linkedCode !== publicCode) {
         const existing = await prisma.purchaseRequest.findFirst({ where: { code: linkedCode } });
         if (existing) {
           linkedEntityId = existing.id;
@@ -619,7 +620,7 @@ export async function PATCH(request: NextRequest) {
       }
 
       if (!linkedEntityId) {
-        linkedCode = linkedCode || await generateLinkedCode(category);
+        linkedCode = linkedCode || publicCode || await generateLinkedCode(category);
         try {
           const purchase = await prisma.purchaseRequest.create({
             data: {
@@ -647,7 +648,7 @@ export async function PATCH(request: NextRequest) {
     } else {
       linkedEntityType = 'Suggestion';
       linkedEntityId = suggestionId;
-      linkedCode = linkedCode || await generateLinkedCode(category);
+      linkedCode = linkedCode || publicCode || await generateLinkedCode(category);
     }
 
     const recipient = buildRecipients(category, externalRecipient);
@@ -707,6 +708,7 @@ export async function PATCH(request: NextRequest) {
           subject: `${suggestion.title} - ${linkedCode}`,
           body: draftBody,
           status: 'DRAFT',
+          copiedAt: null,
         },
       });
     } else {

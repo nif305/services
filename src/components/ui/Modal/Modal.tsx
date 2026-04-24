@@ -19,6 +19,7 @@ export function Modal({
   title,
   children,
   size = 'md',
+  maxWidth,
   bodyClassName = '',
 }: {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export function Modal({
   title?: string;
   children: React.ReactNode;
   size?: ModalSize;
+  maxWidth?: string;
   bodyClassName?: string;
 }) {
   useEffect(() => {
@@ -48,6 +50,12 @@ export function Modal({
 
   if (!isOpen) return null;
 
+  const widthClass = maxWidth
+    ? maxWidth.startsWith('max-w-')
+      ? maxWidth
+      : `max-w-${maxWidth}`
+    : SIZE_MAP[size];
+
   return (
     <div
       className="fixed inset-0 z-[80] overflow-y-auto bg-[#0b1716]/60 p-2 backdrop-blur-[2px] sm:p-4"
@@ -64,7 +72,7 @@ export function Modal({
         />
 
         <div
-          className={`relative z-[81] w-full ${SIZE_MAP[size]} overflow-hidden rounded-[22px] border border-[#d6d7d4] bg-white shadow-2xl sm:rounded-[28px]`}
+          className={`relative z-[81] w-full ${widthClass} overflow-hidden rounded-[22px] border border-[#d6d7d4] bg-white shadow-2xl sm:rounded-[28px]`}
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex items-start justify-between gap-3 border-b border-[#e7ebea] px-4 py-4 sm:px-6">

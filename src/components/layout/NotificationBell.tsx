@@ -26,7 +26,7 @@ function normalizeNotification(item: ServerNotification) {
   const severity =
     type.includes('CRITICAL') || type.includes('OUT_OF_STOCK')
       ? 'critical'
-      : type.includes('LOW_STOCK') || type.includes('NEW_') || type.includes('PENDING')
+      : type.includes('LOW_STOCK') || type.includes('NEW_') || type.includes('PENDING') || type.includes('REMINDER')
       ? 'action'
       : 'info';
 
@@ -82,7 +82,7 @@ export function NotificationBell({ userId }: { userId: string }) {
     let mounted = true;
 
     const refresh = async () => {
-      const response = await fetch('/api/notifications', {
+      const response = await fetch('/api/notifications?limit=12', {
         cache: 'no-store',
         credentials: 'include',
       }).catch(() => null);

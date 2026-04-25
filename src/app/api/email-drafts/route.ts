@@ -50,6 +50,19 @@ function extractPrimaryCode(suggestion: Pick<SuggestionRecord, 'justification' |
   return String(justification.publicCode || admin.linkedCode || '').trim();
 }
 
+function normalizeSearchText(value: string) {
+  return String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .replace(/،/g, '')
+    .replace(/\s+/g, ' ');
+}
+
 function buildDraftPayloadFromSuggestion(params: {
   suggestion: SuggestionRecord;
   requester: { fullName: string | null; email: string | null; mobile: string | null } | null;
@@ -161,6 +174,9 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const scope = String(url.searchParams.get('scope') || 'active').toLowerCase();
+    const page = Math.max(1, Number(url.searchParams.get('page') || 1));
+    const limit = Math.min(20, Math.max(1, Number(url.searchParams.get('limit') || 5)));
+    const search = normalizeSearchText(String(url.searchParams.get('search') || ''));
     const suggestions = await prisma.suggestion.findMany({
       select: {
         id: true,
@@ -473,7 +489,39 @@ export async function GET(request: Request) {
       return bDate - aDate;
     });
 
-    return NextResponse.json({ data: sorted });
+    const filtered = search
+      ? sorted.filter((item) => {
+          const haystack = normalizeSearchText([
+            item.subject,
+            item.requestCode,
+            item.requestTypeLabel,
+            item.requesterName,
+            item.requesterDepartment,
+            item.requesterEmail,
+            item.requesterMobile,
+            item.location,
+            item.itemName,
+            item.description,
+            item.to,
+          ].join(' '));
+
+          return haystack.includes(search);
+        })
+      : sorted;
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
+    const paged = filtered.slice((safePage - 1) * limit, safePage * limit);
+
+    return NextResponse.json({
+      data: paged,
+      pagination: {
+        page: safePage,
+        limit,
+        total,
+        totalPages,
+      },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'تعذر جلب المراسلات الخارجية' },

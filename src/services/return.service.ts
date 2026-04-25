@@ -174,6 +174,18 @@ export const ReturnService = {
         });
       }
 
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: 'RETURN_SUBMITTED',
+          title: 'تم تسجيل طلب الإرجاع',
+          message: `تم تسجيل طلب الإرجاع ${result.code} وهو الآن بانتظار الاستلام والتوثيق.`,
+          link: `/returns?open=${result.id}`,
+          entityId: result.id,
+          entityType: 'RETURN',
+        },
+      });
+
       return result;
     }
 
@@ -302,6 +314,18 @@ export const ReturnService = {
           })),
         });
       }
+
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: 'RETURN_SUBMITTED',
+          title: 'تم تسجيل طلب الإرجاع',
+          message: `تم تسجيل طلب الإرجاع ${created.code} وهو الآن بانتظار الاستلام والتوثيق.`,
+          link: `/returns?open=${created.id}`,
+          entityId: created.id,
+          entityType: 'RETURN',
+        },
+      });
 
       return created;
     }

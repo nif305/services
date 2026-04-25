@@ -49,7 +49,7 @@ function normalizeArabic(value: string) {
     .replace(/ى/g, 'ي')
     .replace(/ؤ/g, 'و')
     .replace(/ئ/g, 'ي')
-    .replace(/ء/g, '')
+    .replace(/،/g, '')
     .replace(/\s+/g, ' ');
 }
 
@@ -60,7 +60,7 @@ function normalizeNotification(item: NotificationMeta): NotificationMeta {
   const severity =
     type.includes('CRITICAL') || type.includes('OUT_OF_STOCK')
       ? 'critical'
-      : type.includes('LOW_STOCK') || type.includes('NEW_') || type.includes('PENDING')
+      : type.includes('LOW_STOCK') || type.includes('NEW_') || type.includes('PENDING') || type.includes('REMINDER')
       ? 'action'
       : 'info';
 
@@ -103,22 +103,33 @@ function resolveItemLink(item: NotificationMeta): string | null {
 }
 
 function resolveItemLinkForRole(item: NotificationMeta, role?: string | null): string | null {
-  const meta = item as NotificationMeta;
-
   if (item.link) {
     return canonicalizeAppHref(item.link, role);
   }
 
-  const entityType = String(meta.entityType || '').toLowerCase();
+  const entityType = String(item.entityType || '').toLowerCase();
 
-  if (entityType === 'message' && meta.entityId) return `${canonicalizeAppHref('/messages', role)}?open=${meta.entityId}`;
-  if (entityType === 'request' && meta.entityId) return `/materials/requests?open=${meta.entityId}`;
-  if (entityType === 'return' && meta.entityId) return `/materials/returns?open=${meta.entityId}`;
-  if (entityType === 'custody' && meta.entityId) return `/materials/custody?open=${meta.entityId}`;
-  if (entityType === 'inventory' && meta.entityId) return `/materials/inventory?open=${meta.entityId}`;
-  if (entityType === 'suggestion' && meta.entityId) return canonicalizeAppHref('/services/requests', role);
+  if (entityType === 'message' && item.entityId) return `${canonicalizeAppHref('/messages', role)}?open=${item.entityId}`;
+  if (entityType === 'request' && item.entityId) return `/materials/requests?open=${item.entityId}`;
+  if (entityType === 'return' && item.entityId) return `/materials/returns?open=${item.entityId}`;
+  if (entityType === 'custody' && item.entityId) return `/materials/custody?open=${item.entityId}`;
+  if (entityType === 'inventory' && item.entityId) return `/materials/inventory?open=${item.entityId}`;
+  if (entityType === 'suggestion' && item.entityId) return canonicalizeAppHref('/services/requests', role);
 
   return null;
+}
+
+function canCreateManagerRequest(item: NotificationMeta, roles: string[] = []) {
+  const type = String(item.type || '').toUpperCase();
+  return roles.includes('warehouse') && (
+    type === 'WAREHOUSE_PURCHASE_REMINDER' ||
+    type === 'WAREHOUSE_MAINTENANCE_REMINDER'
+  );
+}
+
+function emitNotificationsUpdated() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(NOTIFICATIONS_UPDATED_EVENT));
 }
 
 export default function NotificationsPage() {
@@ -127,6 +138,19 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<FilterKey>('ALL');
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<NotificationMeta[]>([]);
+  const [busyId, setBusyId] = useState('');
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  async function refreshNotifications() {
+    const response = await fetch('/api/notifications', {
+      cache: 'no-store',
+      credentials: 'include',
+    }).catch(() => null);
+
+    const json = response ? await response.json().catch(() => null) : null;
+    const rows = Array.isArray(json?.data) ? json.data.map(normalizeNotification) : [];
+    setItems(rows);
+  }
 
   useEffect(() => {
     if (!user?.id) return;
@@ -209,6 +233,7 @@ export default function NotificationsPage() {
     );
 
     setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    emitNotificationsUpdated();
   };
 
   const handleMarkRead = async (id: string) => {
@@ -220,6 +245,44 @@ export default function NotificationsPage() {
     }).catch(() => null);
 
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, isRead: true } : item)));
+    emitNotificationsUpdated();
+  };
+
+  const handleCreateManagerRequest = async (id: string) => {
+    setBusyId(id);
+    setFeedback(null);
+
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'create-manager-request', id }),
+      });
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(json?.error || 'تعذر تحويل التذكير إلى طلب مدير');
+      }
+
+      const code = String(json?.data?.code || '').trim();
+      const existing = Boolean(json?.data?.existing);
+      setFeedback({
+        type: 'success',
+        message: existing
+          ? `يوجد طلب مرتبط بهذا التذكير مسبقًا برقم ${code}.`
+          : `تم تحويل التذكير إلى طلب مدير برقم ${code}.`,
+      });
+      await refreshNotifications();
+      emitNotificationsUpdated();
+    } catch (error: any) {
+      setFeedback({
+        type: 'error',
+        message: error?.message || 'تعذر تحويل التذكير إلى طلب مدير',
+      });
+    } finally {
+      setBusyId('');
+    }
   };
 
   const handleOpenItem = async (item: NotificationMeta) => {
@@ -275,6 +338,16 @@ export default function NotificationsPage() {
           </Card>
         </div>
       </section>
+
+      {feedback ? (
+        <section className={`rounded-[24px] border px-4 py-3 text-sm shadow-sm sm:rounded-[28px] ${
+          feedback.type === 'error'
+            ? 'border-red-200 bg-red-50 text-red-700'
+            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        }`}>
+          {feedback.message}
+        </section>
+      ) : null}
 
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
         <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
@@ -346,6 +419,16 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="flex w-full flex-col gap-2 sm:w-auto">
+                  {canCreateManagerRequest(item, user?.roles || []) ? (
+                    <Button
+                      loading={busyId === item.id}
+                      onClick={() => handleCreateManagerRequest(item.id)}
+                      className="w-full sm:w-auto"
+                    >
+                      إنشاء طلب للمدير
+                    </Button>
+                  ) : null}
+
                   {!item.isRead ? (
                     <Button variant="ghost" onClick={() => handleMarkRead(item.id)} className="w-full sm:w-auto">
                       تعليم كمقروء

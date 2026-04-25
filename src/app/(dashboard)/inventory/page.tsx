@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { syncInventoryAlerts } from '@/lib/notifications';
 
 type InventoryItem = {
   id: string;
@@ -23,6 +22,8 @@ type InventoryItem = {
   reservedQty: number;
   minStock: number;
   unit: string;
+  maintenanceIntervalDays?: number | null;
+  nextMaintenanceDueAt?: string | null;
   location: string | null;
   status: 'AVAILABLE' | 'LOW_STOCK' | 'OUT_OF_STOCK';
   unitPrice?: number | null;
@@ -71,7 +72,10 @@ const defaultForm = {
   category: '',
   type: 'RETURNABLE' as 'RETURNABLE' | 'CONSUMABLE',
   quantity: '0',
+  minStock: '5',
   unitPrice: '',
+  maintenanceIntervalDays: '',
+  nextMaintenanceDueAt: '',
 };
 
 const inventoryCategorySuggestions = [
@@ -208,11 +212,6 @@ export default function InventoryPage() {
     fetchInventory();
   }, [fetchInventory]);
 
-  useEffect(() => {
-    if (!items.length) return;
-    syncInventoryAlerts(items);
-  }, [items]);
-
   const mergedCategories = useMemo(
     () => [...new Set([...inventoryCategorySuggestions, ...categories])],
     [categories],
@@ -255,8 +254,16 @@ export default function InventoryPage() {
       category: item.category || '',
       type: item.type || 'RETURNABLE',
       quantity: String(item.quantity ?? 0),
+      minStock: String(item.minStock ?? 5),
       unitPrice:
         item.unitPrice === null || item.unitPrice === undefined ? '' : String(item.unitPrice),
+      maintenanceIntervalDays:
+        item.maintenanceIntervalDays === null || item.maintenanceIntervalDays === undefined
+          ? ''
+          : String(item.maintenanceIntervalDays),
+      nextMaintenanceDueAt: item.nextMaintenanceDueAt
+        ? String(item.nextMaintenanceDueAt).slice(0, 10)
+        : '',
     });
     setIsModalOpen(true);
   };
@@ -296,7 +303,16 @@ export default function InventoryPage() {
         category: formState.category,
         type: formState.type,
         quantity: Number(formState.quantity || 0),
+        minStock: Number(formState.minStock || 5),
         unitPrice: formState.unitPrice === '' ? null : Number(formState.unitPrice),
+        maintenanceIntervalDays:
+          formState.type === 'RETURNABLE' && formState.maintenanceIntervalDays
+            ? Number(formState.maintenanceIntervalDays)
+            : null,
+        nextMaintenanceDueAt:
+          formState.type === 'RETURNABLE' && formState.maintenanceIntervalDays
+            ? formState.nextMaintenanceDueAt || null
+            : null,
         financialTracking: formState.unitPrice !== '',
       };
 
@@ -715,6 +731,15 @@ export default function InventoryPage() {
             />
 
             <Input
+              label="الحد الأدنى للتنبيه الشرائي"
+              type="number"
+              min="1"
+              value={formState.minStock}
+              onChange={(e) => setFormState((prev) => ({ ...prev, minStock: e.target.value }))}
+              required
+            />
+
+            <Input
               label="سعر المفرد (اختياري)"
               type="number"
               min="0"
@@ -722,6 +747,41 @@ export default function InventoryPage() {
               value={formState.unitPrice}
               onChange={(e) => setFormState((prev) => ({ ...prev, unitPrice: e.target.value }))}
             />
+
+            {formState.type === 'RETURNABLE' ? (
+              <>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">تذكير الصيانة الدورية</label>
+                  <select
+                    value={formState.maintenanceIntervalDays}
+                    onChange={(e) =>
+                      setFormState((prev) => ({
+                        ...prev,
+                        maintenanceIntervalDays: e.target.value,
+                      }))
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
+                  >
+                    <option value="">بدون تذكير دوري</option>
+                    <option value="30">كل شهر</option>
+                    <option value="60">كل شهرين</option>
+                  </select>
+                </div>
+
+                <Input
+                  label="موعد أول تذكير"
+                  type="date"
+                  value={formState.nextMaintenanceDueAt}
+                  onChange={(e) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      nextMaintenanceDueAt: e.target.value,
+                    }))
+                  }
+                  disabled={!formState.maintenanceIntervalDays}
+                />
+              </>
+            ) : null}
           </div>
 
           <div className="rounded-2xl border border-[#d0b284]/40 bg-[#fbf7ef] p-4">

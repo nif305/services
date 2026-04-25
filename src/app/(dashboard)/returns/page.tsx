@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { broadcastNotification, createNotification } from '@/lib/notifications';
 
 type ReturnStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 type ItemCondition = 'GOOD' | 'PARTIAL_DAMAGE' | 'TOTAL_DAMAGE';
@@ -406,32 +405,6 @@ export default function ReturnsPage() {
       return;
     }
 
-    if (user?.id) {
-      createNotification({
-        userId: user.id,
-        kind: 'notification',
-        severity: 'info',
-        title: 'تم تسجيل طلب الإرجاع',
-        message: `تم تسجيل طلب الإرجاع ${data?.code || ''} وهو الآن بانتظار الاستلام والتوثيق.`,
-        link: '/materials/returns',
-        entityType: 'RETURN',
-        entityId: data?.id || null,
-        dedupeKey: `return-created-user-${data?.id || custodyId || requestItemId}`,
-      });
-    }
-
-    broadcastNotification({
-      roles: ['manager', 'warehouse'],
-      kind: 'alert',
-      severity: 'action',
-      title: 'طلب إرجاع جديد',
-      message: `تم رفع طلب إرجاع جديد ${data?.code || ''} ويحتاج الاستلام والتوثيق.`,
-      link: '/materials/returns',
-      entityType: 'RETURN',
-      entityId: data?.id || null,
-      dedupeKey: `return-created-admin-${data?.id || custodyId || requestItemId}`,
-    });
-
     closeCreateModal();
     await Promise.all([fetchReturns(), fetchCustodies(), fetchReturnableRequestItems()]);
   };
@@ -460,39 +433,6 @@ export default function ReturnsPage() {
       return;
     }
 
-    const requesterId = (selectedReturn as any)?.requesterId || (data as any)?.requesterId;
-
-    if (requesterId) {
-      createNotification({
-        userId: requesterId,
-        kind: 'notification',
-        severity: receivedType === 'GOOD' ? 'info' : 'action',
-        title: 'تم استلام المادة وتوثيق حالتها',
-        message:
-          receivedType === 'GOOD'
-            ? `تم استلام المادة المرتبطة بطلب الإرجاع ${selectedReturn.code} وتوثيقها كحالة سليمة.`
-            : `تم استلام المادة المرتبطة بطلب الإرجاع ${selectedReturn.code} وتوثيقها كحالة غير سليمة.`,
-        link: '/materials/returns',
-        entityType: 'RETURN',
-        entityId: selectedReturn.id,
-        dedupeKey: `return-approved-user-${selectedReturn.id}`,
-      });
-    }
-
-    if (receivedType !== 'GOOD') {
-      broadcastNotification({
-        roles: ['manager', 'warehouse'],
-        kind: 'alert',
-        severity: 'critical',
-        title: 'مادة مستلمة بحالة غير سليمة',
-        message: `تم استلام المادة في طلب الإرجاع ${selectedReturn.code} وتوثيقها كحالة غير سليمة.`,
-        link: '/materials/returns',
-        entityType: 'RETURN',
-        entityId: selectedReturn.id,
-        dedupeKey: `return-damaged-${selectedReturn.id}`,
-      });
-    }
-
     resetProcessForm();
     await Promise.all([fetchReturns(), fetchCustodies(), fetchReturnableRequestItems()]);
   };
@@ -515,24 +455,6 @@ export default function ReturnsPage() {
     if (!res.ok) {
       alert(data.error || 'تعذر رفض طلب الإرجاع');
       return;
-    }
-
-    const requesterId = (selectedReturn as any)?.requesterId || (data as any)?.requesterId;
-
-    if (requesterId) {
-      createNotification({
-        userId: requesterId,
-        kind: 'notification',
-        severity: 'action',
-        title: 'تم رفض طلب الإرجاع',
-        message: `تم رفض طلب الإرجاع ${selectedReturn.code}${
-          receivedNotes ? ` بسبب: ${receivedNotes}` : '.'
-        }`,
-        link: '/materials/returns',
-        entityType: 'RETURN',
-        entityId: selectedReturn.id,
-        dedupeKey: `return-rejected-${selectedReturn.id}`,
-      });
     }
 
     resetProcessForm();

@@ -30,6 +30,8 @@ type InventoryPayload = {
   notes?: string | null;
   imageUrl?: string | null;
   unitPrice?: number | null;
+  maintenanceIntervalDays?: number | null;
+  nextMaintenanceDueAt?: string | Date | null;
   financialTracking?: boolean;
   sortOrder?: number;
 };
@@ -46,6 +48,18 @@ function normalizeNullableNumber(value: unknown) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function normalizeNullableInteger(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Math.floor(Number(value));
+  return Number.isNaN(parsed) || parsed <= 0 ? null : parsed;
+}
+
+function normalizeNullableDate(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function calculateStatus(quantity: number, minStock: number): ItemStatus {
   if (quantity <= 0) return ItemStatus.OUT_OF_STOCK;
   if (quantity <= minStock) return ItemStatus.LOW_STOCK;
@@ -55,6 +69,18 @@ function calculateStatus(quantity: number, minStock: number): ItemStatus {
 function calculateTotalPrice(quantity: number, unitPrice: number | null) {
   if (unitPrice === null) return null;
   return Number((quantity * unitPrice).toFixed(2));
+}
+
+function addDays(value: Date, days: number) {
+  const next = new Date(value);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function resolveNextMaintenanceDueAt(intervalDays: number | null, dueAt: Date | null) {
+  if (!intervalDays) return null;
+  if (dueAt) return dueAt;
+  return addDays(new Date(), intervalDays);
 }
 
 function toDecimal(value: number | null) {
@@ -119,6 +145,11 @@ async function buildCreateData(data: InventoryPayload): Promise<Prisma.Inventory
   const quantity = normalizeNumber(data.quantity, 0);
   const minStock = normalizeNumber(data.minStock, 5);
   const unitPrice = normalizeNullableNumber(data.unitPrice);
+  const maintenanceIntervalDays = normalizeNullableInteger(data.maintenanceIntervalDays);
+  const nextMaintenanceDueAt = resolveNextMaintenanceDueAt(
+    maintenanceIntervalDays,
+    normalizeNullableDate(data.nextMaintenanceDueAt)
+  );
   const financialTracking =
     typeof data.financialTracking === 'boolean'
       ? data.financialTracking
@@ -138,6 +169,8 @@ async function buildCreateData(data: InventoryPayload): Promise<Prisma.Inventory
     reservedQty: 0,
     minStock,
     unit: data.unit?.trim() || 'قطعة',
+    maintenanceIntervalDays,
+    nextMaintenanceDueAt,
     location: data.location?.trim() || null,
     notes: data.notes?.trim() || null,
     imageUrl: data.imageUrl?.trim() || null,
@@ -157,6 +190,8 @@ async function buildUpdateData(
     unitPrice: Prisma.Decimal | null;
     category: string;
     type: ItemType;
+    maintenanceIntervalDays: number | null;
+    nextMaintenanceDueAt: Date | null;
   },
   data: Partial<InventoryPayload>,
 ): Promise<Prisma.InventoryItemUpdateInput> {
@@ -176,6 +211,22 @@ async function buildUpdateData(
       : current.unitPrice !== null
         ? Number(current.unitPrice)
         : null;
+  const nextMaintenanceIntervalDays =
+    data.maintenanceIntervalDays !== undefined
+      ? normalizeNullableInteger(data.maintenanceIntervalDays)
+      : current.maintenanceIntervalDays;
+  const requestedDueAt =
+    data.nextMaintenanceDueAt !== undefined
+      ? normalizeNullableDate(data.nextMaintenanceDueAt)
+      : current.nextMaintenanceDueAt;
+  const nextMaintenanceDueAt =
+    !nextMaintenanceIntervalDays
+      ? null
+      : data.nextMaintenanceDueAt !== undefined
+        ? resolveNextMaintenanceDueAt(nextMaintenanceIntervalDays, requestedDueAt)
+        : data.maintenanceIntervalDays !== undefined
+          ? resolveNextMaintenanceDueAt(nextMaintenanceIntervalDays, current.nextMaintenanceDueAt)
+          : requestedDueAt;
 
   const nextCategory = data.category?.trim() || current.category;
   const nextType = data.type || current.type;
@@ -206,6 +257,8 @@ async function buildUpdateData(
     availableQty,
     minStock,
     unit: data.unit?.trim(),
+    maintenanceIntervalDays: nextMaintenanceIntervalDays,
+    nextMaintenanceDueAt,
     location: data.location !== undefined ? data.location?.trim() || null : undefined,
     notes: data.notes !== undefined ? data.notes?.trim() || null : undefined,
     imageUrl: data.imageUrl !== undefined ? data.imageUrl?.trim() || null : undefined,
@@ -331,6 +384,8 @@ export const InventoryService = {
         unitPrice: true,
         category: true,
         type: true,
+        maintenanceIntervalDays: true,
+        nextMaintenanceDueAt: true,
       },
     });
 

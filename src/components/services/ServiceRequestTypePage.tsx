@@ -460,6 +460,44 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
                     </div>
                   ))}
                 </div>
+
+                <div className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-4">
+                  <div className="text-xs font-bold text-[#016564]">المرفقات المرفوعة</div>
+                  {selected.attachments?.length ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {selected.attachments.map((attachment, index) => (
+                        <div key={`${attachment.filename || attachment.name || 'attachment'}-${index}`} className="rounded-[18px] border border-[#dfe7e6] bg-white px-4 py-3">
+                          <div className="text-sm font-bold leading-6 text-[#152625]">{attachment.name || `مرفق ${index + 1}`}</div>
+                          <div className="mt-1 break-words text-xs leading-6 text-[#61706f]">{attachment.filename || 'ملف مرفق'}</div>
+                          {attachment.contentType ? <div className="mt-1 text-[11px] text-[#8b9897]">{attachment.contentType}</div> : null}
+                          {attachment.url ? (
+                            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                              <a
+                                href={attachment.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex min-h-[42px] items-center justify-center rounded-full bg-[#016564] px-4 text-sm font-bold text-white transition hover:bg-[#014b4a]"
+                              >
+                                عرض المرفق
+                              </a>
+                              <a
+                                href={attachment.url}
+                                download={attachment.filename || `attachment-${index + 1}`}
+                                className="inline-flex min-h-[42px] items-center justify-center rounded-full border border-[#d6d7d4] bg-white px-4 text-sm font-bold text-[#425554] transition hover:border-[#016564]/30 hover:text-[#016564]"
+                              >
+                                تنزيل
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="mt-3 text-xs text-[#8b9897]">المرفق محفوظ بدون رابط عرض مباشر.</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-sm leading-7 text-[#61706f]">لا توجد مرفقات مرفوعة لهذا الطلب.</div>
+                  )}
+                </div>
               </div>
               <div className="space-y-3 rounded-[22px] border border-[#e7ebea] bg-[#f8fbfb] p-4 sm:p-5">
                 <div className="text-sm font-extrabold text-[#016564]">قرار المدير</div>

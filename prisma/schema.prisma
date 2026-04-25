@@ -59,37 +59,40 @@ enum Status {
 }
 
 model InventoryItem {
-  id                  String               @id @default(cuid())
-  code                String               @unique
-  name                String
-  description         String?
-  category            String
-  subcategory         String?
-  type                ItemType
-  quantity            Int                  @default(0)
-  availableQty        Int                  @default(0)
-  reservedQty         Int                  @default(0)
-  minStock            Int                  @default(5)
-  unit                String               @default("قطعة")
-  location            String?
-  status              ItemStatus           @default(AVAILABLE)
-  unitPrice           Decimal?             @db.Decimal(12, 2)
-  totalPrice          Decimal?             @db.Decimal(14, 2)
-  financialTracking   Boolean              @default(false)
-  notes               String?
-  imageUrl            String?
-  sortOrder           Int                  @default(0)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  requestItems        RequestItem[]
-  custodyRecords      CustodyRecord[]
-  maintenanceRequests MaintenanceRequest[]
+  id                     String               @id @default(cuid())
+  code                   String               @unique
+  name                   String
+  description            String?
+  category               String
+  subcategory            String?
+  type                   ItemType
+  quantity               Int                  @default(0)
+  availableQty           Int                  @default(0)
+  reservedQty            Int                  @default(0)
+  minStock               Int                  @default(5)
+  unit                   String               @default("قطعة")
+  maintenanceIntervalDays Int?
+  nextMaintenanceDueAt   DateTime?
+  location               String?
+  status                 ItemStatus           @default(AVAILABLE)
+  unitPrice              Decimal?             @db.Decimal(12, 2)
+  totalPrice             Decimal?             @db.Decimal(14, 2)
+  financialTracking      Boolean              @default(false)
+  notes                  String?
+  imageUrl               String?
+  sortOrder              Int                  @default(0)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  requestItems           RequestItem[]
+  custodyRecords         CustodyRecord[]
+  maintenanceRequests    MaintenanceRequest[]
 
   @@index([code])
   @@index([name])
   @@index([category])
   @@index([subcategory])
   @@index([status])
+  @@index([nextMaintenanceDueAt])
   @@map("inventory_items")
 }
 

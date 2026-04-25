@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -29,18 +29,7 @@ type Row = {
   body: string;
 };
 
-function normalizeArabic(value: string) {
-  return (value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/ؤ/g, 'و')
-    .replace(/ئ/g, 'ي')
-    .replace(/ء/g, '')
-    .replace(/\s+/g, ' ');
-}
+const PAGE_SIZE = 5;
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -69,17 +58,44 @@ export default function EmailDraftsPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Row | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+  });
 
   const isManager = user?.role === 'manager';
+  const deferredSearch = useDeferredValue(search);
 
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch('/api/email-drafts?scope=active', { cache: 'no-store' });
+      const params = new URLSearchParams({
+        scope: 'active',
+        page: String(page),
+        limit: String(PAGE_SIZE),
+      });
+
+      if (deferredSearch.trim()) {
+        params.set('search', deferredSearch.trim());
+      }
+
+      const res = await fetch(`/api/email-drafts?${params.toString()}`, { cache: 'no-store' });
       const data = await res.json();
       setRows(Array.isArray(data?.data) ? data.data : []);
+      const nextPage = Number(data?.pagination?.page || page);
+      if (nextPage !== page) {
+        setPage(nextPage);
+      }
+      setPagination({
+        page: nextPage,
+        totalPages: Number(data?.pagination?.totalPages || 1),
+        total: Number(data?.pagination?.total || 0),
+      });
     } catch {
       setRows([]);
+      setPagination({ page: 1, totalPages: 1, total: 0 });
     } finally {
       setLoading(false);
     }
@@ -87,29 +103,15 @@ export default function EmailDraftsPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [page, deferredSearch]);
 
-  const filtered = useMemo(() => {
-    const q = normalizeArabic(search);
-    return rows.filter((row) => {
-      const haystack = normalizeArabic([
-        row.subject,
-        row.requestCode,
-        row.requestTypeLabel,
-        row.requesterName,
-        row.requesterDepartment,
-        row.location,
-        row.itemName,
-        row.description,
-      ].join(' '));
-      return q ? haystack.includes(q) : true;
-    });
-  }, [rows, search]);
-
-  const stats = useMemo(() => ({
-    total: rows.length,
-    drafts: rows.filter((r) => r.status === 'DRAFT').length,
-  }), [rows]);
+  const stats = useMemo(
+    () => ({
+      total: pagination.total,
+      drafts: pagination.total,
+    }),
+    [pagination.total]
+  );
 
   async function handleDownload(id: string) {
     setDownloading(true);
@@ -147,7 +149,7 @@ export default function EmailDraftsPage() {
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="space-y-2">
           <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">المراسلات الخارجية</h1>
-          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">استعراض المسودات الخارجية النشطة فقط، مرتبة من الأحدث إلى الأقدم وجاهزة للتنزيل بصيغة بريد قابلة للتعديل.</p>
+          <p className="text-[13px] leading-7 text-[#61706f] sm:text-sm">استعراض المسودات الخارجية النشطة فقط، مرتبة من الأحدث إلى الأقدم، وبواقع 5 طلبات في كل صفحة لتسريع الفتح والتحميل.</p>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 xl:max-w-[420px]">
           <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي المسودات النشطة</div><div className="mt-1 text-[22px] font-extrabold text-[#016564]">{stats.total}</div></Card>
@@ -156,25 +158,33 @@ export default function EmailDraftsPage() {
       </section>
 
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
-        <Input label="بحث" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="الموضوع، رقم الطلب، مقدم الطلب، الموقع، أو نوع الطلب" />
+        <Input
+          label="بحث"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder="الموضوع، رقم الطلب، مقدم الطلب، الموقع، أو نوع الطلب"
+        />
       </section>
 
       <section className="space-y-3">
         {loading ? (
           <div className="space-y-3">{[1, 2, 3].map((n) => <Skeleton key={n} className="h-32 w-full rounded-[24px]" />)}</div>
-        ) : filtered.length ? (
-          filtered.map((row) => {
+        ) : rows.length ? (
+          rows.map((row) => {
             const status = statusMeta(row.status);
             return (
               <Card key={row.id} className="rounded-[24px] border border-[#d6d7d4] p-4 shadow-sm sm:rounded-[28px] sm:p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-3 min-w-0">
+                  <div className="min-w-0 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-sm font-bold text-[#016564]">{row.requestCode}</span>
                       <span className={`rounded-full px-3 py-1 text-xs font-bold ${status.tone}`}>{status.label}</span>
                       <span className="rounded-full bg-[#016564]/10 px-3 py-1 text-xs font-bold text-[#016564]">{row.requestTypeLabel}</span>
                     </div>
-                    <div className="text-[15px] font-bold leading-7 text-[#152625] sm:text-base break-words">{row.subject}</div>
+                    <div className="break-words text-[15px] font-bold leading-7 text-[#152625] sm:text-base">{row.subject}</div>
                     <div className="grid gap-2 text-[12px] text-[#61706f] sm:grid-cols-2 sm:text-xs">
                       <div>مقدم الطلب: {row.requesterName}</div>
                       <div>الإدارة: إدارة عمليات التدريب</div>
@@ -193,6 +203,28 @@ export default function EmailDraftsPage() {
           <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm">لا توجد مراسلات مطابقة</Card>
         )}
       </section>
+
+      {!loading && pagination.totalPages > 1 ? (
+        <section className="flex items-center justify-between rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-3 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+            disabled={page <= 1}
+            className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            السابق
+          </button>
+          <div className="text-sm font-bold text-[#016564]">الصفحة {page} من {pagination.totalPages}</div>
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.min(prev + 1, pagination.totalPages))}
+            disabled={page >= pagination.totalPages}
+            className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            التالي
+          </button>
+        </section>
+      ) : null}
 
       <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `تفاصيل المراسلة: ${selected.subject}` : 'تفاصيل المراسلة'} size="full">
         {selected ? (

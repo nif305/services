@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Status, Role, CustodyStatus, ItemType } from '@prisma/client';
+import { CustodyService } from '@/services/custody.service';
 
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
@@ -78,70 +79,102 @@ async function resolveSessionUser(request: NextRequest) {
   };
 }
 
+function serializeCustodyRecord(record: any) {
+  return {
+    id: record.id,
+    quantity: record.quantity,
+    issueDate: record.issueDate?.toISOString?.() || null,
+    dueDate: record.expectedReturn?.toISOString?.() || null,
+    expectedReturn: record.expectedReturn?.toISOString?.() || null,
+    actualReturn: record.actualReturn?.toISOString?.() || null,
+    updatedAt: record.updatedAt?.toISOString?.() || null,
+    notes: record.notes,
+    status: record.status,
+    userId: record.userId,
+    user: record.user,
+    item: record.item,
+    returnRequests: Array.isArray(record.returnRequests)
+      ? record.returnRequests.map((ret: any) => ({
+          ...ret,
+          createdAt: ret.createdAt?.toISOString?.() || ret.createdAt || null,
+        }))
+      : [],
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await resolveSessionUser(request);
+    const pageParam = request.nextUrl.searchParams.get('page');
+    const limitParam = request.nextUrl.searchParams.get('limit');
+    const status = request.nextUrl.searchParams.get('status');
+    const usePaginatedMode = pageParam !== null || limitParam !== null || status !== null;
 
-    const custodyRecords = await prisma.custodyRecord.findMany({
-      where: {
-        userId: session.id,
-        status: {
-          in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED],
-        },
-        item: {
-          type: ItemType.RETURNABLE,
-        },
-      },
-      include: {
-        item: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            category: true,
-            type: true,
+    if (!usePaginatedMode) {
+      const custodyRecords = await prisma.custodyRecord.findMany({
+        where: {
+          userId: session.id,
+          status: {
+            in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED],
+          },
+          item: {
+            type: ItemType.RETURNABLE,
           },
         },
-        user: {
-          select: {
-            fullName: true,
-            department: true,
+        include: {
+          item: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              category: true,
+              type: true,
+            },
+          },
+          user: {
+            select: {
+              fullName: true,
+              department: true,
+            },
+          },
+          returnRequests: {
+            orderBy: {
+              createdAt: 'desc',
+            },
+            select: {
+              id: true,
+              code: true,
+              status: true,
+              conditionNote: true,
+              rejectionReason: true,
+              createdAt: true,
+            },
           },
         },
-        returnRequests: {
-          orderBy: {
-            createdAt: 'desc',
-          },
-          select: {
-            id: true,
-            code: true,
-            status: true,
-            conditionNote: true,
-            rejectionReason: true,
-            createdAt: true,
-          },
-        },
-      },
-      orderBy: [{ expectedReturn: 'asc' }, { issueDate: 'desc' }],
+        orderBy: [{ expectedReturn: 'asc' }, { issueDate: 'desc' }],
+      });
+
+      return NextResponse.json({
+        data: custodyRecords.map(serializeCustodyRecord),
+      });
+    }
+
+    const pageValue = Number(pageParam || 1);
+    const limitValue = Number(limitParam || 10);
+    const result = await CustodyService.getAll({
+      userId: session.id,
+      role: session.role,
+      page: Number.isFinite(pageValue) ? pageValue : 1,
+      limit: Number.isFinite(limitValue) ? limitValue : 10,
+      status,
+      returnableOnly: session.role === Role.USER,
+      excludeReturned: session.role === Role.USER && String(status || '').trim() === '',
     });
 
     return NextResponse.json({
-      data: custodyRecords.map((record) => ({
-        id: record.id,
-        quantity: record.quantity,
-        issueDate: record.issueDate?.toISOString(),
-        expectedReturn: record.expectedReturn?.toISOString() || null,
-        actualReturn: record.actualReturn?.toISOString() || null,
-        notes: record.notes,
-        status: record.status,
-        userId: record.userId,
-        user: record.user,
-        item: record.item,
-        returnRequests: record.returnRequests.map((ret) => ({
-          ...ret,
-          createdAt: ret.createdAt.toISOString(),
-        })),
-      })),
+      data: result.data.map(serializeCustodyRecord),
+      stats: result.stats,
+      pagination: result.pagination,
     });
   } catch (error: any) {
     const statusCode =

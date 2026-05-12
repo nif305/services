@@ -3,11 +3,78 @@ import { Role, Status } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { AlertService } from '@/services/alert.service';
 
+type NotificationFilterKey = 'ALL' | 'UNREAD' | 'ALERT' | 'NOTIFICATION' | 'CRITICAL' | 'ACTION';
+
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
   if (normalized === 'manager') return Role.MANAGER;
   if (normalized === 'warehouse') return Role.WAREHOUSE;
   return Role.USER;
+}
+
+function buildCriticalWhere() {
+  return [
+    { type: { contains: 'CRITICAL', mode: 'insensitive' as const } },
+    { type: { contains: 'OUT_OF_STOCK', mode: 'insensitive' as const } },
+  ];
+}
+
+function buildActionWhere() {
+  return [
+    { type: { contains: 'LOW_STOCK', mode: 'insensitive' as const } },
+    { type: { contains: 'NEW_', mode: 'insensitive' as const } },
+    { type: { contains: 'PENDING', mode: 'insensitive' as const } },
+    { type: { contains: 'REMINDER', mode: 'insensitive' as const } },
+  ];
+}
+
+function buildAlertWhere() {
+  return [
+    ...buildCriticalWhere(),
+    ...buildActionWhere(),
+    { entityType: { equals: 'message', mode: 'insensitive' as const } },
+  ];
+}
+
+function buildSearchWhere(search: string | null) {
+  const value = String(search || '').trim();
+  if (!value) return {};
+
+  return {
+    OR: [
+      { title: { contains: value, mode: 'insensitive' as const } },
+      { message: { contains: value, mode: 'insensitive' as const } },
+      { type: { contains: value, mode: 'insensitive' as const } },
+      { entityType: { contains: value, mode: 'insensitive' as const } },
+      { entityId: { contains: value, mode: 'insensitive' as const } },
+    ],
+  };
+}
+
+function buildFilterWhere(filter: string | null) {
+  const key = String(filter || 'ALL').trim().toUpperCase() as NotificationFilterKey;
+
+  if (key === 'UNREAD') {
+    return { isRead: false };
+  }
+
+  if (key === 'ALERT') {
+    return { OR: buildAlertWhere() };
+  }
+
+  if (key === 'NOTIFICATION') {
+    return { NOT: { OR: buildAlertWhere() } };
+  }
+
+  if (key === 'CRITICAL') {
+    return { OR: buildCriticalWhere() };
+  }
+
+  if (key === 'ACTION') {
+    return { OR: buildActionWhere() };
+  }
+
+  return {};
 }
 
 async function resolveSessionUser(request: NextRequest) {
@@ -83,27 +150,43 @@ function authStatusCode(error: any) {
 export async function GET(request: NextRequest) {
   try {
     const sessionUser = await resolveSessionUser(request);
-    const page = Math.max(1, Number(request.nextUrl.searchParams.get('page') || 1));
-    const limit = Math.min(Math.max(1, Number(request.nextUrl.searchParams.get('limit') || 100)), 200);
+    const pageParam = Number(request.nextUrl.searchParams.get('page') || 1);
+    const limitParam = Number(request.nextUrl.searchParams.get('limit') || 100);
+    const filter = request.nextUrl.searchParams.get('filter');
+    const search = request.nextUrl.searchParams.get('search');
+    const page = Number.isFinite(pageParam) ? Math.max(1, Math.trunc(pageParam)) : 1;
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(1, Math.trunc(limitParam)), 200) : 100;
     const skip = (page - 1) * limit;
 
     await AlertService.syncWarehouseAlerts();
 
-    const where = { userId: sessionUser.id };
-    const [data, unread, total] = await Promise.all([
+    const where = {
+      AND: [{ userId: sessionUser.id }, buildFilterWhere(filter), buildSearchWhere(search)],
+    };
+
+    const [data, total, unread, alerts, critical, actions] = await Promise.all([
       prisma.notification.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-      prisma.notification.count({ where: { userId: sessionUser.id, isRead: false } }),
       prisma.notification.count({ where }),
+      prisma.notification.count({ where: { userId: sessionUser.id, isRead: false } }),
+      prisma.notification.count({ where: { userId: sessionUser.id, OR: buildAlertWhere() } }),
+      prisma.notification.count({ where: { userId: sessionUser.id, OR: buildCriticalWhere() } }),
+      prisma.notification.count({ where: { userId: sessionUser.id, OR: buildActionWhere() } }),
     ]);
 
     return NextResponse.json({
       data,
-      stats: { unread, total },
+      stats: {
+        total: await prisma.notification.count({ where: { userId: sessionUser.id } }),
+        unread,
+        alerts,
+        critical,
+        actions,
+      },
       pagination: {
         page,
         limit,
@@ -123,6 +206,16 @@ export async function PATCH(request: NextRequest) {
   try {
     const sessionUser = await resolveSessionUser(request);
     const body = await request.json();
+
+    if (body?.all) {
+      const result = await prisma.notification.updateMany({
+        where: { userId: sessionUser.id, isRead: false },
+        data: { isRead: true, readAt: new Date() },
+      });
+
+      return NextResponse.json({ data: result });
+    }
+
     const notification = await prisma.notification.findUnique({
       where: { id: String(body.id || '') },
     });

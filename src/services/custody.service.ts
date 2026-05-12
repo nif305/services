@@ -1,4 +1,4 @@
-import { CustodyStatus } from '@prisma/client';
+import { CustodyStatus, ItemType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 export const CustodyService = {
@@ -8,28 +8,58 @@ export const CustodyService = {
     page = 1,
     limit = 50,
     status,
+    returnableOnly = false,
+    excludeReturned = false,
   }: {
     userId: string;
     role: string;
     page?: number;
     limit?: number;
-    status?: string;
+    status?: string | null;
+    returnableOnly?: boolean;
+    excludeReturned?: boolean;
   }) => {
-    const skip = (page - 1) * limit;
+    const safePage = Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : 1;
+    const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(1, Math.trunc(limit)), 200) : 50;
     const normalizedRole = String(role || '').toUpperCase();
+    const normalizedStatus = String(status || '').trim().toUpperCase();
+    const scopeFilters = [
+      normalizedRole === 'USER' ? { userId } : {},
+      returnableOnly ? { item: { type: ItemType.RETURNABLE } } : {},
+      normalizedStatus
+        ? { status: normalizedStatus as CustodyStatus }
+        : excludeReturned
+          ? {
+              status: {
+                in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED],
+              },
+            }
+          : {},
+    ];
 
     const where = {
+      AND: scopeFilters,
+    };
+
+    const statsWhere = {
       AND: [
         normalizedRole === 'USER' ? { userId } : {},
-        status ? { status: status as CustodyStatus } : {},
+        returnableOnly ? { item: { type: ItemType.RETURNABLE } } : {},
+        excludeReturned
+          ? {
+              status: {
+                in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED],
+              },
+            }
+          : {},
       ],
     };
 
-    const [records, total] = await Promise.all([
+    const [records, total, active, overdue, returnRequested] = await Promise.all([
       prisma.custodyRecord.findMany({
         where,
-        skip,
-        take: limit,
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
         include: {
           user: {
             select: {
@@ -59,42 +89,30 @@ export const CustodyService = {
             },
           },
         },
-        orderBy: {
-          issueDate: 'desc',
-        },
+        orderBy: [{ expectedReturn: 'asc' }, { issueDate: 'desc' }],
       }),
       prisma.custodyRecord.count({ where }),
+      prisma.custodyRecord.count({ where: { ...statsWhere, AND: [...statsWhere.AND, { status: CustodyStatus.ACTIVE }] } }),
+      prisma.custodyRecord.count({ where: { ...statsWhere, AND: [...statsWhere.AND, { status: CustodyStatus.OVERDUE }] } }),
+      prisma.custodyRecord.count({
+        where: { ...statsWhere, AND: [...statsWhere.AND, { status: CustodyStatus.RETURN_REQUESTED }] },
+      }),
     ]);
 
     return {
       data: records,
+      stats: {
+        total: excludeReturned ? active + overdue + returnRequested : total,
+        active,
+        overdue,
+        returnRequested,
+      },
       pagination: {
         total,
-        page,
-        totalPages: Math.ceil(total / limit),
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
       },
-    };
-  },
-
-  getStats: async () => {
-    const [active, returnRequested, returned, total] = await Promise.all([
-      prisma.custodyRecord.count({
-        where: { status: CustodyStatus.ACTIVE },
-      }),
-      prisma.custodyRecord.count({
-        where: { status: CustodyStatus.RETURN_REQUESTED },
-      }),
-      prisma.custodyRecord.count({
-        where: { status: CustodyStatus.RETURNED },
-      }),
-      prisma.custodyRecord.count(),
-    ]);
-
-    return {
-      active,
-      returnRequested,
-      returned,
-      total,
     };
   },
 };

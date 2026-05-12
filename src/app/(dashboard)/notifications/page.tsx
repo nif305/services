@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 import { NOTIFICATIONS_UPDATED_EVENT } from '@/lib/notifications';
 import { canonicalizeAppHref } from '@/lib/system';
@@ -25,6 +26,21 @@ type NotificationMeta = {
   severity?: 'info' | 'action' | 'critical';
 };
 
+type NotificationStats = {
+  total: number;
+  unread: number;
+  alerts: number;
+  critical: number;
+  actions: number;
+};
+
+type PaginationState = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 function formatDate(date?: string) {
   if (!date) return '—';
   try {
@@ -40,19 +56,6 @@ function formatDate(date?: string) {
   }
 }
 
-function normalizeArabic(value: string) {
-  return (value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/ؤ/g, 'و')
-    .replace(/ئ/g, 'ي')
-    .replace(/،/g, '')
-    .replace(/\s+/g, ' ');
-}
-
 function normalizeNotification(item: NotificationMeta): NotificationMeta {
   const type = String(item.type || '').toUpperCase();
   const entityType = String(item.entityType || '').toLowerCase();
@@ -61,8 +64,8 @@ function normalizeNotification(item: NotificationMeta): NotificationMeta {
     type.includes('CRITICAL') || type.includes('OUT_OF_STOCK')
       ? 'critical'
       : type.includes('LOW_STOCK') || type.includes('NEW_') || type.includes('PENDING') || type.includes('REMINDER')
-      ? 'action'
-      : 'info';
+        ? 'action'
+        : 'info';
 
   const kind =
     severity === 'critical' || severity === 'action' || entityType === 'message' ? 'alert' : 'notification';
@@ -98,10 +101,6 @@ function badgeClasses(item: NotificationMeta) {
   return 'bg-[#016564]/10 text-[#016564]';
 }
 
-function resolveItemLink(item: NotificationMeta): string | null {
-  return resolveItemLinkForRole(item, 'user');
-}
-
 function resolveItemLinkForRole(item: NotificationMeta, role?: string | null): string | null {
   if (item.link) {
     return canonicalizeAppHref(item.link, role);
@@ -110,10 +109,10 @@ function resolveItemLinkForRole(item: NotificationMeta, role?: string | null): s
   const entityType = String(item.entityType || '').toLowerCase();
 
   if (entityType === 'message' && item.entityId) return `${canonicalizeAppHref('/messages', role)}?open=${item.entityId}`;
-  if (entityType === 'request' && item.entityId) return `/materials/requests?open=${item.entityId}`;
-  if (entityType === 'return' && item.entityId) return `/materials/returns?open=${item.entityId}`;
-  if (entityType === 'custody' && item.entityId) return `/materials/custody?open=${item.entityId}`;
-  if (entityType === 'inventory' && item.entityId) return `/materials/inventory?open=${item.entityId}`;
+  if (entityType === 'request' && item.entityId) return '/materials/requests?open=' + item.entityId;
+  if (entityType === 'return' && item.entityId) return '/materials/returns?open=' + item.entityId;
+  if (entityType === 'custody' && item.entityId) return '/materials/custody?open=' + item.entityId;
+  if (entityType === 'inventory' && item.entityId) return '/materials/inventory?open=' + item.entityId;
   if (entityType === 'suggestion' && item.entityId) return canonicalizeAppHref('/services/requests', role);
 
   return null;
@@ -138,101 +137,103 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<FilterKey>('ALL');
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<NotificationMeta[]>([]);
+  const [stats, setStats] = useState<NotificationStats>({
+    total: 0,
+    unread: 0,
+    alerts: 0,
+    critical: 0,
+    actions: 0,
+  });
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    limit: 5,
+    total: 0,
+    totalPages: 1,
+  });
+  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const deferredSearch = useDeferredValue(search);
 
-  async function refreshNotifications() {
-    const response = await fetch('/api/notifications', {
-      cache: 'no-store',
-      credentials: 'include',
-    }).catch(() => null);
+  const refreshNotifications = useCallback(
+    async (page = pagination.page) => {
+      setLoading(true);
 
-    const json = response ? await response.json().catch(() => null) : null;
-    const rows = Array.isArray(json?.data) ? json.data.map(normalizeNotification) : [];
-    setItems(rows);
-  }
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(pagination.limit),
+        filter,
+      });
 
-  useEffect(() => {
-    if (!user?.id) return;
+      if (deferredSearch.trim()) {
+        params.set('search', deferredSearch.trim());
+      }
 
-    let mounted = true;
-
-    const refresh = async () => {
-      const response = await fetch('/api/notifications', {
+      const response = await fetch(`/api/notifications?${params.toString()}`, {
         cache: 'no-store',
         credentials: 'include',
       }).catch(() => null);
 
       const json = response ? await response.json().catch(() => null) : null;
-      if (!mounted) return;
       const rows = Array.isArray(json?.data) ? json.data.map(normalizeNotification) : [];
+      const nextPagination: PaginationState = {
+        page: Number(json?.pagination?.page || page || 1),
+        limit: Number(json?.pagination?.limit || pagination.limit || 5),
+        total: Number(json?.pagination?.total || 0),
+        totalPages: Math.max(1, Number(json?.pagination?.totalPages || 1)),
+      };
+
+      if (page > nextPagination.totalPages && nextPagination.totalPages > 0) {
+        setPagination((prev) => ({ ...prev, page: nextPagination.totalPages }));
+        return;
+      }
+
       setItems(rows);
+      setStats({
+        total: Number(json?.stats?.total || 0),
+        unread: Number(json?.stats?.unread || 0),
+        alerts: Number(json?.stats?.alerts || 0),
+        critical: Number(json?.stats?.critical || 0),
+        actions: Number(json?.stats?.actions || 0),
+      });
+      setPagination(nextPagination);
+      setLoading(false);
+    },
+    [deferredSearch, filter, pagination.limit, pagination.page]
+  );
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const refresh = () => {
+      void refreshNotifications(pagination.page);
     };
 
     refresh();
-
     window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, refresh);
     window.addEventListener('storage', refresh);
     window.addEventListener('focus', refresh);
 
     return () => {
-      mounted = false;
       window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, refresh);
       window.removeEventListener('storage', refresh);
       window.removeEventListener('focus', refresh);
     };
-  }, [user?.id]);
+  }, [user?.id, pagination.page, refreshNotifications]);
 
-  const stats = useMemo(() => {
-    return {
-      total: items.length,
-      unread: items.filter((item) => !item.isRead).length,
-      alerts: items.filter((item) => item.kind === 'alert').length,
-      critical: items.filter((item) => item.severity === 'critical').length,
-      actions: items.filter((item) => item.severity === 'action').length,
-    };
-  }, [items]);
-
-  const filteredItems = useMemo(() => {
-    const q = normalizeArabic(search);
-
-    return items.filter((item) => {
-      const matchesFilter =
-        filter === 'ALL'
-          ? true
-          : filter === 'UNREAD'
-          ? !item.isRead
-          : filter === 'ALERT'
-          ? item.kind === 'alert'
-          : filter === 'NOTIFICATION'
-          ? item.kind === 'notification'
-          : filter === 'CRITICAL'
-          ? item.severity === 'critical'
-          : item.severity === 'action';
-
-      const haystack = normalizeArabic(
-        [item.title, item.message, item.entityType, item.entityId].filter(Boolean).join(' ')
-      );
-
-      const matchesSearch = q ? haystack.includes(q) : true;
-      return matchesFilter && matchesSearch;
-    });
-  }, [filter, items, search]);
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [filter, deferredSearch]);
 
   const handleMarkAllRead = async () => {
-    const unread = items.filter((item) => !item.isRead);
-    await Promise.all(
-      unread.map((item) =>
-        fetch('/api/notifications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ id: item.id }),
-        }).catch(() => null)
-      )
-    );
+    await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ all: true }),
+    }).catch(() => null);
 
-    setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    await refreshNotifications(pagination.page);
     emitNotificationsUpdated();
   };
 
@@ -244,7 +245,7 @@ export default function NotificationsPage() {
       body: JSON.stringify({ id }),
     }).catch(() => null);
 
-    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, isRead: true } : item)));
+    await refreshNotifications(pagination.page);
     emitNotificationsUpdated();
   };
 
@@ -273,7 +274,8 @@ export default function NotificationsPage() {
           ? `يوجد طلب مرتبط بهذا التذكير مسبقًا برقم ${code}.`
           : `تم تحويل التذكير إلى طلب مدير برقم ${code}.`,
       });
-      await refreshNotifications();
+
+      await refreshNotifications(pagination.page);
       emitNotificationsUpdated();
     } catch (error: any) {
       setFeedback({
@@ -289,7 +291,14 @@ export default function NotificationsPage() {
     const target = resolveItemLinkForRole(item, user?.role);
 
     if (!item.isRead) {
-      await handleMarkRead(item.id);
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: item.id }),
+      }).catch(() => null);
+
+      emitNotificationsUpdated();
     }
 
     if (target) {
@@ -340,11 +349,13 @@ export default function NotificationsPage() {
       </section>
 
       {feedback ? (
-        <section className={`rounded-[24px] border px-4 py-3 text-sm shadow-sm sm:rounded-[28px] ${
-          feedback.type === 'error'
-            ? 'border-red-200 bg-red-50 text-red-700'
-            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-        }`}>
+        <section
+          className={`rounded-[24px] border px-4 py-3 text-sm shadow-sm sm:rounded-[28px] ${
+            feedback.type === 'error'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          }`}
+        >
           {feedback.message}
         </section>
       ) : null}
@@ -385,12 +396,18 @@ export default function NotificationsPage() {
       </section>
 
       <section className="space-y-3">
-        {filteredItems.length === 0 ? (
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map((item) => (
+              <Skeleton key={item} className="h-36 w-full rounded-[24px]" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
           <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-sm sm:rounded-[28px]">
             لا توجد إشعارات مطابقة
           </Card>
         ) : (
-          filteredItems.map((item) => (
+          items.map((item) => (
             <Card
               key={item.id}
               className={`rounded-[24px] border p-4 shadow-sm transition sm:rounded-[28px] sm:p-5 ${itemClasses(item)}`}
@@ -413,9 +430,7 @@ export default function NotificationsPage() {
 
                   <div className="break-words text-sm leading-7 text-[#304342]">{item.message}</div>
 
-                  <div className="text-[12px] text-[#61706f]">
-                    {formatDate(item.createdAt)}
-                  </div>
+                  <div className="text-[12px] text-[#61706f]">{formatDate(item.createdAt)}</div>
                 </div>
 
                 <div className="flex w-full flex-col gap-2 sm:w-auto">
@@ -435,7 +450,7 @@ export default function NotificationsPage() {
                     </Button>
                   ) : null}
 
-                  {resolveItemLink(item) ? (
+                  {resolveItemLinkForRole(item, user?.role) ? (
                     <Button onClick={() => handleOpenItem(item)} className="w-full sm:w-auto">
                       فتح العنصر
                     </Button>
@@ -446,6 +461,38 @@ export default function NotificationsPage() {
           ))
         )}
       </section>
+
+      {!loading && pagination.totalPages > 1 ? (
+        <section className="flex items-center justify-between rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-3 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(prev.page - 1, 1) }))}
+            disabled={pagination.page <= 1}
+            className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            السابق
+          </button>
+          <div className="text-center">
+            <div className="text-sm font-bold text-[#016564]">
+              الصفحة {pagination.page} من {pagination.totalPages}
+            </div>
+            <div className="text-xs text-slate-500">إجمالي الإشعارات في هذا العرض: {pagination.total}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setPagination((prev) => ({
+                ...prev,
+                page: Math.min(prev.page + 1, prev.totalPages),
+              }))
+            }
+            disabled={pagination.page >= pagination.totalPages}
+            className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            التالي
+          </button>
+        </section>
+      ) : null}
     </div>
   );
 }

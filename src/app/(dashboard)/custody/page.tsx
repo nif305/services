@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 
-type CustodyStatus = 'ACTIVE' | 'RETURN_REQUESTED' | 'RETURNED';
+type CustodyStatus = 'ACTIVE' | 'RETURN_REQUESTED' | 'RETURNED' | 'OVERDUE';
 
 type ReturnRequestSummary = {
   id: string;
@@ -36,6 +36,7 @@ type CustodyApiRow = {
   id: string;
   issueDate: string;
   dueDate?: string | null;
+  expectedReturn?: string | null;
   notes?: string | null;
   status: CustodyStatus;
   userId: string;
@@ -52,11 +53,27 @@ type CustodyApiRow = {
   returnRequests?: ReturnRequestSummary[];
 };
 
+type CustodyStats = {
+  total: number;
+  active: number;
+  overdue: number;
+  returnRequested: number;
+};
+
+type PaginationState = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 type CustodyApiResponse = {
   data?: CustodyApiRow[];
+  stats?: CustodyStats;
   pagination?: {
     total: number;
     page: number;
+    limit: number;
     totalPages: number;
   };
 };
@@ -72,12 +89,14 @@ function formatDate(date?: string | null) {
 
 function statusLabel(status: CustodyStatus) {
   if (status === 'ACTIVE') return 'نشطة';
+  if (status === 'OVERDUE') return 'متأخرة';
   if (status === 'RETURN_REQUESTED') return 'طُلب إرجاعها';
   return 'أُعيدت';
 }
 
 function statusVariant(status: CustodyStatus): 'success' | 'warning' | 'danger' | 'neutral' {
   if (status === 'ACTIVE') return 'success';
+  if (status === 'OVERDUE') return 'danger';
   if (status === 'RETURN_REQUESTED') return 'warning';
   return 'neutral';
 }
@@ -94,7 +113,7 @@ function mapCustodyRow(row: CustodyApiRow): CustodyItem | null {
     assignedToUserId: row.userId,
     assignedToUserName: row.user?.fullName || 'المستخدم',
     assignedDate: row.issueDate,
-    dueDate: row.dueDate || null,
+    dueDate: row.dueDate || row.expectedReturn || null,
     notes: row.notes || null,
     status: row.status,
     returnRequests: Array.isArray(row.returnRequests) ? row.returnRequests : [],
@@ -103,15 +122,37 @@ function mapCustodyRow(row: CustodyApiRow): CustodyItem | null {
 
 export default function CustodyPage() {
   const [items, setItems] = useState<CustodyItem[]>([]);
+  const [stats, setStats] = useState<CustodyStats>({
+    total: 0,
+    active: 0,
+    overdue: 0,
+    returnRequested: 0,
+  });
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    limit: 5,
+    total: 0,
+    totalPages: 1,
+  });
   const [loading, setLoading] = useState(true);
   const [submittingReturnId, setSubmittingReturnId] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'ALL' | CustodyStatus>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'OVERDUE' | 'RETURN_REQUESTED'>('ALL');
   const [selectedItem, setSelectedItem] = useState<CustodyItem | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (page = pagination.page) => {
     setLoading(true);
+
     try {
-      const response = await fetch('/api/custody', {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(pagination.limit),
+      });
+
+      if (activeFilter !== 'ALL') {
+        params.set('status', activeFilter);
+      }
+
+      const response = await fetch(`/api/custody?${params.toString()}`, {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
@@ -121,35 +162,47 @@ export default function CustodyPage() {
       const mapped = Array.isArray(data?.data)
         ? (data.data.map(mapCustodyRow).filter(Boolean) as CustodyItem[])
         : [];
+      const nextPagination: PaginationState = {
+        page: Number(data?.pagination?.page || page || 1),
+        limit: Number(data?.pagination?.limit || pagination.limit || 5),
+        total: Number(data?.pagination?.total || 0),
+        totalPages: Math.max(1, Number(data?.pagination?.totalPages || 1)),
+      };
+
+      if (page > nextPagination.totalPages && nextPagination.totalPages > 0) {
+        setPagination((prev) => ({ ...prev, page: nextPagination.totalPages }));
+        return;
+      }
 
       setItems(mapped);
+      setStats({
+        total: Number(data?.stats?.total || 0),
+        active: Number(data?.stats?.active || 0),
+        overdue: Number(data?.stats?.overdue || 0),
+        returnRequested: Number(data?.stats?.returnRequested || 0),
+      });
+      setPagination(nextPagination);
     } catch {
       setItems([]);
+      setStats({ total: 0, active: 0, overdue: 0, returnRequested: 0 });
+      setPagination((prev) => ({ ...prev, total: 0, totalPages: 1 }));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeFilter, pagination.limit, pagination.page]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    void refresh(pagination.page);
+  }, [pagination.page, refresh]);
 
-  const stats = useMemo(() => {
-    return {
-      total: items.filter((i) => i.status !== 'RETURNED').length,
-      active: items.filter((i) => i.status === 'ACTIVE').length,
-      returnRequested: items.filter((i) => i.status === 'RETURN_REQUESTED').length,
-    };
-  }, [items]);
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [activeFilter]);
 
-  const filteredItems = useMemo(() => {
-    const baseItems = items.filter((item) => item.status !== 'RETURNED');
-    if (activeFilter === 'ALL') return baseItems;
-    return baseItems.filter((item) => item.status === activeFilter);
-  }, [items, activeFilter]);
-
-  const pendingReturnFor = (item: CustodyItem) =>
-    item.returnRequests.find((r) => r.status === 'PENDING');
+  const pendingReturnFor = useCallback(
+    (item: CustodyItem) => item.returnRequests.find((r) => r.status === 'PENDING'),
+    []
+  );
 
   const createReturnRequest = async (item: CustodyItem) => {
     if (pendingReturnFor(item) || item.status === 'RETURN_REQUESTED') return;
@@ -177,11 +230,13 @@ export default function CustodyPage() {
         return;
       }
 
-      await refresh();
+      await refresh(pagination.page);
     } finally {
       setSubmittingReturnId(null);
     }
   };
+
+  const showingOverdue = useMemo(() => stats.overdue > 0, [stats.overdue]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -204,23 +259,17 @@ export default function CustodyPage() {
         <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-3 sm:mt-5 sm:gap-4">
           <div className="rounded-[20px] border border-surface-border bg-slate-50 p-3 sm:rounded-[22px] sm:p-4">
             <div className="text-[12px] text-surface-subtle sm:text-[13px]">إجمالي العهد الحالية</div>
-            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
-              {stats.total}
-            </div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">{stats.total}</div>
           </div>
 
           <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-3 sm:rounded-[22px] sm:p-4">
             <div className="text-[12px] text-emerald-700 sm:text-[13px]">عهد نشطة</div>
-            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
-              {stats.active}
-            </div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">{stats.active}</div>
           </div>
 
           <div className="rounded-[20px] border border-amber-200 bg-amber-50 p-3 sm:col-span-2 sm:rounded-[22px] sm:p-4 xl:col-span-1">
             <div className="text-[12px] text-amber-700 sm:text-[13px]">طلبات إرجاع مفتوحة</div>
-            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">
-              {stats.returnRequested}
-            </div>
+            <div className="mt-2 text-[24px] leading-none text-slate-900 sm:text-[32px]">{stats.returnRequested}</div>
           </div>
         </div>
 
@@ -228,11 +277,12 @@ export default function CustodyPage() {
           {[
             { key: 'ALL', label: 'الكل' },
             { key: 'ACTIVE', label: 'نشطة' },
+            { key: 'OVERDUE', label: 'متأخرة' },
             { key: 'RETURN_REQUESTED', label: 'طُلب إرجاعها' },
           ].map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveFilter(tab.key as 'ALL' | CustodyStatus)}
+              onClick={() => setActiveFilter(tab.key as 'ALL' | 'ACTIVE' | 'OVERDUE' | 'RETURN_REQUESTED')}
               className={`min-h-[42px] rounded-full px-4 py-2 text-sm transition ${
                 activeFilter === tab.key
                   ? 'bg-[#016564] text-white'
@@ -242,20 +292,25 @@ export default function CustodyPage() {
               {tab.label}
             </button>
           ))}
+          {showingOverdue ? (
+            <div className="inline-flex min-h-[42px] items-center rounded-full bg-[#7c1e3e]/10 px-4 py-2 text-sm font-bold text-[#7c1e3e]">
+              متأخرة: {stats.overdue}
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="grid gap-3 xl:grid-cols-2 sm:gap-4">
         {loading ? (
           <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
-            جارٍ تحميل العهد...
+            جاري تحميل العهد...
           </Card>
-        ) : filteredItems.length === 0 ? (
+        ) : items.length === 0 ? (
           <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
             لا توجد مواد مسجلة عليك حاليًا
           </Card>
         ) : (
-          filteredItems.map((item) => {
+          items.map((item) => {
             const openReturn = pendingReturnFor(item);
 
             return (
@@ -272,27 +327,21 @@ export default function CustodyPage() {
                       </span>
                     </div>
 
-                    <h3 className="text-[20px] leading-8 text-primary sm:text-[22px]">
-                      {item.itemName}
-                    </h3>
+                    <h3 className="text-[20px] leading-8 text-primary sm:text-[22px]">{item.itemName}</h3>
 
                     <div className="mt-3 grid gap-2 rounded-[18px] bg-slate-50 p-3 text-[13px] leading-7 text-slate-600 sm:rounded-[20px] sm:p-4 md:grid-cols-2">
                       <div>
                         الفئة: <span className="text-slate-900">{item.category || '-'}</span>
                       </div>
                       <div>
-                        تاريخ الاستلام:{' '}
-                        <span className="text-slate-900">{formatDate(item.assignedDate)}</span>
+                        تاريخ الاستلام: <span className="text-slate-900">{formatDate(item.assignedDate)}</span>
                       </div>
                       <div>
-                        موعد الإرجاع:{' '}
-                        <span className="text-slate-900">{formatDate(item.dueDate)}</span>
+                        موعد الإرجاع: <span className="text-slate-900">{formatDate(item.dueDate)}</span>
                       </div>
                       <div>
                         حالة الإرجاع:{' '}
-                        <span className="text-slate-900">
-                          {openReturn ? 'تم رفع طلب إرجاع' : 'لا يوجد'}
-                        </span>
+                        <span className="text-slate-900">{openReturn ? 'تم رفع طلب إرجاع' : 'لا يوجد'}</span>
                       </div>
                     </div>
 
@@ -322,7 +371,7 @@ export default function CustodyPage() {
                         className="w-full sm:w-auto"
                         disabled={submittingReturnId === item.id}
                       >
-                        {submittingReturnId === item.id ? 'جارٍ الإرسال...' : 'طلب إرجاع'}
+                        {submittingReturnId === item.id ? 'جاري الإرسال...' : 'طلب إرجاع'}
                       </Button>
                     )}
                   </div>
@@ -333,11 +382,39 @@ export default function CustodyPage() {
         )}
       </div>
 
-      <Modal
-        isOpen={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
-        title="تفاصيل العهدة"
-      >
+      {!loading && pagination.totalPages > 1 ? (
+        <section className="flex items-center justify-between rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-3 shadow-sm">
+          <button
+            type="button"
+            onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(prev.page - 1, 1) }))}
+            disabled={pagination.page <= 1}
+            className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            السابق
+          </button>
+          <div className="text-center">
+            <div className="text-sm font-bold text-[#016564]">
+              الصفحة {pagination.page} من {pagination.totalPages}
+            </div>
+            <div className="text-xs text-slate-500">إجمالي العهد في هذا العرض: {pagination.total}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setPagination((prev) => ({
+                ...prev,
+                page: Math.min(prev.page + 1, prev.totalPages),
+              }))
+            }
+            disabled={pagination.page >= pagination.totalPages}
+            className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            التالي
+          </button>
+        </section>
+      ) : null}
+
+      <Modal isOpen={!!selectedItem} onClose={() => setSelectedItem(null)} title="تفاصيل العهدة">
         <div className="space-y-4">
           <div className="rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-8 text-slate-700 break-words">
             <div>
@@ -350,18 +427,13 @@ export default function CustodyPage() {
               الفئة: <span className="text-slate-900">{selectedItem?.category || '-'}</span>
             </div>
             <div>
-              تاريخ الاستلام:{' '}
-              <span className="text-slate-900">{formatDate(selectedItem?.assignedDate)}</span>
+              تاريخ الاستلام: <span className="text-slate-900">{formatDate(selectedItem?.assignedDate)}</span>
             </div>
             <div>
-              موعد الإرجاع:{' '}
-              <span className="text-slate-900">{formatDate(selectedItem?.dueDate)}</span>
+              موعد الإرجاع: <span className="text-slate-900">{formatDate(selectedItem?.dueDate)}</span>
             </div>
             <div>
-              الحالة:{' '}
-              <span className="text-slate-900">
-                {selectedItem ? statusLabel(selectedItem.status) : '-'}
-              </span>
+              الحالة: <span className="text-slate-900">{selectedItem ? statusLabel(selectedItem.status) : '-'}</span>
             </div>
           </div>
 

@@ -313,7 +313,7 @@ export default function ReturnsPage() {
       }
 
       const activeCustodies = (data.data || []).filter(
-        (item: CustodyOption) => item.status === 'ACTIVE'
+        (item: CustodyOption) => item.status === 'ACTIVE' || item.status === 'OVERDUE'
       );
       setCustodies(activeCustodies);
     } catch {

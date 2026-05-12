@@ -7,10 +7,7 @@ export default function PendingApprovalPage() {
   const router = useRouter();
 
   return (
-    <div
-      dir="rtl"
-      className="flex min-h-screen items-center justify-center overflow-x-hidden bg-surface px-4 py-6 sm:px-5 sm:py-8"
-    >
+    <div className="flex min-h-screen items-center justify-center overflow-x-hidden bg-surface px-4 py-6 sm:px-5 sm:py-8">
       <div className="w-full max-w-xl rounded-[24px] border border-surface-border bg-white p-5 text-center shadow-soft sm:rounded-[28px] sm:p-8">
         <h1 className="text-[24px] leading-[1.3] text-primary sm:text-[30px]">
           لم تعد هناك مرحلة اعتماد

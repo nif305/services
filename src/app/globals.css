@@ -43,6 +43,10 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+html[dir='ltr'] {
+  direction: ltr;
+}
+
 html,
 body {
   font-family: var(--font-cairo), 'Cairo', sans-serif !important;
@@ -63,6 +67,10 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+html[dir='ltr'] body {
+  text-align: left;
 }
 
 *,
@@ -135,6 +143,18 @@ textarea::placeholder {
   text-align: right;
 }
 
+html[dir='ltr'] input,
+html[dir='ltr'] select,
+html[dir='ltr'] textarea {
+  direction: ltr;
+  text-align: left;
+}
+
+html[dir='ltr'] input::placeholder,
+html[dir='ltr'] textarea::placeholder {
+  text-align: left;
+}
+
 button,
 [role='button'] {
   touch-action: manipulation;
@@ -191,6 +211,19 @@ textarea {
     vertical-align: middle;
     text-align: right;
   }
+
+  html[dir='ltr'] th,
+  html[dir='ltr'] td {
+    text-align: left;
+  }
+}
+
+html[dir='ltr'] .text-right {
+  text-align: left !important;
+}
+
+html[dir='ltr'] .text-left {
+  text-align: right !important;
 }
 
 @layer components {

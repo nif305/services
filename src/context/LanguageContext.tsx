@@ -9,6 +9,7 @@ import React, {
   useState,
 } from 'react';
 import { useAuth, type AppLanguage } from '@/context/AuthContext';
+import { StaticUiTranslator } from '@/components/layout/StaticUiTranslator';
 
 type LanguageContextType = {
   language: AppLanguage;
@@ -49,6 +50,10 @@ function applyDocumentLanguage(language: AppLanguage) {
   document.documentElement.lang = language;
   document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
   document.body.dataset.language = language;
+  document.title =
+    language === 'ar'
+      ? 'منصة حوكمة وإدارة المخزون'
+      : 'Inventory and Requests Management Platform';
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -96,7 +101,12 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [language, setLanguage, toggleLanguage]
   );
 
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+  return (
+    <LanguageContext.Provider value={value}>
+      <StaticUiTranslator language={language} />
+      {children}
+    </LanguageContext.Provider>
+  );
 }
 
 export function useLanguage() {

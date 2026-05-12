@@ -11,6 +11,7 @@ import React, {
 
 type Role = 'manager' | 'warehouse' | 'user';
 type Status = 'active' | 'disabled';
+export type AppLanguage = 'ar' | 'en';
 
 export type AppUser = {
   id: string;
@@ -21,6 +22,7 @@ export type AppUser = {
   extension?: string;
   department?: string;
   jobTitle?: string;
+  preferredLanguage?: AppLanguage;
   operationalProject?: string;
   role: Role;
   roles: Role[];
@@ -89,6 +91,10 @@ function normalizeStatus(status?: string | null): Status {
   return String(status || '').toLowerCase() === 'disabled' ? 'disabled' : 'active';
 }
 
+function normalizeLanguage(language?: string | null): AppLanguage {
+  return String(language || '').toLowerCase() === 'en' ? 'en' : 'ar';
+}
+
 function resolvePrimaryRole(roles: Role[], currentRole?: string | null): Role {
   const normalizedCurrent = normalizeRole(currentRole);
 
@@ -114,6 +120,7 @@ function normalizeUser(user: any): AppUser {
     extension: user?.extension || '',
     department: user?.department || '',
     jobTitle: user?.jobTitle || '',
+    preferredLanguage: normalizeLanguage(user?.preferredLanguage),
     operationalProject: user?.operationalProject || user?.department || '',
     role,
     roles,

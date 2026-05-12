@@ -35,19 +35,24 @@ function normalizeNotification(item: ServerNotification) {
   return { ...item, severity, kind };
 }
 
-function resolveItemLink(item: ReturnType<typeof normalizeNotification>): string | null {
-  return resolveItemLinkForRole(item, 'user');
+function appendOpenParam(href: string, id?: string | null) {
+  if (!id) return href;
+  return `${href}${href.includes('?') ? '&' : '?'}open=${encodeURIComponent(id)}`;
 }
 
 function resolveItemLinkForRole(item: ReturnType<typeof normalizeNotification>, role?: string | null): string | null {
   const entityType = String(item.entityType || '').toLowerCase();
 
-  if (item.link) return canonicalizeAppHref(item.link, role);
+  if (item.link) {
+    const target = canonicalizeAppHref(item.link, role);
+    return entityType === 'suggestion' ? appendOpenParam(target, item.entityId) : target;
+  }
   if (entityType === 'message' && item.entityId) return `${canonicalizeAppHref('/messages', role)}?open=${item.entityId}`;
   if (entityType === 'request' && item.entityId) return `/materials/requests?open=${item.entityId}`;
   if (entityType === 'return' && item.entityId) return `/materials/returns?open=${item.entityId}`;
   if (entityType === 'custody' && item.entityId) return `/materials/custody?open=${item.entityId}`;
   if (entityType === 'inventory' && item.entityId) return `/materials/inventory?open=${item.entityId}`;
+  if (entityType === 'suggestion' && item.entityId) return appendOpenParam(canonicalizeAppHref('/services/requests', role), item.entityId);
 
   return canonicalizeAppHref('/notifications', role);
 }
@@ -122,7 +127,17 @@ export function NotificationBell({ userId }: { userId: string }) {
 
   const markAllRead = async () => {
     const unread = items.filter((item) => !item.isRead);
-    await Promise.all(unread.map((item) => markOneRead(item.id)));
+    if (!unread.length) return;
+
+    await fetch('/api/notifications', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ all: true }),
+    }).catch(() => null);
+
+    setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    window.dispatchEvent(new Event(NOTIFICATIONS_UPDATED_EVENT));
   };
 
   const handleOpenItem = async (item: ReturnType<typeof normalizeNotification>) => {

@@ -68,7 +68,7 @@ function categoryLabel(category: ServiceCategory) {
 }
 
 function categoryRoute(category: ServiceCategory) {
-  return category === 'MAINTENANCE' ? '/maintenance' : '/purchases';
+  return category === 'MAINTENANCE' ? '/services/maintenance' : '/services/purchases';
 }
 
 function buildNotificationTitle(category: ServiceCategory) {
@@ -243,7 +243,6 @@ async function buildSuggestionFromReminder(params: {
   quantity: number;
   requestSource: string;
   serviceItems?: string[];
-  nextMaintenanceDueAt?: Date | null;
 }) {
   const publicCode = await generateSuggestionPublicCode(params.category);
 
@@ -297,15 +296,6 @@ async function buildSuggestionFromReminder(params: {
     requesterName: params.actor.fullName || 'مسؤول المخزن',
     code: publicCode,
   });
-
-  if (params.category === 'MAINTENANCE' && params.nextMaintenanceDueAt) {
-    await prisma.inventoryItem.update({
-      where: { id: params.item.id },
-      data: {
-        nextMaintenanceDueAt: params.nextMaintenanceDueAt,
-      },
-    });
-  }
 
   await markNotificationRead(params.notificationId);
   await createWarehouseConfirmationNotification({
@@ -618,11 +608,6 @@ export const AlertService = {
         };
       }
 
-      let nextDueAt = item.nextMaintenanceDueAt;
-      while (nextDueAt.getTime() <= Date.now()) {
-        nextDueAt = addDays(nextDueAt, item.maintenanceIntervalDays);
-      }
-
       return buildSuggestionFromReminder({
         actor,
         notificationId: notification.id,
@@ -640,7 +625,6 @@ export const AlertService = {
         quantity: 1,
         requestSource: 'تذكير دوري من مسؤول المخزن لصيانة مادة مرتجعة',
         serviceItems: [item.name],
-        nextMaintenanceDueAt: nextDueAt,
       });
     }
 

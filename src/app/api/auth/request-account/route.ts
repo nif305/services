@@ -10,6 +10,10 @@ function normalizeEmail(value?: string | null) {
   return (value || '').trim().toLowerCase();
 }
 
+function normalizeLanguage(value?: string | null) {
+  return String(value || '').trim().toLowerCase() === 'en' ? 'en' : 'ar';
+}
+
 function mapUser(user: any) {
   const roles = Array.isArray(user?.roles)
     ? user.roles.map((role: any) => String(role).toLowerCase())
@@ -32,6 +36,7 @@ function mapUser(user: any) {
     extension: user.jobTitle || '',
     department: user.department,
     jobTitle: user.jobTitle,
+    preferredLanguage: normalizeLanguage(user.preferredLanguage),
     operationalProject: user.department,
     role: primaryRole,
     roles,
@@ -58,6 +63,7 @@ export async function POST(request: NextRequest) {
     const mobile = normalizeText(body?.mobile);
     const extension = normalizeText(body?.extension);
     const operationalProject = normalizeText(body?.operationalProject);
+    const preferredLanguage = normalizeLanguage(body?.preferredLanguage);
     const password = normalizeText(body?.password);
     const undertakingAccepted = !!body?.undertakingAccepted;
 
@@ -95,6 +101,7 @@ export async function POST(request: NextRequest) {
       mobile,
       department: operationalProject || 'لا ينطبق',
       jobTitle: extension || '',
+      preferredLanguage,
       passwordHash: hashPassword(password),
       status: 'ACTIVE',
       avatar: null,

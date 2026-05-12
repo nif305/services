@@ -1,15 +1,32 @@
+import type { AppLanguage } from '@/context/AuthContext';
+import { getTranslation } from '@/lib/i18n';
+
 export type AppRole = 'manager' | 'warehouse' | 'user';
 export type WorkspaceKey = 'materials' | 'services';
 
 export const WORKSPACE_TITLES: Record<WorkspaceKey, string> = {
-  materials: 'نظام المواد والمخزون',
-  services: 'نظام الخدمات والمراسلات',
+  materials: getTranslation('ar', 'workspace.materialsTitle'),
+  services: getTranslation('ar', 'workspace.servicesTitle'),
 };
 
 export const WORKSPACE_DESCRIPTIONS: Record<WorkspaceKey, string> = {
-  materials: 'بيئة مستقلة لطلبات المواد، المخزون، الصرف، والإرجاعات.',
-  services: 'بيئة مستقلة لطلبات الخدمات، الاعتمادات، والمراسلات الخارجية.',
+  materials: getTranslation('ar', 'workspace.materialsDescription'),
+  services: getTranslation('ar', 'workspace.servicesDescription'),
 };
+
+export function getWorkspaceTitle(workspace: WorkspaceKey, language: AppLanguage = 'ar') {
+  return getTranslation(
+    language,
+    workspace === 'materials' ? 'workspace.materialsTitle' : 'workspace.servicesTitle'
+  );
+}
+
+export function getWorkspaceDescription(workspace: WorkspaceKey, language: AppLanguage = 'ar') {
+  return getTranslation(
+    language,
+    workspace === 'materials' ? 'workspace.materialsDescription' : 'workspace.servicesDescription'
+  );
+}
 
 export function normalizeRole(role?: string | null): AppRole {
   const value = String(role || '').toLowerCase();
@@ -24,7 +41,7 @@ export function canAccessWorkspace(role: AppRole, workspace: WorkspaceKey): bool
 }
 
 export function getDefaultWorkspacePath(role?: string | null): string {
-  const normalizedRole = normalizeRole(role);
+  normalizeRole(role);
   return '/portal';
 }
 
@@ -41,29 +58,43 @@ export type WorkspaceNavGroup = {
   items: WorkspaceNavItem[];
 };
 
-function getSharedMessagesItem(workspace: WorkspaceKey): WorkspaceNavItem {
+function label(language: AppLanguage, key: string) {
+  return getTranslation(language, key);
+}
+
+function getSharedMessagesItem(workspace: WorkspaceKey, language: AppLanguage): WorkspaceNavItem {
   return {
     href: workspace === 'materials' ? '/materials/messages' : '/services/messages',
-    label: 'المراسلات الداخلية',
+    label: label(language, 'workspace.internalMessages'),
     roles: ['manager', 'warehouse', 'user'],
   };
 }
 
-export function getWorkspaceGroups(workspace: WorkspaceKey, role: AppRole): WorkspaceNavGroup[] {
+export function getWorkspaceGroups(
+  workspace: WorkspaceKey,
+  role: AppRole,
+  language: AppLanguage = 'ar'
+): WorkspaceNavGroup[] {
   const systemItems: WorkspaceNavItem[] = [];
 
   if (canAccessWorkspace(role, 'materials')) {
-    systemItems.push({ href: '/materials/dashboard', label: 'نظام المواد والمخزون' });
+    systemItems.push({
+      href: '/materials/dashboard',
+      label: label(language, 'workspace.materialsTitle'),
+    });
   }
 
   if (canAccessWorkspace(role, 'services')) {
-    systemItems.push({ href: '/services/dashboard', label: 'نظام الخدمات والمراسلات' });
+    systemItems.push({
+      href: '/services/dashboard',
+      label: label(language, 'workspace.servicesTitle'),
+    });
   }
 
   const groups: WorkspaceNavGroup[] = [
     {
       key: 'systems',
-      title: 'الأنظمة',
+      title: label(language, 'workspace.systems'),
       items: systemItems,
     },
   ];
@@ -72,25 +103,45 @@ export function getWorkspaceGroups(workspace: WorkspaceKey, role: AppRole): Work
     groups.push(
       {
         key: 'dashboard',
-        title: 'لوحة المواد',
+        title: label(language, 'workspace.materialsDashboard'),
         items: [
-          { href: '/materials/dashboard', label: 'لوحة معلومات المواد', roles: ['manager', 'warehouse', 'user'] },
+          {
+            href: '/materials/dashboard',
+            label: label(language, 'workspace.materialsDashboardItem'),
+            roles: ['manager', 'warehouse', 'user'],
+          },
         ],
       },
       {
         key: 'operations',
-        title: 'عمليات المواد',
+        title: label(language, 'workspace.materialsOperations'),
         items: [
-          { href: '/materials/requests', label: role === 'user' ? 'طلب مواد من المخزون' : 'طلبات المواد', roles: ['manager', 'warehouse', 'user'] },
-          { href: '/materials/inventory', label: 'مخزون المواد', roles: ['manager', 'warehouse'] },
-          { href: '/materials/returns', label: role === 'user' ? 'طلبات الإرجاع' : 'إرجاعات المواد', roles: ['manager', 'warehouse', 'user'] },
-          { href: '/materials/custody', label: 'عهدتي', roles: ['user'] },
+          {
+            href: '/materials/requests',
+            label: label(language, role === 'user' ? 'workspace.materialsRequestUser' : 'workspace.materialsRequests'),
+            roles: ['manager', 'warehouse', 'user'],
+          },
+          {
+            href: '/materials/inventory',
+            label: label(language, 'workspace.inventory'),
+            roles: ['manager', 'warehouse'],
+          },
+          {
+            href: '/materials/returns',
+            label: label(language, role === 'user' ? 'workspace.returnsUser' : 'workspace.returns'),
+            roles: ['manager', 'warehouse', 'user'],
+          },
+          {
+            href: '/materials/custody',
+            label: label(language, 'workspace.custody'),
+            roles: ['user'],
+          },
         ],
       },
       {
         key: 'communications',
-        title: 'المراسلات',
-        items: [getSharedMessagesItem(workspace)],
+        title: label(language, 'workspace.communications'),
+        items: [getSharedMessagesItem(workspace, language)],
       }
     );
   }
@@ -99,29 +150,61 @@ export function getWorkspaceGroups(workspace: WorkspaceKey, role: AppRole): Work
     groups.push(
       {
         key: 'dashboard',
-        title: 'لوحة الخدمات',
+        title: label(language, 'workspace.servicesDashboard'),
         items: [
-          { href: '/services/dashboard', label: 'لوحة معلومات الخدمات', roles: ['manager', 'user'] },
+          {
+            href: '/services/dashboard',
+            label: label(language, 'workspace.servicesDashboardItem'),
+            roles: ['manager', 'user'],
+          },
         ],
       },
       {
         key: 'requests',
-        title: 'طلبات الخدمات',
+        title: label(language, 'workspace.serviceRequests'),
         items: [
-          { href: '/services/requests', label: 'بوابة طلبات الخدمات', roles: ['manager', 'user'] },
-          { href: '/services/maintenance', label: 'طلبات الصيانة', roles: ['manager', 'user'] },
-          { href: '/services/cleaning', label: 'طلبات النظافة', roles: ['manager', 'user'] },
-          { href: '/services/purchases', label: 'طلبات الشراء المباشر', roles: ['manager', 'user'] },
-          { href: '/services/other', label: 'الطلبات الأخرى', roles: ['manager', 'user'] },
+          {
+            href: '/services/requests',
+            label: label(language, 'workspace.serviceRequestsPortal'),
+            roles: ['manager', 'user'],
+          },
+          {
+            href: '/services/maintenance',
+            label: label(language, 'workspace.maintenance'),
+            roles: ['manager', 'user'],
+          },
+          {
+            href: '/services/cleaning',
+            label: label(language, 'workspace.cleaning'),
+            roles: ['manager', 'user'],
+          },
+          {
+            href: '/services/purchases',
+            label: label(language, 'workspace.purchases'),
+            roles: ['manager', 'user'],
+          },
+          {
+            href: '/services/other',
+            label: label(language, 'workspace.otherRequests'),
+            roles: ['manager', 'user'],
+          },
         ],
       },
       {
         key: 'approvals',
-        title: 'الاعتمادات والمراسلات',
+        title: label(language, 'workspace.approvalsAndMessages'),
         items: [
-          { href: '/services/approvals', label: 'اعتماد طلبات الخدمات', roles: ['manager'] },
-          { href: '/services/email-drafts', label: 'المراسلات الخارجية', roles: ['manager'] },
-          getSharedMessagesItem(workspace),
+          {
+            href: '/services/approvals',
+            label: label(language, 'workspace.serviceApprovals'),
+            roles: ['manager'],
+          },
+          {
+            href: '/services/email-drafts',
+            label: label(language, 'workspace.externalMessages'),
+            roles: ['manager'],
+          },
+          getSharedMessagesItem(workspace, language),
         ],
       }
     );
@@ -130,12 +213,28 @@ export function getWorkspaceGroups(workspace: WorkspaceKey, role: AppRole): Work
   if (role === 'manager') {
     groups.push({
       key: 'governance',
-      title: 'الإدارة العامة',
+      title: label(language, 'workspace.governance'),
       items: [
-        { href: workspace === 'materials' ? '/materials/users' : '/services/users', label: 'المستخدمون', roles: ['manager'] },
-        { href: workspace === 'materials' ? '/materials/reports' : '/services/reports', label: 'التقارير', roles: ['manager'] },
-        { href: workspace === 'materials' ? '/materials/archive' : '/services/archive', label: 'الأرشيف', roles: ['manager'] },
-        { href: workspace === 'materials' ? '/materials/audit-logs' : '/services/audit-logs', label: 'سجل التدقيق', roles: ['manager'] },
+        {
+          href: workspace === 'materials' ? '/materials/users' : '/services/users',
+          label: label(language, 'workspace.users'),
+          roles: ['manager'],
+        },
+        {
+          href: workspace === 'materials' ? '/materials/reports' : '/services/reports',
+          label: label(language, 'workspace.reports'),
+          roles: ['manager'],
+        },
+        {
+          href: workspace === 'materials' ? '/materials/archive' : '/services/archive',
+          label: label(language, 'workspace.archive'),
+          roles: ['manager'],
+        },
+        {
+          href: workspace === 'materials' ? '/materials/audit-logs' : '/services/audit-logs',
+          label: label(language, 'workspace.auditLogs'),
+          roles: ['manager'],
+        },
       ],
     });
   }

@@ -3,18 +3,16 @@
 import { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
+import { LanguageToggle } from '@/components/layout/LanguageToggle';
 import { type AppRole, type WorkspaceKey } from '@/lib/workspace';
 
 const ROLE_ORDER: AppRole[] = ['manager', 'warehouse', 'user'];
-const ROLE_LABELS: Record<AppRole, string> = {
-  manager: 'مدير',
-  warehouse: 'مسؤول مخزن',
-  user: 'موظف',
-};
 
 export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { t } = useI18n();
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
 
   const availableRoles = useMemo<AppRole[]>(() => {
@@ -37,14 +35,14 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
             onClick={() => router.push('/portal')}
             className="inline-flex h-12 items-center rounded-2xl border border-[#dbe5e3] bg-[#f7f9f9] px-4 text-[14px] font-semibold text-[#27494a] transition hover:border-[#2A6364]/35 hover:bg-white"
           >
-            اختيار النظام
+            {t('common.chooseSystem')}
           </button>
 
           <div className="flex items-center gap-2 rounded-2xl border border-[#dbe5e3] bg-[#fbfcfc] px-3 py-2">
             <button
               type="button"
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#e3ecea] bg-white text-[#2A6364]"
-              aria-label="الإشعارات"
+              aria-label={t('common.notifications')}
             >
               <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
                 <path d="M6.5 16.5h11l-1.25-1.7v-4a4.75 4.75 0 10-9.5 0v4L5.5 16.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
@@ -60,7 +58,7 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
                 </svg>
               </span>
               <div className="min-w-0">
-                <div className="truncate text-[17px] font-bold text-[#223738]">{user?.fullName || 'مستخدم النظام'}</div>
+                <div className="truncate text-[17px] font-bold text-[#223738]">{user?.fullName || t('common.systemUser')}</div>
                 <div className="truncate text-[12px] text-[#7a8d8b]">{user?.email || ''}</div>
               </div>
             </div>
@@ -68,6 +66,8 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <LanguageToggle />
+
           {canUseRoleSwitch && availableRoles.length > 1 ? (
             <div className="inline-flex items-center gap-1 rounded-[20px] border border-[#dbe5e3] bg-[#f7f9f9] p-1">
               {availableRoles.map((role) => {
@@ -81,7 +81,7 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
                       ? 'min-w-[116px] rounded-[16px] bg-[#2A6364] px-4 py-2.5 text-[15px] font-semibold text-white shadow-[0_14px_28px_-22px_rgba(42,99,100,0.8)]'
                       : 'min-w-[116px] rounded-[16px] px-4 py-2.5 text-[15px] font-semibold text-[#3e5756] transition hover:bg-white'}
                   >
-                    {ROLE_LABELS[role]}
+                    {t(`roles.${role}`)}
                   </button>
                 );
               })}
@@ -93,7 +93,7 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
             onClick={logout}
             className="inline-flex h-12 items-center rounded-2xl border border-[#dbe5e3] bg-white px-5 text-[14px] font-semibold text-[#2f4a4a] transition hover:border-[#2A6364]/35 hover:bg-[#f8fbfb]"
           >
-            تسجيل الخروج
+            {t('common.logout')}
           </button>
         </div>
       </div>

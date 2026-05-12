@@ -19,6 +19,10 @@ function getPrimaryRole(roles: string[]): string {
   return 'user';
 }
 
+function normalizeLanguage(value?: string | null) {
+  return String(value || '').trim().toLowerCase() === 'en' ? 'en' : 'ar';
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -72,6 +76,7 @@ export async function POST(request: NextRequest) {
         extension: user.jobTitle || '',
         department: user.department,
         jobTitle: user.jobTitle,
+        preferredLanguage: normalizeLanguage((user as any).preferredLanguage),
         operationalProject: user.department || '',
         role: primaryRole,
         roles,
@@ -107,6 +112,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set('user_name', user.fullName || '', cookieOptions);
     response.cookies.set('user_department', user.department || '', cookieOptions);
     response.cookies.set('user_employee_id', user.employeeId || '', cookieOptions);
+    response.cookies.set('preferred_language', normalizeLanguage((user as any).preferredLanguage), cookieOptions);
 
     return response;
   } catch {

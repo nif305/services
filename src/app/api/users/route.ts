@@ -40,6 +40,10 @@ function normalizeStatusFilter(value?: string | null): Status | null {
   return null;
 }
 
+function normalizeLanguage(value?: string | null) {
+  return String(value || '').trim().toLowerCase() === 'en' ? 'en' : 'ar';
+}
+
 function getPrimaryRole(roles: PrismaRole[]): 'manager' | 'warehouse' | 'user' {
   if (roles.includes('MANAGER')) return 'manager';
   if (roles.includes('WAREHOUSE')) return 'warehouse';
@@ -58,6 +62,7 @@ function mapUser(user: any) {
     extension: user.jobTitle || '',
     department: user.department,
     jobTitle: user.jobTitle,
+    preferredLanguage: normalizeLanguage(user.preferredLanguage),
     operationalProject: user.department,
     role: getPrimaryRole(roles),
     roles: roles.map((role: PrismaRole) => role.toLowerCase()),
@@ -193,6 +198,7 @@ export async function POST(request: NextRequest) {
     const mobile = normalizeText(body?.mobile);
     const extension = normalizeText(body?.extension);
     const operationalProject = normalizeText(body?.operationalProject);
+    const preferredLanguage = normalizeLanguage(body?.preferredLanguage);
     const password = normalizeText(body?.password);
     const roles = normalizeRoles(body?.roles ?? body?.role ?? 'user');
 
@@ -216,6 +222,7 @@ export async function POST(request: NextRequest) {
         mobile,
         department: operationalProject || 'لا ينطبق',
         jobTitle: extension || '',
+        preferredLanguage,
         passwordHash: hashPassword(password),
         roles,
         status: 'ACTIVE',

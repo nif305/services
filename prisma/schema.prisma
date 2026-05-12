@@ -15,6 +15,7 @@ model User {
   mobile           String
   department       String
   jobTitle         String
+  preferredLanguage String           @default("ar")
   passwordHash     String
   roles            Role[]             @default([USER])
   status           Status             @default(PENDING)

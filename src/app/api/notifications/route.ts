@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma';
 import { AlertService } from '@/services/alert.service';
 
 type NotificationFilterKey = 'ALL' | 'UNREAD' | 'ALERT' | 'NOTIFICATION' | 'CRITICAL' | 'ACTION';
+const WAREHOUSE_ALERT_SYNC_INTERVAL_MS = 15 * 60 * 1000;
+const WAREHOUSE_ALERT_SYNC_ACTION = 'SYNC_WAREHOUSE_ALERTS';
+const WAREHOUSE_ALERT_SYNC_ENTITY = 'warehouse-alert-sync';
 
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
@@ -147,6 +150,42 @@ function authStatusCode(error: any) {
   return null;
 }
 
+async function syncWarehouseAlertsWhenDue(sessionUser: Awaited<ReturnType<typeof resolveSessionUser>>) {
+  if (sessionUser.role !== Role.WAREHOUSE) return;
+
+  try {
+    const latestSync = await prisma.auditLog.findFirst({
+      where: {
+        action: WAREHOUSE_ALERT_SYNC_ACTION,
+        entity: 'Notification',
+        entityId: WAREHOUSE_ALERT_SYNC_ENTITY,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    if (latestSync && Date.now() - latestSync.createdAt.getTime() < WAREHOUSE_ALERT_SYNC_INTERVAL_MS) {
+      return;
+    }
+
+    await AlertService.syncWarehouseAlerts();
+    await prisma.auditLog.create({
+      data: {
+        userId: sessionUser.id,
+        action: WAREHOUSE_ALERT_SYNC_ACTION,
+        entity: 'Notification',
+        entityId: WAREHOUSE_ALERT_SYNC_ENTITY,
+        details: JSON.stringify({
+          source: 'notifications-api',
+          intervalMinutes: WAREHOUSE_ALERT_SYNC_INTERVAL_MS / 60000,
+        }),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to sync warehouse alerts before loading notifications', error);
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const sessionUser = await resolveSessionUser(request);
@@ -158,7 +197,7 @@ export async function GET(request: NextRequest) {
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(1, Math.trunc(limitParam)), 200) : 100;
     const skip = (page - 1) * limit;
 
-    await AlertService.syncWarehouseAlerts();
+    await syncWarehouseAlertsWhenDue(sessionUser);
 
     const where = {
       AND: [{ userId: sessionUser.id }, buildFilterWhere(filter), buildSearchWhere(search)],

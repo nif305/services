@@ -53,6 +53,67 @@ function parseJsonObject(value: any): JsonObject {
   }
 }
 
+function addDays(value: Date, days: number) {
+  const next = new Date(value);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function parseDate(value: any) {
+  const parsed = new Date(String(value || ''));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+async function advanceWarehouseMaintenanceReminderCycle(params: {
+  suggestionId: string;
+  justificationData: JsonObject;
+  approvedById: string;
+}) {
+  const reminder = parseJsonObject(params.justificationData.warehouseReminder);
+  if (String(reminder.kind || '') !== 'MAINTENANCE_DUE') return null;
+
+  const itemId = String(reminder.itemId || '').trim();
+  if (!itemId) return null;
+
+  const item = await prisma.inventoryItem.findUnique({
+    where: { id: itemId },
+    select: {
+      id: true,
+      maintenanceIntervalDays: true,
+      nextMaintenanceDueAt: true,
+    },
+  });
+
+  const intervalDays = Number(reminder.intervalDays || item?.maintenanceIntervalDays || 0);
+  if (!item || !Number.isFinite(intervalDays) || intervalDays <= 0) return null;
+
+  let nextDueAt = parseDate(reminder.dueAt) || item.nextMaintenanceDueAt || new Date();
+  while (nextDueAt.getTime() <= Date.now()) {
+    nextDueAt = addDays(nextDueAt, intervalDays);
+  }
+
+  await prisma.inventoryItem.update({
+    where: { id: item.id },
+    data: { nextMaintenanceDueAt: nextDueAt },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      userId: params.approvedById,
+      action: 'ADVANCE_MAINTENANCE_REMINDER_CYCLE',
+      entity: 'InventoryItem',
+      entityId: item.id,
+      details: JSON.stringify({
+        suggestionId: params.suggestionId,
+        intervalDays,
+        nextMaintenanceDueAt: nextDueAt.toISOString(),
+      }),
+    },
+  });
+
+  return nextDueAt;
+}
+
 async function resolveSessionUser(request: NextRequest) {
   const cookieId = decodeURIComponent(request.cookies.get('user_id')?.value || '').trim();
   const cookieEmail = decodeURIComponent(request.cookies.get('user_email')?.value || '').trim();
@@ -319,6 +380,7 @@ export async function GET(request: NextRequest) {
     const categoryParam = request.nextUrl.searchParams.get('category') || request.nextUrl.searchParams.get('type') || '';
     const category = categoryParam ? normalizeCategory(categoryParam) : null;
     const scope = String(request.nextUrl.searchParams.get('scope') || 'active').toLowerCase();
+    const openId = String(request.nextUrl.searchParams.get('open') || '').trim();
     const page = Math.max(1, Number(request.nextUrl.searchParams.get('page') || 1));
     const limit = Math.min(50, Math.max(1, Number(request.nextUrl.searchParams.get('limit') || 20)));
 
@@ -335,7 +397,7 @@ export async function GET(request: NextRequest) {
       ...(statusFilter ? { status: statusFilter } : {}),
     };
 
-    const [total, suggestions, pendingCount, approvedCount, rejectedCount] = await Promise.all([
+    const [total, pageSuggestions, pendingCount, approvedCount, rejectedCount] = await Promise.all([
       prisma.suggestion.count({ where }),
       prisma.suggestion.findMany({
         where,
@@ -365,6 +427,20 @@ export async function GET(request: NextRequest) {
         },
       }),
     ]);
+
+    let suggestions = pageSuggestions;
+    if (openId && !suggestions.some((item) => item.id === openId)) {
+      const openSuggestion = await prisma.suggestion.findFirst({
+        where: {
+          ...where,
+          id: openId,
+        },
+      });
+
+      if (openSuggestion) {
+        suggestions = [openSuggestion, ...suggestions.filter((item) => item.id !== openId)].slice(0, limit);
+      }
+    }
 
     const users = await prisma.user.findMany({
       where: { id: { in: [...new Set(suggestions.map((s) => s.requesterId))] } },
@@ -761,6 +837,18 @@ export async function PATCH(request: NextRequest) {
       },
     });
 
+    const advancedMaintenanceDueAt =
+      category === 'MAINTENANCE'
+        ? await advanceWarehouseMaintenanceReminderCycle({
+            suggestionId,
+            justificationData,
+            approvedById: sessionUser.id,
+          }).catch((error) => {
+            console.error('Failed to advance warehouse maintenance reminder cycle', error);
+            return null;
+          })
+        : null;
+
     await notifyRequesterAboutSuggestion({
       requesterId: suggestion.requesterId,
       suggestionId,
@@ -775,7 +863,12 @@ export async function PATCH(request: NextRequest) {
         action: 'APPROVE_SUGGESTION',
         entity: 'Suggestion',
         entityId: suggestionId,
-        details: JSON.stringify({ code: linkedCode, category, linkedDraftId: draft.id }),
+        details: JSON.stringify({
+          code: linkedCode,
+          category,
+          linkedDraftId: draft.id,
+          nextMaintenanceDueAt: advancedMaintenanceDueAt?.toISOString() || null,
+        }),
       },
     });
 

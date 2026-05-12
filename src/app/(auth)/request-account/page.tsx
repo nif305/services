@@ -2,15 +2,34 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { LanguageToggle } from '@/components/layout/LanguageToggle';
+import { useI18n } from '@/hooks/useI18n';
 
 const projects = [
-  'مشروع القيادة الأمنية',
-  'مشروع التهديدات الحديثة',
-  'مشروع الوقاية الأمنية',
-  'لا ينطبق',
+  {
+    value: 'مشروع القيادة الأمنية',
+    ar: 'مشروع القيادة الأمنية',
+    en: 'Security Leadership Project',
+  },
+  {
+    value: 'مشروع التهديدات الحديثة',
+    ar: 'مشروع التهديدات الحديثة',
+    en: 'Modern Threats Project',
+  },
+  {
+    value: 'مشروع الوقاية الأمنية',
+    ar: 'مشروع الوقاية الأمنية',
+    en: 'Security Prevention Project',
+  },
+  {
+    value: 'لا ينطبق',
+    ar: 'لا ينطبق',
+    en: 'Not applicable',
+  },
 ];
 
 export default function RequestAccountPage() {
+  const { t, direction, language } = useI18n();
   const [submitted, setSubmitted] = useState(false);
   const [undertakingAccepted, setUndertakingAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -25,17 +44,17 @@ export default function RequestAccountPage() {
     confirmPassword: '',
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
 
     if (!undertakingAccepted) {
-      setError('يجب قبول التعهد قبل إرسال الطلب.');
+      setError(language === 'en' ? 'Please accept the undertaking before creating the account.' : 'يجب قبول التعهد قبل إرسال الطلب.');
       return;
     }
 
     if (form.password !== form.confirmPassword) {
-      setError('كلمة المرور وتأكيدها غير متطابقين.');
+      setError(language === 'en' ? 'Password and confirmation do not match.' : 'كلمة المرور وتأكيدها غير متطابقين.');
       return;
     }
 
@@ -51,6 +70,7 @@ export default function RequestAccountPage() {
           mobile: form.mobile,
           extension: form.extension,
           operationalProject: form.operationalProject,
+          preferredLanguage: language,
           password: form.password,
           undertakingAccepted,
         }),
@@ -59,7 +79,11 @@ export default function RequestAccountPage() {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        setError(data?.error || 'تعذر إنشاء الحساب');
+        setError(
+          language === 'en'
+            ? data?.error || 'Unable to create the account.'
+            : data?.error || 'تعذر إنشاء الحساب'
+        );
         return;
       }
 
@@ -70,14 +94,14 @@ export default function RequestAccountPage() {
   };
 
   const inputClassName =
-    'min-h-[48px] w-full min-w-0 rounded-[16px] border border-[#d7dde2] bg-white px-4 text-right text-[14px] text-[#1f2a44] outline-none transition placeholder:text-[#9aa3b2] focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10';
+    'min-h-[48px] w-full min-w-0 rounded-[16px] border border-[#d7dde2] bg-white px-4 text-[14px] text-[#1f2a44] outline-none transition placeholder:text-[#9aa3b2] focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10';
 
   const labelClassName =
-    'mb-2 block text-right text-[13px] font-semibold text-[#2a3550]';
+    'mb-2 block text-[13px] font-semibold text-[#2a3550]';
 
   return (
     <div
-      dir="rtl"
+      dir={direction}
       className="min-h-screen overflow-x-hidden bg-[#edf3f2]"
       style={{
         background:
@@ -96,7 +120,7 @@ export default function RequestAccountPage() {
               <div className="relative flex min-h-[150px] w-[340px] items-center justify-center rounded-[24px] border border-white/10 bg-white/8 px-6 shadow-[0_18px_40px_rgba(0,0,0,0.16)] backdrop-blur-xl">
                 <img
                   src="/nauss-gold-logo.png"
-                  alt="شعار جامعة نايف"
+                  alt={t('portal.naussLogoAlt')}
                   className="max-h-[175px] w-auto object-contain"
                 />
               </div>
@@ -104,9 +128,9 @@ export default function RequestAccountPage() {
 
             <div className="rounded-[20px] border border-white/10 bg-white/10 px-5 py-3 shadow-[0_12px_28px_rgba(0,0,0,0.12)] backdrop-blur-xl">
               <p className="text-[18px] font-normal leading-[1.7]">
-                إنشاء حساب جديد
+                {t('auth.requestAccountHeroTitle')}
                 <br />
-                والدخول مباشرة إلى المنصة
+                {t('auth.requestAccountHeroSubtitle')}
               </p>
             </div>
           </div>
@@ -119,64 +143,47 @@ export default function RequestAccountPage() {
           </div>
 
           <div className="relative z-10 w-full max-w-[520px]">
-            <div className="mb-4 lg:hidden">
-              <div className="rounded-[26px] border border-white/15 bg-[linear-gradient(135deg,#015857_0%,#016564_50%,#0b7f7c_100%)] p-4 sm:rounded-[30px] sm:p-5">
-                <div className="flex items-center justify-center rounded-[22px] border border-white/10 bg-white/5 px-4 py-5 sm:rounded-[24px] sm:px-5 sm:py-6">
-                  <img
-                    src="/nauss-gold-logo.png"
-                    alt="شعار جامعة نايف"
-                    className="max-h-[72px] w-auto object-contain sm:max-h-[82px]"
-                  />
-                </div>
-
-                <div className="mt-4 rounded-[20px] border border-white/10 bg-white/10 px-4 py-4 text-center text-white sm:rounded-[22px]">
-                  <p className="text-lg font-normal leading-[1.8] sm:text-2xl sm:leading-[1.7]">
-                    إنشاء حساب جديد
-                    <br />
-                    والدخول مباشرة إلى المنصة
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <div className="rounded-[26px] border border-white/80 bg-white/95 p-4 shadow-[0_12px_32px_rgba(15,23,42,0.07)] backdrop-blur-xl sm:rounded-[30px] sm:p-6">
               <div className="mb-5 text-center">
                 <h1 className="text-[26px] font-normal text-[#0f1d3b] sm:text-[34px]">
-                  إنشاء حساب
+                  {t('auth.requestAccountTitle')}
                 </h1>
+                <div className="mt-4 flex justify-center">
+                  <LanguageToggle />
+                </div>
               </div>
 
               {submitted ? (
                 <div className="space-y-3 rounded-[16px] border border-emerald-200 bg-emerald-50 px-4 py-4 text-center">
                   <div className="text-[14px] leading-7 text-emerald-700">
-                    تم إنشاء الحساب بنجاح. يمكنك الآن تسجيل الدخول واستخدام المنصة مباشرة.
+                    {t('auth.accountCreated')}
                   </div>
                   <Link
                     href="/login"
                     className="inline-flex min-h-[44px] items-center justify-center rounded-[14px] bg-[#016564] px-4 py-2 text-[14px] text-white"
                   >
-                    الانتقال إلى تسجيل الدخول
+                    {t('auth.goToLogin')}
                   </Link>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className={labelClassName}>الاسم كامل</label>
+                    <label className={labelClassName}>{t('auth.fullName')}</label>
                     <input
                       type="text"
                       value={form.fullName}
-                      onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                      onChange={(event) => setForm({ ...form, fullName: event.target.value })}
                       className={inputClassName}
                       required
                     />
                   </div>
 
                   <div>
-                    <label className={labelClassName}>البريد الإلكتروني</label>
+                    <label className={labelClassName}>{t('auth.loginEmail')}</label>
                     <input
                       type="email"
                       value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      onChange={(event) => setForm({ ...form, email: event.target.value })}
                       className={inputClassName}
                       required
                     />
@@ -184,62 +191,67 @@ export default function RequestAccountPage() {
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label className={labelClassName}>رقم الجوال</label>
+                      <label className={labelClassName}>{t('auth.mobile')}</label>
                       <input
                         type="text"
                         value={form.mobile}
-                        onChange={(e) => setForm({ ...form, mobile: e.target.value })}
+                        onChange={(event) => setForm({ ...form, mobile: event.target.value })}
                         className={inputClassName}
                         required
                       />
                     </div>
 
                     <div>
-                      <label className={labelClassName}>التحويلة</label>
+                      <label className={labelClassName}>{t('auth.extension')}</label>
                       <input
                         type="text"
                         value={form.extension}
-                        onChange={(e) => setForm({ ...form, extension: e.target.value })}
+                        onChange={(event) => setForm({ ...form, extension: event.target.value })}
                         className={inputClassName}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className={labelClassName}>المشروع التشغيلي</label>
+                    <label className={labelClassName}>{t('auth.operationalProject')}</label>
                     <select
                       value={form.operationalProject}
-                      onChange={(e) => setForm({ ...form, operationalProject: e.target.value })}
+                      onChange={(event) => setForm({ ...form, operationalProject: event.target.value })}
                       className={inputClassName}
                       required
                     >
-                      <option value="">اختر المشروع التشغيلي</option>
+                      <option value="">{t('auth.chooseOperationalProject')}</option>
                       {projects.map((project) => (
-                        <option key={project} value={project}>
-                          {project}
+                        <option key={project.value} value={project.value}>
+                          {language === 'en' ? project.en : project.ar}
                         </option>
                       ))}
                     </select>
                   </div>
 
+                  <div className="rounded-[16px] border border-[#d8dee1] bg-[#fbfcfc] px-4 py-4">
+                    <div className="mb-3 text-[13px] font-semibold text-[#2a3550]">{t('auth.preferredLanguage')}</div>
+                    <LanguageToggle />
+                  </div>
+
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
-                      <label className={labelClassName}>كلمة المرور</label>
+                      <label className={labelClassName}>{t('auth.password')}</label>
                       <input
                         type="password"
                         value={form.password}
-                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        onChange={(event) => setForm({ ...form, password: event.target.value })}
                         className={inputClassName}
                         required
                       />
                     </div>
 
                     <div>
-                      <label className={labelClassName}>تأكيد كلمة المرور</label>
+                      <label className={labelClassName}>{t('auth.confirmPassword')}</label>
                       <input
                         type="password"
                         value={form.confirmPassword}
-                        onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                        onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })}
                         className={inputClassName}
                         required
                       />
@@ -250,13 +262,10 @@ export default function RequestAccountPage() {
                     <input
                       type="checkbox"
                       checked={undertakingAccepted}
-                      onChange={(e) => setUndertakingAccepted(e.target.checked)}
+                      onChange={(event) => setUndertakingAccepted(event.target.checked)}
                       className="mt-1 h-4 w-4 shrink-0 rounded border border-[#aab3ba] text-[#016564] focus:ring-[#016564]"
                     />
-                    <span className="min-w-0">
-                      أتعهد بالمحافظة على سرية بيانات الدخول وصحة البيانات المدخلة،
-                      وأتحمل مسؤولية استخدام الحساب وفق الأنظمة والإجراءات المعتمدة.
-                    </span>
+                    <span className="min-w-0">{t('auth.undertaking')}</span>
                   </label>
 
                   {error ? (
@@ -275,15 +284,15 @@ export default function RequestAccountPage() {
                     }
                     className="flex min-h-[50px] w-full items-center justify-center rounded-[16px] bg-[#0b8a88] px-4 text-[15px] text-white shadow-[0_10px_22px_rgba(11,138,136,0.16)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {loading ? 'جارٍ إنشاء الحساب...' : 'إنشاء الحساب'}
+                    {loading ? t('auth.creatingAccount') : t('auth.createAccount')}
                   </button>
                 </form>
               )}
 
               <div className="mt-5 text-center text-[14px] leading-7 text-[#5f687b]">
-                لديك حساب بالفعل؟
-                <Link href="/login" className="mr-2 text-[#016564]">
-                  تسجيل الدخول
+                {t('auth.alreadyHaveAccount')}
+                <Link href="/login" className="mx-2 text-[#016564]">
+                  {t('auth.loginLink')}
                 </Link>
               </div>
             </div>

@@ -38,6 +38,7 @@ function getPrimaryRole(roles: UiRole[]): UiRole {
   return 'user';
 }
 function toPrismaStatus(status?: string) { return status === 'disabled' ? 'DISABLED' : 'ACTIVE'; }
+function normalizeLanguage(value?: string | null) { return String(value || '').trim().toLowerCase() === 'en' ? 'en' : 'ar'; }
 function mapUser(user: any) {
   const uiRoles = toUiRoles(user?.roles || user?.role);
   return {
@@ -49,6 +50,7 @@ function mapUser(user: any) {
     extension: user.jobTitle || '',
     department: user.department,
     jobTitle: user.jobTitle,
+    preferredLanguage: normalizeLanguage(user.preferredLanguage),
     operationalProject: user.department,
     role: getPrimaryRole(uiRoles),
     roles: uiRoles,
@@ -85,6 +87,10 @@ async function updateUserHandler(request: NextRequest, context: { params: Promis
       return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
     }
 
+    const preferredLanguage = body?.preferredLanguage
+      ? normalizeLanguage(body.preferredLanguage)
+      : normalizeLanguage(currentUser.preferredLanguage);
+
     if (email) {
       const duplicated = await prisma.user.findFirst({ where: { email, NOT: { id } } });
       if (duplicated) {
@@ -102,6 +108,7 @@ async function updateUserHandler(request: NextRequest, context: { params: Promis
         mobile: mobile || currentUser.mobile,
         department: operationalProject || department || currentUser.department,
         jobTitle: extension || jobTitle || currentUser.jobTitle,
+        preferredLanguage,
         passwordHash: password ? hashPassword(password) : currentUser.passwordHash,
         roles: requestedRoles,
         status: status ? toPrismaStatus(status) : currentUser.status,

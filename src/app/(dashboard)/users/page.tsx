@@ -7,7 +7,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useAuth } from '@/context/AuthContext';
+import { type AppLanguage, useAuth } from '@/context/AuthContext';
 
 type RoleValue = 'manager' | 'warehouse' | 'user';
 type UserStatus = 'active' | 'disabled';
@@ -24,6 +24,7 @@ type UserRow = {
   operationalProject?: string | null;
   role: RoleValue;
   roles: RoleValue[];
+  preferredLanguage: AppLanguage;
   status: UserStatus;
   createdAt?: string | null;
 };
@@ -36,6 +37,7 @@ type FormState = {
   operationalProject: string;
   hasManagerRole: boolean;
   hasWarehouseRole: boolean;
+  preferredLanguage: AppLanguage;
   status: UserStatus;
   password: string;
   confirmPassword: string;
@@ -65,6 +67,7 @@ const emptyForm: FormState = {
   operationalProject: '',
   hasManagerRole: false,
   hasWarehouseRole: false,
+  preferredLanguage: 'ar',
   status: 'active',
   password: '',
   confirmPassword: '',
@@ -107,6 +110,14 @@ function normalizeRoles(value: unknown): RoleValue[] {
   const set = new Set<RoleValue>(['user', ...normalized]);
 
   return allowed.filter((role) => set.has(role));
+}
+
+function normalizeLanguage(value: unknown): AppLanguage {
+  return value === 'en' ? 'en' : 'ar';
+}
+
+function languageLabel(language: AppLanguage) {
+  return language === 'en' ? 'English' : 'العربية';
 }
 
 function getPrimaryRole(roles: RoleValue[]): RoleValue {
@@ -179,6 +190,7 @@ function normalizeUser(row: any): UserRow {
     operationalProject: row?.operationalProject ?? '',
     role: getPrimaryRole(roles),
     roles,
+    preferredLanguage: normalizeLanguage(row?.preferredLanguage),
     status: row?.status === 'disabled' ? 'disabled' : 'active',
     createdAt: row?.createdAt ?? null,
   };
@@ -328,6 +340,7 @@ export default function UsersPage() {
       operationalProject: row.operationalProject || row.department || '',
       hasManagerRole: row.roles.includes('manager'),
       hasWarehouseRole: row.roles.includes('warehouse'),
+      preferredLanguage: row.preferredLanguage || 'ar',
       status: row.status,
       password: '',
       confirmPassword: '',
@@ -365,6 +378,7 @@ export default function UsersPage() {
         mobile: form.mobile.trim(),
         extension: form.extension.trim(),
         operationalProject: form.operationalProject.trim(),
+        preferredLanguage: form.preferredLanguage,
         status: form.status,
         roles,
       };
@@ -755,6 +769,7 @@ export default function UsersPage() {
               <InfoPill label="البريد الإلكتروني" value={selected.email} />
               <InfoPill label="الصلاحيات" value={roleLabelFromRoles(selected.roles)} />
               <InfoPill label="الحالة" value={statusLabel(selected.status)} />
+              <InfoPill label="لغة الواجهة" value={languageLabel(selected.preferredLanguage)} />
               <InfoPill label="الجوال" value={selected.mobile || '—'} />
               <InfoPill label="التحويلة" value={selected.extension || '—'} />
               <div className="sm:col-span-2">
@@ -902,6 +917,23 @@ export default function UsersPage() {
                     setForm((prev) => ({ ...prev, operationalProject: e.target.value }))
                   }
                 />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700">لغة الواجهة</label>
+                <select
+                  value={form.preferredLanguage}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      preferredLanguage: normalizeLanguage(e.target.value),
+                    }))
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
+                >
+                  <option value="ar">العربية</option>
+                  <option value="en">English</option>
+                </select>
               </div>
 
               <Input

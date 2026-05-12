@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Cairo } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
+import { LanguageProvider } from '@/context/LanguageContext';
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
@@ -35,7 +36,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-screen overflow-x-hidden bg-surface text-slate-900" suppressHydrationWarning>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <LanguageProvider>{children}</LanguageProvider>
+        </AuthProvider>
       </body>
     </html>
   );

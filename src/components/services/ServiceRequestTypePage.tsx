@@ -283,6 +283,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
   const searchParams = useSearchParams();
   const canManage = user?.role === 'manager';
   const page = Math.max(1, Number(searchParams.get('page') || 1));
+  const openId = String(searchParams.get('open') || '').trim();
   const isCreateMode = searchParams.get('new') === '1';
   const basePath = routeForType(type);
 
@@ -313,6 +314,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
         limit: String(PAGE_SIZE),
         page: String(page),
       });
+      if (openId) params.set('open', openId);
       const res = await fetch(`/api/suggestions?${params.toString()}`, { cache: 'no-store' });
       const data = await res.json();
       setRows(Array.isArray(data?.data) ? data.data : []);
@@ -330,7 +332,15 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
 
   useEffect(() => {
     fetchRows();
-  }, [type, page]);
+  }, [type, page, openId]);
+
+  useEffect(() => {
+    if (!openId || loading) return;
+    const match = rows.find((row) => row.id === openId);
+    if (match && selected?.id !== match.id) {
+      setSelected(match);
+    }
+  }, [openId, loading, rows, selected?.id]);
 
   useEffect(() => {
     setAdminNotes(selected ? parseAdminNotes(selected.adminNotes).note : '');

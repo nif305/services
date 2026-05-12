@@ -18,6 +18,10 @@ function getPrimaryRole(roles: string[]): string {
   return 'user';
 }
 
+function normalizeLanguage(value?: string | null) {
+  return String(value || '').trim().toLowerCase() === 'en' ? 'en' : 'ar';
+}
+
 function clearSessionResponse() {
   const response = NextResponse.json({ user: null }, { status: 401 });
 
@@ -29,7 +33,7 @@ function clearSessionResponse() {
     expires: new Date(0),
   };
 
-  for (const name of ['inventory_platform_session','user_id','user_role','user_roles','user_status','user_email','user_name','user_department','user_employee_id','active_role','server_active_role','server_user_roles']) {
+  for (const name of ['inventory_platform_session','user_id','user_role','user_roles','user_status','user_email','user_name','user_department','user_employee_id','active_role','server_active_role','server_user_roles','preferred_language']) {
     response.cookies.set(name, '', cookieOptions);
   }
 
@@ -72,6 +76,7 @@ export async function GET(request: NextRequest) {
         extension: user.jobTitle || '',
         department: user.department,
         jobTitle: user.jobTitle,
+        preferredLanguage: normalizeLanguage((user as any).preferredLanguage),
         operationalProject: user.department || '',
         role: activeRole,
         roles,
@@ -109,6 +114,7 @@ export async function GET(request: NextRequest) {
     response.cookies.set('user_name', user.fullName, cookieOptions);
     response.cookies.set('user_department', user.department || '', cookieOptions);
     response.cookies.set('user_employee_id', user.employeeId || '', cookieOptions);
+    response.cookies.set('preferred_language', normalizeLanguage((user as any).preferredLanguage), cookieOptions);
 
     return response;
   } catch {

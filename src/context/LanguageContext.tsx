@@ -4,7 +4,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from 'react';
@@ -53,23 +53,25 @@ function applyDocumentLanguage(language: AppLanguage) {
   document.title =
     language === 'ar'
       ? 'منصة حوكمة وإدارة المخزون'
-      : 'Inventory and Requests Management Platform';
+      : 'Training Deputieship Platform';
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [language, setLanguageState] = useState<AppLanguage>('ar');
+  const [language, setLanguageState] = useState<AppLanguage>(() => readStoredLanguage());
 
-  useEffect(() => {
-    const storedLanguage = readStoredLanguage();
+  useLayoutEffect(() => {
+    const explicitStoredLanguage =
+      typeof window !== 'undefined' ? window.localStorage.getItem(LANGUAGE_STORAGE_KEY) : null;
+    const storedLanguage = explicitStoredLanguage ? normalizeLanguage(explicitStoredLanguage) : null;
     const preferredLanguage = user?.preferredLanguage;
-    const nextLanguage = preferredLanguage ? normalizeLanguage(preferredLanguage) : storedLanguage;
+    const nextLanguage = storedLanguage || (preferredLanguage ? normalizeLanguage(preferredLanguage) : readStoredLanguage());
     setLanguageState(nextLanguage);
     persistLanguage(nextLanguage);
     applyDocumentLanguage(nextLanguage);
   }, [user?.preferredLanguage]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyDocumentLanguage(language);
   }, [language]);
 

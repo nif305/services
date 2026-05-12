@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { AppLanguage } from '@/context/AuthContext';
 import { translateStaticUiText } from '@/lib/i18n';
 
@@ -27,10 +27,10 @@ export function StaticUiTranslator({ language }: { language: AppLanguage }) {
   const attrOriginals = useRef(new WeakMap<Element, Map<TranslatableAttribute, string>>());
   const attrLastApplied = useRef(new WeakMap<Element, Map<TranslatableAttribute, string>>());
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof document === 'undefined') return;
 
-    let frame = 0;
+    let queued = false;
 
     const translateTextNode = (node: Text) => {
       if (shouldSkipElement(node.parentElement)) return;
@@ -100,16 +100,17 @@ export function StaticUiTranslator({ language }: { language: AppLanguage }) {
     };
 
     const run = () => {
-      frame = 0;
+      queued = false;
       walk(document.body);
     };
 
     const schedule = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(run);
+      if (queued) return;
+      queued = true;
+      queueMicrotask(run);
     };
 
-    schedule();
+    run();
 
     const observer = new MutationObserver((mutations) => {
       let shouldTranslate = false;
@@ -144,7 +145,7 @@ export function StaticUiTranslator({ language }: { language: AppLanguage }) {
 
     return () => {
       observer.disconnect();
-      if (frame) window.cancelAnimationFrame(frame);
+      queued = false;
     };
   }, [language]);
 

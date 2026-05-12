@@ -359,7 +359,7 @@ export const AlertService = {
     );
 
     const lowStockItems = normalizedItems.filter(
-      (item) => item.type === ItemType.CONSUMABLE && item.availableQty <= item.minStock
+      (item) => item.availableQty <= item.minStock
     );
     if (!lowStockItems.length) return [];
 
@@ -449,6 +449,10 @@ export const AlertService = {
           userId: { in: warehouseUsers.map((user) => user.id) },
           type: MAINTENANCE_REMINDER_TYPE,
           entityId: { in: cycleKeys },
+          OR: [
+            { isRead: false },
+            { createdAt: { gte: addDays(new Date(), -7) } },
+          ],
         },
         select: {
           userId: true,

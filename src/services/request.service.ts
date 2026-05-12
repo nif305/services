@@ -46,6 +46,33 @@ function normalizeRequestStatusForClient(status: RequestStatus) {
   return status === RequestStatus.APPROVED ? RequestStatus.PENDING : status;
 }
 
+function buildRequestStatusFilter(
+  status?: RequestStatus,
+  view?: string | null,
+): Prisma.RequestWhereInput['status'] | undefined {
+  if (status) {
+    return status === RequestStatus.PENDING
+      ? { in: [RequestStatus.PENDING, RequestStatus.APPROVED] }
+      : status;
+  }
+
+  const normalizedView = String(view || '').trim().toLowerCase();
+
+  if (normalizedView === 'new' || normalizedView === 'pending') {
+    return { in: [RequestStatus.PENDING, RequestStatus.APPROVED] };
+  }
+
+  if (normalizedView === 'finished') {
+    return { in: [RequestStatus.ISSUED, RequestStatus.RETURNED, RequestStatus.REJECTED] };
+  }
+
+  if (normalizedView === 'returns' || normalizedView === 'returned') {
+    return RequestStatus.RETURNED;
+  }
+
+  return undefined;
+}
+
 async function ensureCoreUsers() {
   return;
 }
@@ -131,6 +158,13 @@ async function loadRequestOrThrow(id: string) {
               unit: true,
             },
           },
+          returnRequests: {
+            select: {
+              id: true,
+              quantity: true,
+              status: true,
+            },
+          },
         },
       },
       custodyRecords: true,
@@ -152,6 +186,11 @@ function mapRequestWithDerivedData<
       itemId: string;
       quantity: number;
       notes: string | null;
+      returnRequests?: Array<{
+        id: string;
+        quantity: number;
+        status: ReturnStatus;
+      }>;
       item?: {
         id: string;
         name: string;
@@ -253,6 +292,13 @@ async function createRequest(data: {
               unit: true,
             },
           },
+          returnRequests: {
+            select: {
+              id: true,
+              quantity: true,
+              status: true,
+            },
+          },
         },
       },
       custodyRecords: true,
@@ -290,35 +336,37 @@ async function getAllRequests({
   page = 1,
   limit = 100,
   status,
+  view,
 }: {
   userId: string;
   role: Role | string;
   page?: number;
   limit?: number;
   status?: RequestStatus;
+  view?: string | null;
 }) {
   await ensureCoreUsers();
 
   const normalizedRole = String(role || '').toUpperCase();
-  const skip = (page - 1) * limit;
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit || 1)), 100);
+  const safePage = Math.max(1, Math.floor(page || 1));
+  const skip = (safePage - 1) * safeLimit;
+  const statusFilter = buildRequestStatusFilter(status, view);
 
-  const where: Prisma.RequestWhereInput = {
+  const baseWhere: Prisma.RequestWhereInput = {
     ...(normalizedRole === 'USER' ? { requesterId: userId } : {}),
-    ...(status
-      ? {
-          status:
-            status === RequestStatus.PENDING
-              ? { in: [RequestStatus.PENDING, RequestStatus.APPROVED] }
-              : status,
-        }
-      : {}),
   };
 
-  const [requests, total] = await Promise.all([
+  const where: Prisma.RequestWhereInput = {
+    ...baseWhere,
+    ...(statusFilter ? { status: statusFilter } : {}),
+  };
+
+  const [requests, total, pendingCount, rejectedCount, issuedCount, returnedCount] = await Promise.all([
     prisma.request.findMany({
       where,
       skip,
-      take: limit,
+      take: safeLimit,
       orderBy: { createdAt: 'desc' },
       include: {
         requester: {
@@ -341,20 +389,62 @@ async function getAllRequests({
                 unit: true,
               },
             },
+            returnRequests: {
+              select: {
+                id: true,
+                quantity: true,
+                status: true,
+              },
+            },
           },
         },
         custodyRecords: true,
       },
     }),
     prisma.request.count({ where }),
+    prisma.request.count({
+      where: {
+        ...baseWhere,
+        status: { in: [RequestStatus.PENDING, RequestStatus.APPROVED] },
+      },
+    }),
+    prisma.request.count({
+      where: {
+        ...baseWhere,
+        status: RequestStatus.REJECTED,
+      },
+    }),
+    prisma.request.count({
+      where: {
+        ...baseWhere,
+        status: RequestStatus.ISSUED,
+      },
+    }),
+    prisma.request.count({
+      where: {
+        ...baseWhere,
+        status: RequestStatus.RETURNED,
+      },
+    }),
   ]);
 
   return {
     data: requests.map(mapRequestWithDerivedData),
+    stats: {
+      total: pendingCount + rejectedCount + issuedCount + returnedCount,
+      pending: pendingCount,
+      rejected: rejectedCount,
+      issued: issuedCount,
+      returned: returnedCount,
+      warehouseNew: pendingCount,
+      warehouseFinished: issuedCount + returnedCount + rejectedCount,
+      warehouseReturns: returnedCount,
+    },
     pagination: {
       total,
-      page,
-      totalPages: Math.ceil(total / limit),
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.max(1, Math.ceil(total / safeLimit)),
     },
   };
 }

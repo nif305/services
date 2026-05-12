@@ -668,29 +668,39 @@ export const ReturnService = {
 
   getAll: async ({
     page = 1,
+    limit = 50,
     status,
     role,
     userId,
   }: {
     page?: number;
+    limit?: number;
     status?: string;
     role?: Role | string;
     userId?: string;
   }) => {
     const normalizedRole = String(role || '').toUpperCase();
+    const safePage = Math.max(1, Math.floor(page || 1));
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit || 1)), 50);
 
-    const where = {
+    const baseWhere = {
       AND: [
-        status ? { status: status as ReturnStatus } : {},
         normalizedRole === 'USER' && userId ? { requesterId: userId } : {},
       ],
     };
 
-    const [data, total] = await Promise.all([
+    const where = {
+      AND: [
+        ...(status ? [{ status: status as ReturnStatus }] : []),
+        ...(baseWhere.AND || []),
+      ],
+    };
+
+    const [data, total, pending, approvedGood, approvedDamaged] = await Promise.all([
       prisma.returnRequest.findMany({
         where,
-        skip: (page - 1) * 50,
-        take: 50,
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
         include: {
           custody: {
             include: {
@@ -734,14 +744,41 @@ export const ReturnService = {
         },
       }),
       prisma.returnRequest.count({ where }),
+      prisma.returnRequest.count({
+        where: {
+          ...baseWhere,
+          status: ReturnStatus.PENDING,
+        },
+      }),
+      prisma.returnRequest.count({
+        where: {
+          ...baseWhere,
+          status: ReturnStatus.APPROVED,
+          receivedType: ReturnItemCondition.GOOD,
+        },
+      }),
+      prisma.returnRequest.count({
+        where: {
+          ...baseWhere,
+          status: ReturnStatus.APPROVED,
+          receivedType: { in: [ReturnItemCondition.PARTIAL_DAMAGE, ReturnItemCondition.TOTAL_DAMAGE] },
+        },
+      }),
     ]);
 
     return {
       data,
+      stats: {
+        total: pending + approvedGood + approvedDamaged,
+        pending,
+        good: approvedGood,
+        damaged: approvedDamaged,
+      },
       pagination: {
         total,
-        page,
-        totalPages: Math.ceil(total / 50),
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
       },
     };
   },

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { Role } from '@prisma/client';
+import { Role, Status } from '@prisma/client';
 import { resolveSessionUser } from '@/lib/auth/session';
 import { hashPassword } from '@/lib/security/password';
 
@@ -31,6 +31,13 @@ function normalizeRoles(input: unknown): PrismaRole[] {
 
   const withUser: PrismaRole[] = mapped.includes('USER') ? mapped : [...mapped, 'USER'];
   return Array.from(new Set(withUser)) as PrismaRole[];
+}
+
+function normalizeStatusFilter(value?: string | null): Status | null {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'active') return Status.ACTIVE;
+  if (normalized === 'disabled') return Status.DISABLED;
+  return null;
 }
 
 function getPrimaryRole(roles: PrismaRole[]): 'manager' | 'warehouse' | 'user' {
@@ -72,16 +79,100 @@ export async function GET(request: NextRequest) {
   try {
     await resolveSessionUser(request);
 
-    const users = await prisma.user.findMany({
-      include: {
-        undertaking: true,
+    const searchParams = request.nextUrl.searchParams;
+    const hasPagingIntent =
+      searchParams.has('page') ||
+      searchParams.has('limit') ||
+      searchParams.has('search') ||
+      searchParams.has('role') ||
+      searchParams.has('status');
+
+    if (!hasPagingIntent) {
+      const users = await prisma.user.findMany({
+        include: {
+          undertaking: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return NextResponse.json({ data: users.map(mapUser) });
+    }
+
+    const pageRaw = Number(searchParams.get('page') || 1);
+    const limitRaw = Number(searchParams.get('limit') || 10);
+    const page = Math.max(1, Number.isFinite(pageRaw) ? pageRaw : 1);
+    const limit = Math.min(Math.max(1, Number.isFinite(limitRaw) ? limitRaw : 10), 50);
+    const search = normalizeText(searchParams.get('search'));
+    const roleFilter = normalizeText(searchParams.get('role')).toLowerCase();
+    const statusFilter = normalizeStatusFilter(searchParams.get('status'));
+
+    const where = {
+      ...(search
+        ? {
+            OR: [
+              { employeeId: { contains: search, mode: 'insensitive' as const } },
+              { fullName: { contains: search, mode: 'insensitive' as const } },
+              { email: { contains: search, mode: 'insensitive' as const } },
+              { mobile: { contains: search, mode: 'insensitive' as const } },
+              { department: { contains: search, mode: 'insensitive' as const } },
+              { jobTitle: { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(roleFilter === 'manager'
+        ? { roles: { has: 'MANAGER' as PrismaRole } }
+        : roleFilter === 'warehouse'
+          ? { roles: { has: 'WAREHOUSE' as PrismaRole } }
+          : roleFilter === 'user'
+            ? {
+                NOT: {
+                  roles: { hasSome: ['MANAGER', 'WAREHOUSE'] as PrismaRole[] },
+                },
+              }
+            : {}),
+    };
+
+    const skip = (page - 1) * limit;
+    const [users, total, active, disabled, managers, warehouses, usersOnly] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: {
+          undertaking: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
+      prisma.user.count({ where: { status: Status.ACTIVE } }),
+      prisma.user.count({ where: { status: Status.DISABLED } }),
+      prisma.user.count({ where: { roles: { has: 'MANAGER' } } }),
+      prisma.user.count({ where: { roles: { has: 'WAREHOUSE' } } }),
+      prisma.user.count({ where: { NOT: { roles: { hasSome: ['MANAGER', 'WAREHOUSE'] } } } }),
+    ]);
+
+    return NextResponse.json({
+      data: users.map(mapUser),
+      stats: {
+        total: active + disabled,
+        active,
+        disabled,
+        managers,
+        warehouses,
+        usersOnly,
       },
-      orderBy: {
-        createdAt: 'desc',
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     });
-
-    return NextResponse.json({ data: users.map(mapUser) });
   } catch {
     return NextResponse.json({ error: 'تعذر جلب المستخدمين' }, { status: 401 });
   }

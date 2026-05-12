@@ -86,13 +86,23 @@ export async function GET(request: NextRequest) {
   try {
     const session = await resolveSessionUser(request);
     const searchParams = request.nextUrl.searchParams;
+    const pageRaw = parseInt(searchParams.get('page') || '1', 10);
+    const page = Math.max(1, Number.isFinite(pageRaw) ? pageRaw : 1);
+    const limit = searchParams.has('limit')
+      ? (() => {
+          const value = parseInt(searchParams.get('limit') || '10', 10);
+          return Math.min(Math.max(1, Number.isFinite(value) ? value : 10), 50);
+        })()
+      : 100;
+    const view = searchParams.get('view');
 
     const result = await RequestService.getAll({
       userId: session.id,
       role: session.role,
-      page: parseInt(searchParams.get('page') || '1', 10),
-      limit: 100,
+      page,
+      limit,
       status: normalizeRequestStatus(searchParams.get('status')),
+      view,
     });
 
     return NextResponse.json(result);

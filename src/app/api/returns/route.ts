@@ -96,12 +96,16 @@ export async function GET(request: NextRequest) {
   try {
     const session = await resolveSessionUser(request);
     const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1', 10);
+    const pageRaw = parseInt(searchParams.get('page') || '1', 10);
+    const limitRaw = parseInt(searchParams.get('limit') || '10', 10);
+    const page = Number.isFinite(pageRaw) ? pageRaw : 1;
+    const limit = Number.isFinite(limitRaw) ? limitRaw : 10;
     const status = searchParams.get('status') || '';
 
     return NextResponse.json(
       await ReturnService.getAll({
         page,
+        limit,
         status,
         role: session.role,
         userId: session.id,

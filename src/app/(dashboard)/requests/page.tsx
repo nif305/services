@@ -30,6 +30,11 @@ type RequestItemRow = {
   notes?: string | null;
   expectedReturnDate?: string | null;
   activeIssuedQty?: number;
+  returnRequests?: Array<{
+    id: string;
+    quantity?: number;
+    status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  }>;
   item?: {
     id?: string;
     name?: string;
@@ -62,6 +67,24 @@ type SelectedItem = {
   itemId: string;
   quantity: number;
   expectedReturnDate?: string;
+};
+
+type RequestStats = {
+  total: number;
+  pending: number;
+  rejected: number;
+  issued: number;
+  returned: number;
+  warehouseNew: number;
+  warehouseFinished: number;
+  warehouseReturns: number;
+};
+
+type PaginationState = {
+  page: number;
+  totalPages: number;
+  total: number;
+  limit: number;
 };
 
 type FormMode = 'create' | 'edit' | 'adjust';
@@ -257,6 +280,22 @@ export default function RequestsPage() {
 
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<RequestStats>({
+    total: 0,
+    pending: 0,
+    rejected: 0,
+    issued: 0,
+    returned: 0,
+    warehouseNew: 0,
+    warehouseFinished: 0,
+    warehouseReturns: 0,
+  });
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    limit: 5,
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>('create');
@@ -286,15 +325,61 @@ export default function RequestsPage() {
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/requests', { cache: 'no-store', credentials: 'include' });
+      const params = new URLSearchParams({
+        page: String(pagination.page),
+        limit: String(pagination.limit),
+      });
+
+      if (canUseWarehouseTabs) {
+        params.set('view', warehouseViewMode);
+      }
+
+      const res = await fetch(`/api/requests?${params.toString()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
       const data = await res.json();
-      setRequests(Array.isArray(data?.data) ? data.data : []);
+      const rows = Array.isArray(data?.data) ? data.data : [];
+      const nextPagination: PaginationState = {
+        page: Number(data?.pagination?.page || pagination.page),
+        totalPages: Number(data?.pagination?.totalPages || 1),
+        total: Number(data?.pagination?.total || rows.length),
+        limit: Number(data?.pagination?.limit || pagination.limit),
+      };
+
+      if (pagination.page > nextPagination.totalPages && nextPagination.totalPages > 0) {
+        setPagination((prev) => ({ ...prev, page: nextPagination.totalPages }));
+        return;
+      }
+
+      setRequests(rows);
+      setStats({
+        total: Number(data?.stats?.total || 0),
+        pending: Number(data?.stats?.pending || 0),
+        rejected: Number(data?.stats?.rejected || 0),
+        issued: Number(data?.stats?.issued || 0),
+        returned: Number(data?.stats?.returned || 0),
+        warehouseNew: Number(data?.stats?.warehouseNew || 0),
+        warehouseFinished: Number(data?.stats?.warehouseFinished || 0),
+        warehouseReturns: Number(data?.stats?.warehouseReturns || 0),
+      });
+      setPagination(nextPagination);
     } catch {
       setRequests([]);
+      setStats({
+        total: 0,
+        pending: 0,
+        rejected: 0,
+        issued: 0,
+        returned: 0,
+        warehouseNew: 0,
+        warehouseFinished: 0,
+        warehouseReturns: 0,
+      });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [canUseWarehouseTabs, pagination.limit, pagination.page, warehouseViewMode]);
 
   const fetchInventory = useCallback(async () => {
     setInventoryLoading(true);
@@ -312,6 +397,10 @@ export default function RequestsPage() {
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
+
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [warehouseViewMode]);
 
   useEffect(() => {
     if (searchParams.get('new') === '1' && isEmployee) {
@@ -383,36 +472,7 @@ export default function RequestsPage() {
     setIsModalOpen(true);
   };
 
-  const stats = useMemo(() => {
-    return {
-      total: requests.length,
-      pending: requests.filter((r) => r.status === 'PENDING').length,
-      rejected: requests.filter((r) => r.status === 'REJECTED').length,
-      issued: requests.filter((r) => r.status === 'ISSUED').length,
-      returned: requests.filter((r) => r.status === 'RETURNED').length,
-      warehouseNew: requests.filter((r) => r.status === 'PENDING').length,
-      warehouseFinished: requests.filter(
-        (r) => r.status === 'ISSUED' || r.status === 'RETURNED' || r.status === 'REJECTED'
-      ).length,
-      warehouseReturns: requests.filter((r) => r.status === 'RETURNED').length,
-    };
-  }, [requests]);
-
-  const displayedRequests = useMemo(() => {
-    if (!canUseWarehouseTabs) return requests;
-
-    if (warehouseViewMode === 'new') {
-      return requests.filter((r) => r.status === 'PENDING');
-    }
-
-    if (warehouseViewMode === 'finished') {
-      return requests.filter(
-        (r) => r.status === 'ISSUED' || r.status === 'RETURNED' || r.status === 'REJECTED'
-      );
-    }
-
-    return requests.filter((r) => r.status === 'RETURNED');
-  }, [requests, canUseWarehouseTabs, warehouseViewMode]);
+  const displayedRequests = requests;
 
   const filteredInventory = useMemo(() => {
     const q = normalizeArabic(itemSearch);
@@ -974,6 +1034,38 @@ export default function RequestsPage() {
           </>
         )}
       </Card>
+
+      {!loading && pagination.totalPages > 1 ? (
+        <div className="flex flex-col items-center justify-between gap-3 rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:flex-row sm:rounded-[28px] sm:px-5">
+          <div className="text-sm font-bold text-[#016564]">
+            الصفحة {pagination.page} من {pagination.totalPages}
+          </div>
+          <div className="text-xs text-[#61706f]">إجمالي الطلبات في هذا العرض: {pagination.total}</div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+              disabled={pagination.page <= 1}
+              className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              السابق
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setPagination((prev) => ({
+                  ...prev,
+                  page: Math.min(prev.totalPages, prev.page + 1),
+                }))
+              }
+              disabled={pagination.page >= pagination.totalPages}
+              className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              التالي
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <FormShell
         isOpen={isModalOpen}

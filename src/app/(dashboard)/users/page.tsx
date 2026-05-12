@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -39,6 +39,22 @@ type FormState = {
   status: UserStatus;
   password: string;
   confirmPassword: string;
+};
+
+type UserStats = {
+  total: number;
+  active: number;
+  disabled: number;
+  managers: number;
+  warehouses: number;
+  usersOnly: number;
+};
+
+type PaginationState = {
+  page: number;
+  totalPages: number;
+  total: number;
+  limit: number;
 };
 
 const emptyForm: FormState = {
@@ -218,8 +234,23 @@ export default function UsersPage() {
   const [rows, setRows] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'manager' | 'warehouse' | 'user'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'disabled'>('ALL');
+  const [stats, setStats] = useState<UserStats>({
+    total: 0,
+    active: 0,
+    disabled: 0,
+    managers: 0,
+    warehouses: 0,
+    usersOnly: 0,
+  });
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    limit: 5,
+  });
 
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [editing, setEditing] = useState<UserRow | null>(null);
@@ -229,11 +260,49 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/users', { cache: 'no-store' });
+      const params = new URLSearchParams({
+        page: String(pagination.page),
+        limit: String(pagination.limit),
+      });
+      if (deferredSearch.trim()) params.set('search', deferredSearch.trim());
+      if (roleFilter !== 'ALL') params.set('role', roleFilter);
+      if (statusFilter !== 'ALL') params.set('status', statusFilter);
+
+      const res = await fetch(`/api/users?${params.toString()}`, { cache: 'no-store' });
       const data = await res.json().catch(() => null);
-      setRows(Array.isArray(data?.data) ? data.data.map(normalizeUser) : []);
+      const nextRows = Array.isArray(data?.data) ? data.data.map(normalizeUser) : [];
+      const nextPagination: PaginationState = {
+        page: Number(data?.pagination?.page || pagination.page),
+        totalPages: Number(data?.pagination?.totalPages || 1),
+        total: Number(data?.pagination?.total || nextRows.length),
+        limit: Number(data?.pagination?.limit || pagination.limit),
+      };
+
+      if (pagination.page > nextPagination.totalPages && nextPagination.totalPages > 0) {
+        setPagination((prev) => ({ ...prev, page: nextPagination.totalPages }));
+        return;
+      }
+
+      setRows(nextRows);
+      setStats({
+        total: Number(data?.stats?.total || 0),
+        active: Number(data?.stats?.active || 0),
+        disabled: Number(data?.stats?.disabled || 0),
+        managers: Number(data?.stats?.managers || 0),
+        warehouses: Number(data?.stats?.warehouses || 0),
+        usersOnly: Number(data?.stats?.usersOnly || 0),
+      });
+      setPagination(nextPagination);
     } catch {
       setRows([]);
+      setStats({
+        total: 0,
+        active: 0,
+        disabled: 0,
+        managers: 0,
+        warehouses: 0,
+        usersOnly: 0,
+      });
     } finally {
       setLoading(false);
     }
@@ -241,57 +310,13 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [deferredSearch, pagination.limit, pagination.page, roleFilter, statusFilter]);
 
-  const stats = useMemo(() => {
-    return {
-      total: rows.length,
-      active: rows.filter((row) => row.status === 'active').length,
-      disabled: rows.filter((row) => row.status === 'disabled').length,
-      managers: rows.filter((row) => row.roles.includes('manager')).length,
-      warehouses: rows.filter((row) => row.roles.includes('warehouse')).length,
-      usersOnly: rows.filter(
-        (row) => !row.roles.includes('manager') && !row.roles.includes('warehouse')
-      ).length,
-    };
-  }, [rows]);
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [deferredSearch, roleFilter, statusFilter]);
 
-  const filteredRows = useMemo(() => {
-    const q = normalizeArabic(search);
-
-    return rows.filter((row) => {
-      const matchesRole =
-        roleFilter === 'ALL'
-          ? true
-          : roleFilter === 'manager'
-            ? row.roles.includes('manager')
-            : roleFilter === 'warehouse'
-              ? row.roles.includes('warehouse')
-              : !row.roles.includes('manager') && !row.roles.includes('warehouse');
-
-      const matchesStatus = statusFilter === 'ALL' ? true : row.status === statusFilter;
-
-      const haystack = normalizeArabic(
-        [
-          row.fullName,
-          row.email,
-          row.mobile,
-          row.extension,
-          row.operationalProject,
-          row.department,
-          row.jobTitle,
-          roleLabelFromRoles(row.roles),
-          ...roleShortBadges(row.roles),
-          statusLabel(row.status),
-        ]
-          .filter(Boolean)
-          .join(' ')
-      );
-
-      const matchesSearch = q ? haystack.includes(q) : true;
-      return matchesRole && matchesStatus && matchesSearch;
-    });
-  }, [rows, search, roleFilter, statusFilter]);
+  const filteredRows = useMemo(() => rows, [rows]);
 
   const openEdit = (row: UserRow) => {
     setEditing(row);
@@ -403,6 +428,7 @@ export default function UsersPage() {
     setSearch('');
     setRoleFilter('ALL');
     setStatusFilter('ALL');
+    setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
   if (!isManager) {
@@ -530,7 +556,7 @@ export default function UsersPage() {
           <div>
             <div className="text-[18px] font-bold text-[#152625]">قائمة الحسابات</div>
             <div className="mt-1 text-sm text-[#61706f]">
-              {loading ? 'جارٍ تحميل البيانات...' : `عدد النتائج الحالية: ${filteredRows.length}`}
+              {loading ? 'جارٍ تحميل البيانات...' : `إجمالي النتائج المطابقة: ${pagination.total}`}
             </div>
           </div>
           <div className="text-xs text-[#61706f]">
@@ -681,6 +707,40 @@ export default function UsersPage() {
             ))
           )}
         </div>
+
+        {!loading && pagination.totalPages > 1 ? (
+          <div className="border-t border-[#edf1f0] px-4 py-4 sm:px-5">
+            <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+              <div className="text-sm font-bold text-[#016564]">
+                الصفحة {pagination.page} من {pagination.totalPages}
+              </div>
+              <div className="text-xs text-[#61706f]">عدد السجلات في هذا العرض: {pagination.total}</div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                  disabled={pagination.page <= 1}
+                  className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  السابق
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPagination((prev) => ({
+                      ...prev,
+                      page: Math.min(prev.totalPages, prev.page + 1),
+                    }))
+                  }
+                  disabled={pagination.page >= pagination.totalPages}
+                  className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  التالي
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <Modal

@@ -32,6 +32,21 @@ type RequestRecord = {
 
 type ViewFilter = 'ALL' | 'PENDING' | 'ISSUED' | 'REJECTED' | 'RETURNED';
 
+type RequestStats = {
+  total: number;
+  pending: number;
+  issued: number;
+  rejected: number;
+  returned: number;
+};
+
+type PaginationState = {
+  page: number;
+  totalPages: number;
+  total: number;
+  limit: number;
+};
+
 const STATUS_MAP: Record<RequestStatus, { label: string; variant: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }> = {
   PENDING: { label: 'بانتظار معالجة مسؤول المخزن', variant: 'warning' },
   ISSUED: { label: 'تم الصرف', variant: 'success' },
@@ -54,34 +69,76 @@ export default function ApprovalsPage() {
   const [requests, setRequests] = useState<RequestRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ViewFilter>('ALL');
+  const [stats, setStats] = useState<RequestStats>({
+    total: 0,
+    pending: 0,
+    issued: 0,
+    rejected: 0,
+    returned: 0,
+  });
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    limit: 5,
+  });
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/requests', { cache: 'no-store', credentials: 'include' });
+      const params = new URLSearchParams({
+        page: String(pagination.page),
+        limit: String(pagination.limit),
+      });
+
+      if (filter !== 'ALL') {
+        params.set('status', filter);
+      }
+
+      const res = await fetch(`/api/requests?${params.toString()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
       const data = await res.json();
-      setRequests(Array.isArray(data?.data) ? data.data : []);
+      const rows = Array.isArray(data?.data) ? data.data : [];
+      const nextPagination: PaginationState = {
+        page: Number(data?.pagination?.page || pagination.page),
+        totalPages: Number(data?.pagination?.totalPages || 1),
+        total: Number(data?.pagination?.total || rows.length),
+        limit: Number(data?.pagination?.limit || pagination.limit),
+      };
+
+      if (pagination.page > nextPagination.totalPages && nextPagination.totalPages > 0) {
+        setPagination((prev) => ({ ...prev, page: nextPagination.totalPages }));
+        return;
+      }
+
+      setRequests(rows);
+      setStats({
+        total: Number(data?.stats?.total || 0),
+        pending: Number(data?.stats?.pending || 0),
+        issued: Number(data?.stats?.issued || 0),
+        rejected: Number(data?.stats?.rejected || 0),
+        returned: Number(data?.stats?.returned || 0),
+      });
+      setPagination(nextPagination);
+    } catch {
+      setRequests([]);
+      setStats({ total: 0, pending: 0, issued: 0, rejected: 0, returned: 0 });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter, pagination.limit, pagination.page]);
 
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
 
-  const stats = useMemo(() => ({
-    total: requests.length,
-    pending: requests.filter((row) => row.status === 'PENDING').length,
-    issued: requests.filter((row) => row.status === 'ISSUED').length,
-    rejected: requests.filter((row) => row.status === 'REJECTED').length,
-    returned: requests.filter((row) => row.status === 'RETURNED').length,
-  }), [requests]);
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [filter]);
 
-  const filteredRequests = useMemo(() => {
-    if (filter === 'ALL') return requests;
-    return requests.filter((row) => row.status === filter);
-  }, [requests, filter]);
+  const filteredRequests = useMemo(() => requests, [requests]);
 
   if (user?.role !== 'manager') {
     return (
@@ -197,6 +254,38 @@ export default function ApprovalsPage() {
           })}
         </div>
       )}
+
+      {!loading && pagination.totalPages > 1 ? (
+        <div className="flex flex-col items-center justify-between gap-3 rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:flex-row sm:rounded-[28px] sm:px-5">
+          <div className="text-sm font-bold text-[#016564]">
+            الصفحة {pagination.page} من {pagination.totalPages}
+          </div>
+          <div className="text-xs text-slate-500">إجمالي السجلات في هذا العرض: {pagination.total}</div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+              disabled={pagination.page <= 1}
+              className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              السابق
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setPagination((prev) => ({
+                  ...prev,
+                  page: Math.min(prev.totalPages, prev.page + 1),
+                }))
+              }
+              disabled={pagination.page >= pagination.totalPages}
+              className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              التالي
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

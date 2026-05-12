@@ -87,6 +87,20 @@ type RequestReturnOption = {
   }>;
 };
 
+type ReturnStats = {
+  total: number;
+  pending: number;
+  good: number;
+  damaged: number;
+};
+
+type PaginationState = {
+  page: number;
+  totalPages: number;
+  total: number;
+  limit: number;
+};
+
 function conditionLabel(condition?: ItemCondition | null) {
   if (condition === 'GOOD') return 'سليمة';
   if (condition === 'PARTIAL_DAMAGE') return 'غير سليمة - تلف جزئي';
@@ -171,6 +185,18 @@ export default function ReturnsPage() {
   const [selectedReturn, setSelectedReturn] = useState<ReturnItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState('');
+  const [stats, setStats] = useState<ReturnStats>({
+    total: 0,
+    pending: 0,
+    good: 0,
+    damaged: 0,
+  });
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    limit: 5,
+  });
 
   const [receivedType, setReceivedType] = useState<ItemCondition>('GOOD');
   const [receivedNotes, setReceivedNotes] = useState('');
@@ -192,7 +218,6 @@ export default function ReturnsPage() {
 
       try {
         await Promise.all([
-          fetchReturns(),
           isEmployee ? fetchCustodies() : Promise.resolve(),
           isEmployee ? fetchReturnableRequestItems() : Promise.resolve(),
         ]);
@@ -205,6 +230,28 @@ export default function ReturnsPage() {
   }, [isEmployee]);
 
   useEffect(() => {
+    let mounted = true;
+
+    const loadPage = async () => {
+      setIsLoading(true);
+      setPageError('');
+      try {
+        await fetchReturns();
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadPage();
+
+    return () => {
+      mounted = false;
+    };
+  }, [pagination.page]);
+
+  useEffect(() => {
     if (searchParams.get('new') === '1' && isEmployee) {
       setIsCreateOpen(true);
     }
@@ -212,19 +259,45 @@ export default function ReturnsPage() {
 
   const fetchReturns = async () => {
     try {
-      const res = await fetch('/api/returns', { cache: 'no-store' });
+      const params = new URLSearchParams({
+        page: String(pagination.page),
+        limit: String(pagination.limit),
+      });
+      const res = await fetch(`/api/returns?${params.toString()}`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         setReturns([]);
+        setStats({ total: 0, pending: 0, good: 0, damaged: 0 });
         setPageError(data?.error || 'تعذر جلب طلبات الإرجاع');
         return;
       }
 
       const safeData = Array.isArray(data?.data) ? data.data.filter(Boolean) : [];
+      const nextPagination: PaginationState = {
+        page: Number(data?.pagination?.page || pagination.page),
+        totalPages: Number(data?.pagination?.totalPages || 1),
+        total: Number(data?.pagination?.total || safeData.length),
+        limit: Number(data?.pagination?.limit || pagination.limit),
+      };
+
+      if (pagination.page > nextPagination.totalPages && nextPagination.totalPages > 0) {
+        setPagination((prev) => ({ ...prev, page: nextPagination.totalPages }));
+        return;
+      }
+
+      setPageError('');
       setReturns(safeData);
+      setStats({
+        total: Number(data?.stats?.total || 0),
+        pending: Number(data?.stats?.pending || 0),
+        good: Number(data?.stats?.good || 0),
+        damaged: Number(data?.stats?.damaged || 0),
+      });
+      setPagination(nextPagination);
     } catch {
       setReturns([]);
+      setStats({ total: 0, pending: 0, good: 0, damaged: 0 });
       setPageError('تعذر جلب طلبات الإرجاع');
     }
   };
@@ -304,19 +377,6 @@ export default function ReturnsPage() {
 
     return Math.max(0, Number(selectedRequestItem.quantity || 0) - alreadyReturned);
   }, [selectedRequestItem]);
-
-  const stats = useMemo(() => {
-    return {
-      total: returns.length,
-      pending: returns.filter((r) => r.status === 'PENDING').length,
-      good: returns.filter((r) => r.status === 'APPROVED' && r.receivedType === 'GOOD').length,
-      damaged: returns.filter(
-        (r) =>
-          r.status === 'APPROVED' &&
-          (r.receivedType === 'PARTIAL_DAMAGE' || r.receivedType === 'TOTAL_DAMAGE')
-      ).length,
-    };
-  }, [returns]);
 
   const resetCreateForm = () => {
     setReturnMode('CUSTODY');
@@ -647,6 +707,38 @@ export default function ReturnsPage() {
           ))
         )}
       </div>
+
+      {!isLoading && pagination.totalPages > 1 ? (
+        <div className="flex flex-col items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:rounded-[28px] sm:px-5">
+          <div className="text-sm font-bold text-primary">
+            الصفحة {pagination.page} من {pagination.totalPages}
+          </div>
+          <div className="text-xs text-slate-500">إجمالي الطلبات في هذا العرض: {pagination.total}</div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+              disabled={pagination.page <= 1}
+              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              السابق
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setPagination((prev) => ({
+                  ...prev,
+                  page: Math.min(prev.totalPages, prev.page + 1),
+                }))
+              }
+              disabled={pagination.page >= pagination.totalPages}
+              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              التالي
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <Modal isOpen={isCreateOpen} onClose={closeCreateModal} title="طلب إرجاع جديد" size="lg">
         <form onSubmit={handleCreateReturn} className="space-y-4">

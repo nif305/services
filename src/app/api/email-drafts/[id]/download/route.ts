@@ -9,6 +9,7 @@ import {
   normalizeRequestType,
   stripHtmlToText,
 } from '@/lib/external-email';
+import { clearSuggestionAttachmentBodies } from '@/lib/service-attachment-retention';
 
 type JsonObject = Record<string, any>;
 
@@ -292,6 +293,11 @@ export async function GET(
         where: { id: linkedSuggestion.id },
         data: { status: SuggestionStatus.IMPLEMENTED },
       });
+      try {
+        await clearSuggestionAttachmentBodies(linkedSuggestion.id, 'email-draft-downloaded');
+      } catch (cleanupError) {
+        console.error('Failed to clear downloaded service attachments', cleanupError);
+      }
     }
 
     await prisma.auditLog.create({

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Priority, PurchaseStatus, Role, Status, SuggestionStatus, MaintenanceStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import {
+  normalizeServiceAttachments,
+  pruneExpiredSuggestionAttachmentBodies,
+} from '@/lib/service-attachment-retention';
 
 const SUPPORT_RECIPIENTS = 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa';
 const PURCHASE_RECIPIENT = 'wa.n1@nauss.edu.sa';
@@ -266,7 +270,8 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
   const justificationData = parseJsonObject(item.justification);
   const adminData = parseJsonObject(item.adminNotes);
   const requester = requesterMap.get(item.requesterId) || null;
-  const attachments = Array.isArray(justificationData.attachments) ? justificationData.attachments.map((file: any, index: number) => {
+  const rawAttachments = Array.isArray(justificationData.attachments) ? justificationData.attachments : [];
+  const attachments = rawAttachments.filter((file: any) => String(file?.base64Content || '').trim()).map((file: any, index: number) => {
     const type = String(file?.contentType || file?.type || '').toLowerCase();
     const name = String(file?.filename || file?.name || '').toLowerCase();
     let label = `مرفق ${index + 1}`;
@@ -278,7 +283,7 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
     const base64Content = String(file?.base64Content || '');
     const url = base64Content ? `data:${contentType};base64,${base64Content}` : '';
     return { name: label, filename, contentType, url };
-  }) : [];
+  });
   return {
     ...item,
     code: justificationData.publicCode || adminData.linkedCode || item.id,
@@ -291,6 +296,10 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
     area: justificationData.area || '',
     serviceItems: Array.isArray(justificationData.serviceItems) ? justificationData.serviceItems : [],
     attachments,
+    attachmentsRemovedAt: justificationData.attachmentsRemovedAt || null,
+    attachmentsRemovedReason: justificationData.attachmentsRemovedReason || null,
+    attachmentsRemovedCount: Number(justificationData.attachmentsRemovedCount || 0) || 0,
+    attachmentsRemovedSummary: Array.isArray(justificationData.attachmentsRemovedSummary) ? justificationData.attachmentsRemovedSummary : [],
     adminNotesText: adminData.adminNotes || '',
     targetDepartment: adminData.targetDepartment || justificationData.targetDepartment || null,
     linkedDraftId: adminData.linkedDraftId || null,
@@ -300,6 +309,12 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
 
 export async function GET(request: NextRequest) {
   try {
+    try {
+      await pruneExpiredSuggestionAttachmentBodies();
+    } catch (cleanupError) {
+      console.error('Failed to prune expired service attachments', cleanupError);
+    }
+
     const sessionUser = await resolveSessionUser(request);
     const categoryParam = request.nextUrl.searchParams.get('category') || request.nextUrl.searchParams.get('type') || '';
     const category = categoryParam ? normalizeCategory(categoryParam) : null;
@@ -415,7 +430,12 @@ export async function POST(request: NextRequest) {
     const requestSource = String(body.requestSource || '').trim();
     const programName = String(body.programName || '').trim();
     const area = String(body.area || '').trim();
-    const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+    let attachments = [];
+    try {
+      attachments = normalizeServiceAttachments(body.attachments);
+    } catch (attachmentError: any) {
+      return NextResponse.json({ error: attachmentError?.message || 'تعذر تجهيز المرفقات' }, { status: 413 });
+    }
     const serviceItems = Array.isArray(body.serviceItems) ? body.serviceItems.map((item: any) => String(item || '').trim()).filter(Boolean) : [];
     const description = String(body.description || '').trim();
     const title = String(body.title || '').trim() || categoryMeta(category).label;

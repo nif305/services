@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -13,6 +13,24 @@ import { useAuth } from '@/context/AuthContext';
 type SuggestionType = 'MAINTENANCE' | 'CLEANING' | 'PURCHASE' | 'OTHER';
 type SuggestionStatus = 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'IMPLEMENTED';
 type RequestScope = 'PROGRAM' | 'BUILDING';
+type UploadStage = 'idle' | 'preparing' | 'uploading';
+
+type AttachmentSummary = {
+  name: string;
+  size: number;
+  type: string;
+  previewUrl?: string;
+  compressed?: boolean;
+  compressedSize?: number;
+};
+
+type AttachmentPayload = {
+  filename: string;
+  contentType: string;
+  base64Content: string;
+  originalSize: number;
+  compressedSize: number;
+};
 
 type SuggestionRow = {
   id: string;
@@ -28,6 +46,10 @@ type SuggestionRow = {
   location?: string;
   requestSource?: string;
   attachments?: Array<{ name: string; filename?: string; contentType?: string; url?: string }>;
+  attachmentsRemovedAt?: string | null;
+  attachmentsRemovedReason?: string | null;
+  attachmentsRemovedCount?: number;
+  attachmentsRemovedSummary?: Array<{ name?: string; filename?: string; contentType?: string }>;
   serviceItems?: string[];
   adminNotes?: string;
   requester?: {
@@ -53,6 +75,7 @@ type FormState = {
 };
 
 const PAGE_SIZE = 5;
+const MAX_ATTACHMENTS = 8;
 const DEFAULT_FORM: FormState = {
   scope: 'BUILDING',
   programName: '',
@@ -79,6 +102,128 @@ function formatDateTime(value?: string | null) {
   } catch {
     return '—';
   }
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function readBlobAsDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('تعذر قراءة المرفق'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
+  return new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality);
+  });
+}
+
+async function compressImageFile(file: File, maxDimension = 1600, maxBytes = 350 * 1024) {
+  if (!file.type.startsWith('image/') || file.size <= maxBytes) return file;
+
+  const imageUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('تعذر تجهيز الصورة'));
+      img.src = imageUrl;
+    });
+
+    const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) return file;
+
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    let quality = 0.82;
+    let blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+
+    while (blob && blob.size > maxBytes && quality > 0.45) {
+      quality -= 0.08;
+      blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+    }
+
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg') || 'attachment.jpg', {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
+}
+
+async function buildAttachmentPayloads(
+  files: File[],
+  onPrepared: (index: number, info: Pick<AttachmentSummary, 'compressed' | 'compressedSize' | 'type'>) => void,
+  onProgress: (progress: number) => void
+) {
+  const payloads: AttachmentPayload[] = [];
+
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index];
+    const preparedFile = await compressImageFile(file);
+    const dataUrl = await readBlobAsDataUrl(preparedFile);
+    const base64Content = dataUrl.split(',')[1] || '';
+
+    if (!base64Content) {
+      throw new Error('تعذر تجهيز أحد المرفقات. احذف المرفق وحاول مرة أخرى.');
+    }
+
+    onPrepared(index, {
+      compressed: preparedFile.size < file.size,
+      compressedSize: preparedFile.size,
+      type: preparedFile.type || file.type || 'application/octet-stream',
+    });
+    onProgress(Math.round(((index + 1) / files.length) * 45));
+
+    payloads.push({
+      filename: file.name,
+      contentType: preparedFile.type || file.type || 'application/octet-stream',
+      base64Content,
+      originalSize: file.size,
+      compressedSize: preparedFile.size,
+    });
+  }
+
+  return payloads;
+}
+
+function postJsonWithProgress<T>(url: string, body: unknown, onProgress: (progress: number) => void) {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      onProgress(45 + Math.round((event.loaded / event.total) * 55));
+    };
+    xhr.onload = () => {
+      let response: any = {};
+      try {
+        response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+      } catch {
+        response = {};
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(response as T);
+      } else {
+        reject(new Error(response?.error || 'تعذر حفظ الطلب'));
+      }
+    };
+    xhr.onerror = () => reject(new Error('تعذر الاتصال بالخادم أثناء حفظ الطلب'));
+    xhr.send(JSON.stringify(body));
+  });
 }
 
 function typeMeta(type: SuggestionType) {
@@ -151,6 +296,13 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
   const [submitting, setSubmitting] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentSummaries, setAttachmentSummaries] = useState<AttachmentSummary[]>([]);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewUrlsRef = useRef<string[]>([]);
 
   async function fetchRows() {
     setLoading(true);
@@ -184,6 +336,13 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
     setAdminNotes(selected ? parseAdminNotes(selected.adminNotes).note : '');
   }, [selected]);
 
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      previewUrlsRef.current = [];
+    };
+  }, []);
+
   const filteredRows = useMemo(() => {
     const q = normalizeArabic(search);
     return rows.filter((row) => {
@@ -215,9 +374,76 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
     }));
   }
 
+  function makeAttachmentSummary(file: File): AttachmentSummary {
+    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+    if (previewUrl) previewUrlsRef.current.push(previewUrl);
+
+    return {
+      name: file.name,
+      size: file.size,
+      type: file.type || 'application/octet-stream',
+      previewUrl,
+    };
+  }
+
+  function revokePreviewUrl(url?: string) {
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    previewUrlsRef.current = previewUrlsRef.current.filter((item) => item !== url);
+  }
+
+  function resetAttachments() {
+    attachmentSummaries.forEach((summary) => revokePreviewUrl(summary.previewUrl));
+    setAttachments([]);
+    setAttachmentSummaries([]);
+    setUploadStage('idle');
+    setUploadProgress(0);
+  }
+
+  function handleAttachmentFiles(fileList: FileList | null) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+
+    const accepted = files.filter((file) => file.type.startsWith('image/') || file.type === 'application/pdf');
+    if (!accepted.length) {
+      setFeedback({ type: 'error', message: 'المرفقات المدعومة حاليًا هي الصور وملفات PDF الصغيرة فقط.' });
+      return;
+    }
+
+    const availableSlots = MAX_ATTACHMENTS - attachments.length;
+    if (availableSlots <= 0) {
+      setFeedback({ type: 'error', message: `يمكن إرفاق ${MAX_ATTACHMENTS} ملفات كحد أقصى لكل طلب.` });
+      return;
+    }
+
+    const selectedFiles = accepted.slice(0, availableSlots);
+    if (accepted.length > availableSlots) {
+      setFeedback({ type: 'error', message: `تمت إضافة ${availableSlots} مرفقات فقط للوصول إلى الحد الأعلى.` });
+    }
+
+    setAttachments((prev) => [...prev, ...selectedFiles]);
+    setAttachmentSummaries((prev) => [...prev, ...selectedFiles.map(makeAttachmentSummary)]);
+  }
+
+  function removeAttachment(index: number) {
+    setAttachments((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+    setAttachmentSummaries((prev) => {
+      const removed = prev[index];
+      revokePreviewUrl(removed?.previewUrl);
+      return prev.filter((_, itemIndex) => itemIndex !== index);
+    });
+  }
+
+  function updatePreparedAttachment(index: number, info: Pick<AttachmentSummary, 'compressed' | 'compressedSize' | 'type'>) {
+    setAttachmentSummaries((prev) => prev.map((summary, itemIndex) => (
+      itemIndex === index ? { ...summary, ...info } : summary
+    )));
+  }
+
   function closeCreateMode() {
     setForm(DEFAULT_FORM);
     setFeedback(null);
+    resetAttachments();
     router.replace(basePath);
   }
 
@@ -264,7 +490,17 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
     }
 
     setSubmitting(true);
+    setUploadStage(attachments.length ? 'preparing' : 'idle');
+    setUploadProgress(attachments.length ? 5 : 0);
     try {
+      const attachmentPayloads = attachments.length
+        ? await buildAttachmentPayloads(attachments, updatePreparedAttachment, setUploadProgress)
+        : [];
+      if (attachmentPayloads.length) {
+        setUploadStage('uploading');
+        setUploadProgress(65);
+      }
+
       const res = await fetch('/api/suggestions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -280,7 +516,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
           programName: form.programName.trim(),
           area: selectedItems.join('، '),
           serviceItems: selectedItems,
-          attachments: [],
+          attachments: attachmentPayloads,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -290,8 +526,12 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
       }
       closeCreateMode();
       await fetchRows();
+    } catch (error: any) {
+      setFeedback({ type: 'error', message: error?.message || 'تعذر حفظ الطلب' });
     } finally {
       setSubmitting(false);
+      setUploadStage('idle');
+      setUploadProgress(0);
     }
   }
 
@@ -432,6 +672,65 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
           {type === 'PURCHASE' ? <div className="grid gap-3 sm:grid-cols-2"><Input label="الصنف المطلوب" value={form.itemName} onChange={(e) => updateForm('itemName', e.target.value)} placeholder="اكتب اسم الصنف المطلوب" /><Input label="الكمية" type="number" min="1" value={form.quantity} onChange={(e) => updateForm('quantity', e.target.value)} placeholder="1" /></div> : null}
           {type === 'OTHER' ? <div className="grid gap-3 sm:grid-cols-2"><Input label="عنوان الطلب" value={form.otherTitle} onChange={(e) => updateForm('otherTitle', e.target.value)} placeholder="مثال: طلب معالجة تشغيلية أخرى" /><Input label="الجهة المقترحة مبدئيًا" value={form.otherRecipient} onChange={(e) => updateForm('otherRecipient', e.target.value)} placeholder="اختياري" /></div> : null}
           <div className="space-y-2"><label className="block text-sm font-semibold text-slate-700">سبب الطلب أو الملاحظة</label><textarea value={form.issueSummary} onChange={(e) => updateForm('issueSummary', e.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب وصفًا واضحًا ومباشرًا" /></div>
+          <div className="rounded-[22px] border border-slate-200 bg-[#f8fbfb] p-4">
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                handleAttachmentFiles(event.target.files);
+                event.target.value = '';
+              }}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                handleAttachmentFiles(event.target.files);
+                event.target.value = '';
+              }}
+            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="text-sm font-extrabold text-[#016564]">توثيق الطلب بالصور</div>
+                <div className="mt-1 text-xs leading-6 text-[#61706f]">المرفقات مؤقتة، وتُحذف تلقائيًا بعد تنزيل مسودة البريد أو بعد 10 أيام.</div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button type="button" variant="ghost" onClick={() => cameraInputRef.current?.click()}>التقاط صورة</Button>
+                <Button type="button" variant="ghost" onClick={() => fileInputRef.current?.click()}>إرفاق من الملفات</Button>
+              </div>
+            </div>
+            {attachmentSummaries.length ? (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {attachmentSummaries.map((summary, index) => (
+                  <div key={`${summary.name}-${index}`} className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                    {summary.previewUrl ? <img src={summary.previewUrl} alt="" className="h-16 w-16 rounded-xl object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-500">PDF</div>}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-bold text-slate-800">{summary.name}</div>
+                      <div className="mt-1 text-xs text-slate-500">{formatBytes(summary.compressedSize || summary.size)}{summary.compressed ? ` بعد الضغط من ${formatBytes(summary.size)}` : ''}</div>
+                      <button type="button" onClick={() => removeAttachment(index)} className="mt-2 text-xs font-bold text-red-600">حذف المرفق</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-[#61706f]">يمكنك إضافة صور للمشكلة مباشرة من الكاميرا أو من الملفات قبل إرسال الطلب.</div>
+            )}
+            {uploadStage !== 'idle' ? (
+              <div className="mt-4">
+                <div className="mb-2 text-xs font-bold text-[#016564]">{uploadStage === 'preparing' ? 'جاري تجهيز وضغط المرفقات...' : 'جاري إرسال الطلب...'}</div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-[#016564] transition-all" style={{ width: `${Math.min(100, Math.max(5, uploadProgress))}%` }} />
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button><Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button></div>
         </form>
       </Modal>
@@ -493,6 +792,10 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
                           )}
                         </div>
                       ))}
+                    </div>
+                  ) : selected.attachmentsRemovedCount ? (
+                    <div className="mt-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-7 text-amber-800">
+                      تم حذف {selected.attachmentsRemovedCount} مرفقات مؤقتة من قاعدة البيانات بعد انتهاء الحاجة لها. بقي ملخص الطلب محفوظًا، ويمكن الاعتماد على مسودة البريد التي تم تنزيلها عند الأرشفة.
                     </div>
                   ) : (
                     <div className="mt-2 text-sm leading-7 text-[#61706f]">لا توجد مرفقات مرفوعة لهذا الطلب.</div>

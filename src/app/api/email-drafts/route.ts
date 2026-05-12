@@ -11,6 +11,7 @@ import {
   normalizeRequestType,
   stripHtmlToText,
 } from '@/lib/external-email';
+import { pruneExpiredSuggestionAttachmentBodies } from '@/lib/service-attachment-retention';
 
 type JsonObject = Record<string, any>;
 
@@ -172,6 +173,12 @@ function findLinkedSuggestion(
 
 export async function GET(request: Request) {
   try {
+    try {
+      await pruneExpiredSuggestionAttachmentBodies();
+    } catch (cleanupError) {
+      console.error('Failed to prune expired service attachments', cleanupError);
+    }
+
     const url = new URL(request.url);
     const scope = String(url.searchParams.get('scope') || 'active').toLowerCase();
     const page = Math.max(1, Number(url.searchParams.get('page') || 1));

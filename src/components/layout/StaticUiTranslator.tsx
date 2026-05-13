@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import type { AppLanguage } from '@/context/AuthContext';
 import { translateStaticUiText } from '@/lib/i18n';
 
@@ -22,6 +23,7 @@ function shouldSkipElement(element: Element | null) {
 }
 
 export function StaticUiTranslator({ language }: { language: AppLanguage }) {
+  const pathname = usePathname();
   const textOriginals = useRef(new WeakMap<Text, string>());
   const textLastApplied = useRef(new WeakMap<Text, string>());
   const attrOriginals = useRef(new WeakMap<Element, Map<TranslatableAttribute, string>>());
@@ -111,6 +113,9 @@ export function StaticUiTranslator({ language }: { language: AppLanguage }) {
     };
 
     run();
+    const animationFrame = window.requestAnimationFrame(run);
+    const shortTimer = window.setTimeout(run, 60);
+    const hydrationTimer = window.setTimeout(run, 260);
 
     const observer = new MutationObserver((mutations) => {
       let shouldTranslate = false;
@@ -145,9 +150,12 @@ export function StaticUiTranslator({ language }: { language: AppLanguage }) {
 
     return () => {
       observer.disconnect();
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(shortTimer);
+      window.clearTimeout(hydrationTimer);
       queued = false;
     };
-  }, [language]);
+  }, [language, pathname]);
 
   return null;
 }

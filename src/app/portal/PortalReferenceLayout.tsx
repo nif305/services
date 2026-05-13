@@ -13,7 +13,7 @@ const ROLE_ORDER: Role[] = ['manager', 'warehouse', 'user'];
 
 export default function PortalReferenceLayout() {
   const router = useRouter();
-  const { t, direction } = useI18n();
+  const { t, direction, language } = useI18n();
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
 
   const availableRoles = useMemo<Role[]>(() => {
@@ -85,6 +85,7 @@ export default function PortalReferenceLayout() {
           <div className="mt-7 flex flex-1 items-center justify-center">
             <div className="w-full max-w-[420px] space-y-6">
               <SystemCard
+                key={`materials-${language}`}
                 title={t('portal.trainingMaterialsTitle')}
                 description={t('portal.trainingMaterialsDescription')}
                 icon={<MaterialsIcon />}
@@ -92,6 +93,7 @@ export default function PortalReferenceLayout() {
               />
 
               <SystemCard
+                key={`services-${language}`}
                 title={t('portal.servicesTitle')}
                 description={t('portal.servicesDescription')}
                 icon={<ServicesIcon />}

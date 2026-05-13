@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
+import { translateStaticUiText } from '@/lib/i18n';
 
 type SummaryMetrics = {
   totalInventory: number;
@@ -22,7 +24,9 @@ type SummaryMetrics = {
 export default function MaterialsDashboardPage() {
   const [metrics, setMetrics] = useState<SummaryMetrics | null>(null);
   const { user } = useAuth();
+  const { language } = useI18n();
   const isEmployee = user?.role === 'user';
+  const ui = (source: string) => translateStaticUiText(source, language);
 
   useEffect(() => {
     fetch('/api/dashboard-summary', { cache: 'no-store' })
@@ -33,43 +37,43 @@ export default function MaterialsDashboardPage() {
 
   const stockSeries = useMemo(() => {
     const rows = [
-      { label: 'متاحة', value: metrics?.availableInventory ?? 0, color: '#0f5e61' },
-      { label: 'منخفضة', value: metrics?.lowStock ?? 0, color: '#c3a66f' },
-      { label: 'نافدة', value: metrics?.outOfStock ?? 0, color: '#7c1e3e' },
+      { label: ui('متاحة'), value: metrics?.availableInventory ?? 0, color: '#0f5e61' },
+      { label: ui('منخفضة'), value: metrics?.lowStock ?? 0, color: '#c3a66f' },
+      { label: ui('نافدة'), value: metrics?.outOfStock ?? 0, color: '#7c1e3e' },
     ];
     const total = Math.max(rows.reduce((sum, item) => sum + item.value, 0), 1);
     return { rows, total };
-  }, [metrics]);
+  }, [metrics, language]);
 
   const actionCards = [
     {
-      title: 'طلبات تحتاج صرفًا',
+      title: ui('طلبات تحتاج صرفًا'),
       value: metrics?.pendingRequests ?? 0,
-      hint: 'قائمة التنفيذ اليومية للمستودع',
+      hint: ui('قائمة التنفيذ اليومية للمستودع'),
       href: '/materials/requests',
       accent: 'from-[#0f5e61] to-[#41797a]',
     },
     {
-      title: 'مرتجعات معلقة',
+      title: ui('مرتجعات معلقة'),
       value: metrics?.pendingReturns ?? 0,
-      hint: 'طلبات إرجاع بانتظار الاستلام',
+      hint: ui('طلبات إرجاع بانتظار الاستلام'),
       href: '/materials/returns',
       accent: 'from-[#8a6a37] to-[#c3a66f]',
     },
     {
-      title: 'عهد نشطة',
+      title: ui('عهد نشطة'),
       value: metrics?.activeCustody ?? 0,
-      hint: 'مواد لدى الموظفين تحتاج متابعة',
+      hint: ui('مواد لدى الموظفين تحتاج متابعة'),
       href: '/materials/custody',
       accent: 'from-[#1b4f68] to-[#5f8fa2]',
     },
   ];
 
   const quickActions = [
-    { title: 'طلبات المواد', hint: 'رفع ومراجعة وصرف الطلبات', href: '/materials/requests' },
-    { title: 'المخزون', hint: 'إدارة الأصناف والكميات والحالة', href: '/materials/inventory' },
-    { title: 'المرتجعات', hint: 'استلام الإرجاع وتوثيق الحالة', href: '/materials/returns' },
-    { title: 'العهد', hint: 'متابعة العهد النشطة والمتأخرة', href: '/materials/custody' },
+    { title: ui('طلبات المواد'), hint: ui('رفع ومراجعة وصرف الطلبات'), href: '/materials/requests' },
+    { title: ui('المخزون'), hint: ui('إدارة الأصناف والكميات والحالة'), href: '/materials/inventory' },
+    { title: ui('المرتجعات'), hint: ui('استلام الإرجاع وتوثيق الحالة'), href: '/materials/returns' },
+    { title: ui('العهد'), hint: ui('متابعة العهد النشطة والمتأخرة'), href: '/materials/custody' },
   ];
   const visibleQuickActions = user?.role === 'user'
     ? quickActions.filter((card) => card.href !== '/materials/inventory')
@@ -79,20 +83,20 @@ export default function MaterialsDashboardPage() {
     if (user?.role === 'user') {
       return [
         {
-          title: 'طلب جديد',
-          hint: 'رفع طلب مواد من المخزن',
+          title: ui('طلب جديد'),
+          hint: ui('رفع طلب مواد من المخزن'),
           href: '/materials/requests?new=1',
           icon: <RequestIcon />,
         },
         {
-          title: 'المرتجعات',
-          hint: 'طلبات الإرجاع والاستلام',
+          title: ui('المرتجعات'),
+          hint: ui('طلبات الإرجاع والاستلام'),
           href: '/materials/returns',
           icon: <ReturnIcon />,
         },
         {
-          title: 'العهد',
-          hint: 'العهد النشطة والمتأخرة',
+          title: ui('العهد'),
+          hint: ui('العهد النشطة والمتأخرة'),
           href: '/materials/custody',
           icon: <CustodyIcon />,
         },
@@ -102,26 +106,26 @@ export default function MaterialsDashboardPage() {
     if (user?.role === 'warehouse') {
       return [
         {
-          title: 'طلبات الصرف',
-          hint: 'تنفيذ الطلبات المعتمدة من المستودع',
+          title: ui('طلبات الصرف'),
+          hint: ui('تنفيذ الطلبات المعتمدة من المستودع'),
           href: '/materials/requests',
           icon: <RequestIcon />,
         },
         {
-          title: 'المخزون',
-          hint: 'إدارة الأصناف والكميات والحالة',
+          title: ui('المخزون'),
+          hint: ui('إدارة الأصناف والكميات والحالة'),
           href: '/materials/inventory',
           icon: <InventoryIcon />,
         },
         {
-          title: 'موافقة الإرجاع',
-          hint: 'استلام المرتجعات وتوثيق حالتها',
+          title: ui('موافقة الإرجاع'),
+          hint: ui('استلام المرتجعات وتوثيق حالتها'),
           href: '/materials/returns',
           icon: <ReturnIcon />,
         },
         {
-          title: 'العهد',
-          hint: 'متابعة العهد المرتبطة بالمخزن',
+          title: ui('العهد'),
+          hint: ui('متابعة العهد المرتبطة بالمخزن'),
           href: '/materials/custody',
           icon: <CustodyIcon />,
         },
@@ -130,47 +134,47 @@ export default function MaterialsDashboardPage() {
 
     return [
       {
-        title: 'طلبات المواد',
-        hint: 'متابعة جميع طلبات المواد والحالات',
+        title: ui('طلبات المواد'),
+        hint: ui('متابعة جميع طلبات المواد والحالات'),
         href: '/materials/requests',
         icon: <RequestIcon />,
       },
       {
-        title: 'المخزون',
-        hint: 'متابعة توفر الأصناف ومستوى المخزون',
+        title: ui('المخزون'),
+        hint: ui('متابعة توفر الأصناف ومستوى المخزون'),
         href: '/materials/inventory',
         icon: <InventoryIcon />,
       },
       {
-        title: 'المرتجعات',
-        hint: 'متابعة حالات الإرجاع والاستلام',
+        title: ui('المرتجعات'),
+        hint: ui('متابعة حالات الإرجاع والاستلام'),
         href: '/materials/returns',
         icon: <ReturnIcon />,
       },
       {
-        title: 'العهد',
-        hint: 'متابعة العهد النشطة والمتأخرة',
+        title: ui('العهد'),
+        hint: ui('متابعة العهد النشطة والمتأخرة'),
         href: '/materials/custody',
         icon: <CustodyIcon />,
       },
     ];
-  }, [user?.role]);
+  }, [user?.role, language]);
 
   const sectionTitle =
-    user?.role === 'user' ? 'اختر نوع الإجراء' : user?.role === 'warehouse' ? 'مهام المستودع' : 'متابعة المواد';
+    user?.role === 'user' ? ui('اختر نوع الإجراء') : user?.role === 'warehouse' ? ui('مهام المستودع') : ui('متابعة المواد');
 
   const primaryAction =
     user?.role === 'user'
-      ? { label: 'طلب مواد جديد', href: '/materials/requests?new=1' }
+      ? { label: ui('طلب مواد جديد'), href: '/materials/requests?new=1' }
       : user?.role === 'warehouse'
-        ? { label: 'طلبات الصرف', href: '/materials/requests' }
-        : { label: 'جميع طلبات المواد', href: '/materials/requests' };
+        ? { label: ui('طلبات الصرف'), href: '/materials/requests' }
+        : { label: ui('جميع طلبات المواد'), href: '/materials/requests' };
 
   const workflow = [
-    { label: 'طلبات بانتظار الإجراء', value: metrics?.pendingRequests ?? 0 },
-    { label: 'طلبات مصروفة', value: metrics?.issuedRequests ?? 0 },
-    { label: 'طلبات مرفوضة', value: metrics?.rejectedRequests ?? 0 },
-    { label: 'عهد متأخرة', value: metrics?.delayedCustody ?? 0 },
+    { label: ui('طلبات بانتظار الإجراء'), value: metrics?.pendingRequests ?? 0 },
+    { label: ui('طلبات مصروفة'), value: metrics?.issuedRequests ?? 0 },
+    { label: ui('طلبات مرفوضة'), value: metrics?.rejectedRequests ?? 0 },
+    { label: ui('عهد متأخرة'), value: metrics?.delayedCustody ?? 0 },
   ];
   const workflowMax = Math.max(...workflow.map((item) => item.value), 1);
 
@@ -180,7 +184,7 @@ export default function MaterialsDashboardPage() {
         <section className="rounded-[26px] border border-white/80 bg-white p-5 shadow-[0_18px_38px_-34px_rgba(15,23,42,0.2)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-[12px] font-semibold text-[#8a9a98]">إجراءات النظام</div>
+            <div className="text-[12px] font-semibold text-[#8a9a98]">{ui('إجراءات النظام')}</div>
             <h2 className="mt-1.5 text-[22px] font-extrabold text-[#223738]">{sectionTitle}</h2>
           </div>
           <a
@@ -212,28 +216,28 @@ export default function MaterialsDashboardPage() {
       <section className="overflow-hidden rounded-[26px] border border-white/80 bg-white shadow-[0_20px_44px_-36px_rgba(15,23,42,0.22)]">
         <div className="grid gap-5 p-5 xl:grid-cols-[1.05fr_0.95fr] xl:p-6">
           <div className="rounded-[24px] bg-[linear-gradient(135deg,#0e5d61_0%,#698b8c_100%)] px-5 py-5 text-white shadow-[0_18px_40px_-32px_rgba(1,101,100,0.58)]">
-            <div className="text-[12px] text-white/70">نظام طلب المواد من المخزن</div>
+            <div className="text-[12px] text-white/70">{ui('نظام طلب المواد من المخزن')}</div>
             <h1 className="mt-2.5 text-[25px] font-extrabold leading-tight">
-              {isEmployee ? 'لوحة طلباتي ومتابعتها' : 'لوحة تشغيل المواد'}
+              {isEmployee ? ui('لوحة طلباتي ومتابعتها') : ui('لوحة تشغيل المواد')}
             </h1>
             <p className="mt-2.5 max-w-[620px] text-[13px] leading-7 text-white/84">
               {isEmployee
-                ? 'مدخل مباشر لرفع طلبات المواد ومتابعة حالتها والعهد والمرتجعات المرتبطة بك دون إظهار تفاصيل المخزون التشغيلية.'
-                : 'مركز متابعة يومي يربط بين حالة المخزون وطلبات الصرف والمرتجعات والعهد النشطة، مع وصول مباشر إلى أهم الإجراءات التنفيذية.'}
+                ? ui('مدخل مباشر لرفع طلبات المواد ومتابعة حالتها والعهد والمرتجعات المرتبطة بك دون إظهار تفاصيل المخزون التشغيلية.')
+                : ui('مركز متابعة يومي يربط بين حالة المخزون وطلبات الصرف والمرتجعات والعهد النشطة، مع وصول مباشر إلى أهم الإجراءات التنفيذية.')}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {isEmployee ? (
                 <>
-                  <HeroMetric title="طلبات بانتظار الإجراء" value={metrics?.pendingRequests ?? 0} />
-                  <HeroMetric title="طلبات تم صرفها" value={metrics?.issuedRequests ?? 0} />
-                  <HeroMetric title="إشعارات غير مقروءة" value={metrics?.unreadNotifications ?? 0} />
+                  <HeroMetric title={ui('طلبات بانتظار الإجراء')} value={metrics?.pendingRequests ?? 0} />
+                  <HeroMetric title={ui('طلبات تم صرفها')} value={metrics?.issuedRequests ?? 0} />
+                  <HeroMetric title={ui('إشعارات غير مقروءة')} value={metrics?.unreadNotifications ?? 0} />
                 </>
               ) : (
                 <>
-                  <HeroMetric title="إجمالي الأصناف" value={metrics?.totalInventory ?? 0} />
-                  <HeroMetric title="مواد متاحة" value={metrics?.availableInventory ?? 0} />
-                  <HeroMetric title="إشعارات غير مقروءة" value={metrics?.unreadNotifications ?? 0} />
+                  <HeroMetric title={ui('إجمالي الأصناف')} value={metrics?.totalInventory ?? 0} />
+                  <HeroMetric title={ui('مواد متاحة')} value={metrics?.availableInventory ?? 0} />
+                  <HeroMetric title={ui('إشعارات غير مقروءة')} value={metrics?.unreadNotifications ?? 0} />
                 </>
               )}
             </div>
@@ -246,7 +250,7 @@ export default function MaterialsDashboardPage() {
                 href={card.href}
                 className={`rounded-[22px] bg-gradient-to-l ${card.accent} px-4 py-4 text-white shadow-[0_16px_32px_-30px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5`}
               >
-                <div className="text-[12px] text-white/72">أولوية تنفيذ</div>
+                <div className="text-[12px] text-white/72">{ui('أولوية تنفيذ')}</div>
                 <div className="mt-2 flex items-end justify-between gap-4">
                   <div>
                     <div className="text-[19px] font-extrabold">{card.title}</div>
@@ -264,14 +268,14 @@ export default function MaterialsDashboardPage() {
         {!isEmployee ? (
         <div className="rounded-[26px] border border-[#dde6e4] bg-white p-5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)]">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[19px] font-extrabold text-[#223738]">حالة المخزون</h2>
+            <h2 className="text-[19px] font-extrabold text-[#223738]">{ui('حالة المخزون')}</h2>
             <a href="/materials/inventory" className="text-[13px] font-semibold text-[#0f5e61]">
-              فتح المخزون
+              {ui('فتح المخزون')}
             </a>
           </div>
 
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
-            <DonutChart series={stockSeries.rows} total={stockSeries.total} />
+            <DonutChart series={stockSeries.rows} total={stockSeries.total} centerLabel={ui('إجمالي الحالة')} />
             <div className="flex-1 space-y-3">
               {stockSeries.rows.map((item) => (
                 <div key={item.label} className="rounded-[18px] border border-[#edf1f1] bg-[#f8fbfb] px-4 py-3">
@@ -286,8 +290,8 @@ export default function MaterialsDashboardPage() {
               ))}
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <MiniInsight title="مواد مسترجعة" value={metrics?.returnableItems ?? 0} />
-                <MiniInsight title="مواد استهلاكية" value={metrics?.consumableItems ?? 0} />
+                <MiniInsight title={ui('مواد مسترجعة')} value={metrics?.returnableItems ?? 0} />
+                <MiniInsight title={ui('مواد استهلاكية')} value={metrics?.consumableItems ?? 0} />
               </div>
             </div>
           </div>
@@ -296,9 +300,9 @@ export default function MaterialsDashboardPage() {
 
         <div className="rounded-[26px] border border-[#dde6e4] bg-white p-5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)]">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[19px] font-extrabold text-[#223738]">مسار التنفيذ اليومي</h2>
+            <h2 className="text-[19px] font-extrabold text-[#223738]">{ui('مسار التنفيذ اليومي')}</h2>
             <span className="rounded-full bg-[#f3f7f6] px-3 py-1 text-[12px] text-[#6f8080]">
-              تشغيل حي قابل للتنفيذ
+              {ui('تشغيل حي قابل للتنفيذ')}
             </span>
           </div>
 
@@ -358,9 +362,11 @@ function MiniInsight({ title, value }: { title: string; value: number }) {
 function DonutChart({
   series,
   total,
+  centerLabel,
 }: {
   series: { label: string; value: number; color: string }[];
   total: number;
+  centerLabel: string;
 }) {
   let current = 0;
   const radius = 58;
@@ -392,7 +398,7 @@ function DonutChart({
       </svg>
       <div className="absolute inset-0 flex items-center justify-center text-center">
         <div>
-          <div className="text-[11px] text-[#8b9999]">إجمالي الحالة</div>
+          <div className="text-[11px] text-[#8b9999]">{centerLabel}</div>
           <div className="text-[24px] font-extrabold text-[#223738]">{total}</div>
         </div>
       </div>

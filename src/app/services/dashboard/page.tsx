@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
+import { translateStaticUiText } from '@/lib/i18n';
 
 type SummaryMetrics = {
   maintenancePending: number;
@@ -14,7 +16,9 @@ type SummaryMetrics = {
 export default function ServicesDashboardPage() {
   const [metrics, setMetrics] = useState<SummaryMetrics | null>(null);
   const { user } = useAuth();
+  const { language } = useI18n();
   const isEmployee = user?.role === 'user';
+  const ui = (source: string) => translateStaticUiText(source, language);
 
   useEffect(() => {
     fetch('/api/dashboard-summary', { cache: 'no-store' })
@@ -25,48 +29,48 @@ export default function ServicesDashboardPage() {
 
   const series = useMemo(
     () => [
-      { label: 'الصيانة', value: metrics?.maintenancePending ?? 0, color: '#0f5e61' },
-      { label: 'النظافة', value: metrics?.cleaningPending ?? 0, color: '#4f8f7a' },
-      { label: 'الشراء المباشر', value: metrics?.purchasePending ?? 0, color: '#c3a66f' },
-      { label: 'الطلبات الأخرى', value: metrics?.otherPending ?? 0, color: '#7c1e3e' },
+      { label: ui('الصيانة'), value: metrics?.maintenancePending ?? 0, color: '#0f5e61' },
+      { label: ui('النظافة'), value: metrics?.cleaningPending ?? 0, color: '#4f8f7a' },
+      { label: ui('الشراء المباشر'), value: metrics?.purchasePending ?? 0, color: '#c3a66f' },
+      { label: ui('الطلبات الأخرى'), value: metrics?.otherPending ?? 0, color: '#7c1e3e' },
     ],
-    [metrics]
+    [metrics, language]
   );
 
   const total = series.reduce((sum, item) => sum + item.value, 0);
   const maxVal = Math.max(...series.map((item) => item.value), 1);
 
   const quickActions = [
-    { title: 'بوابة الطلبات', hint: 'رفع طلبات الخدمة ومتابعتها', href: '/services/requests' },
-    { title: 'اعتماد الطلبات', hint: 'قرارات المدير والموافقات', href: '/services/approvals' },
-    { title: 'المراسلات الخارجية', hint: 'مسودات البريد ومتابعتها', href: '/services/email-drafts' },
-    { title: 'المراسلات الداخلية', hint: 'تواصل رسمي داخلي', href: '/services/messages' },
+    { title: ui('بوابة الطلبات'), hint: ui('رفع طلبات الخدمة ومتابعتها'), href: '/services/requests' },
+    { title: ui('اعتماد الطلبات'), hint: ui('قرارات المدير والموافقات'), href: '/services/approvals' },
+    { title: ui('المراسلات الخارجية'), hint: ui('مسودات البريد ومتابعتها'), href: '/services/email-drafts' },
+    { title: ui('المراسلات الداخلية'), hint: ui('تواصل رسمي داخلي'), href: '/services/messages' },
   ];
 
   const requestActions = useMemo(() => {
     if (user?.role === 'user') {
       return [
         {
-          title: 'طلب صيانة',
-          hint: 'رفع طلب أعمال الصيانة',
+          title: ui('طلب صيانة'),
+          hint: ui('رفع طلب أعمال الصيانة'),
           href: '/services/maintenance?new=1',
           icon: <MaintenanceIcon />,
         },
         {
-          title: 'طلب نظافة',
-          hint: 'رفع طلب خدمات النظافة',
+          title: ui('طلب نظافة'),
+          hint: ui('رفع طلب خدمات النظافة'),
           href: '/services/cleaning?new=1',
           icon: <CleaningIcon />,
         },
         {
-          title: 'شراء مباشر',
-          hint: 'رفع طلب شراء مباشر',
+          title: ui('شراء مباشر'),
+          hint: ui('رفع طلب شراء مباشر'),
           href: '/services/purchases?new=1',
           icon: <PurchaseIcon />,
         },
         {
-          title: 'طلب آخر',
-          hint: 'رفع طلب خدمات عامة أخرى',
+          title: ui('طلب آخر'),
+          hint: ui('رفع طلب خدمات عامة أخرى'),
           href: '/services/other?new=1',
           icon: <MessagesIcon />,
         },
@@ -75,57 +79,57 @@ export default function ServicesDashboardPage() {
 
     return [
       {
-        title: 'بوابة الطلبات',
-        hint: 'متابعة جميع طلبات الخدمات',
+        title: ui('بوابة الطلبات'),
+        hint: ui('متابعة جميع طلبات الخدمات'),
         href: '/services/requests',
         icon: <MaintenanceIcon />,
       },
       {
-        title: 'اعتماد الطلبات',
-        hint: 'الطلبات التي تحتاج قراراً أو موافقة',
+        title: ui('اعتماد الطلبات'),
+        hint: ui('الطلبات التي تحتاج قراراً أو موافقة'),
         href: '/services/approvals',
         icon: <PurchaseIcon />,
       },
       {
-        title: 'المراسلات الخارجية',
-        hint: 'مسودات البريد ومتابعتها',
+        title: ui('المراسلات الخارجية'),
+        hint: ui('مسودات البريد ومتابعتها'),
         href: '/services/email-drafts',
         icon: <MessagesIcon />,
       },
       {
-        title: 'المراسلات الداخلية',
-        hint: 'التواصل الرسمي داخل النظام',
+        title: ui('المراسلات الداخلية'),
+        hint: ui('التواصل الرسمي داخل النظام'),
         href: '/services/messages',
         icon: <MessagesIcon />,
       },
     ];
-  }, [user?.role]);
+  }, [user?.role, language]);
 
-  const sectionTitle = user?.role === 'user' ? 'اختر نوع الطلب' : 'متابعة الخدمات';
+  const sectionTitle = user?.role === 'user' ? ui('اختر نوع الطلب') : ui('متابعة الخدمات');
   const primaryAction =
     user?.role === 'user'
-      ? { label: 'بوابة الطلبات', href: '/services/requests' }
-      : { label: 'اعتماد الطلبات', href: '/services/approvals' };
+      ? { label: ui('بوابة الطلبات'), href: '/services/requests' }
+      : { label: ui('اعتماد الطلبات'), href: '/services/approvals' };
 
   const priorityCards = [
     {
-      title: 'طلبات الصيانة',
+      title: ui('طلبات الصيانة'),
       value: metrics?.maintenancePending ?? 0,
-      hint: 'متابعة البلاغات والأعمال المفتوحة',
+      hint: ui('متابعة البلاغات والأعمال المفتوحة'),
       href: '/services/maintenance',
       accent: 'from-[#0f5e61] to-[#4b7f81]',
     },
     {
-      title: 'طلبات النظافة',
+      title: ui('طلبات النظافة'),
       value: metrics?.cleaningPending ?? 0,
-      hint: 'مهام التشغيل والخدمة اليومية',
+      hint: ui('مهام التشغيل والخدمة اليومية'),
       href: '/services/cleaning',
       accent: 'from-[#3e8370] to-[#7ea493]',
     },
     {
-      title: 'الشراء المباشر',
+      title: ui('الشراء المباشر'),
       value: metrics?.purchasePending ?? 0,
-      hint: 'طلبات تحتاج تنسيقًا أو تعميدًا',
+      hint: ui('طلبات تحتاج تنسيقًا أو تعميدًا'),
       href: '/services/purchases',
       accent: 'from-[#8a6a37] to-[#c3a66f]',
     },
@@ -137,7 +141,7 @@ export default function ServicesDashboardPage() {
         <section className="rounded-[26px] border border-white/80 bg-white p-5 shadow-[0_18px_38px_-34px_rgba(15,23,42,0.2)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-[12px] font-semibold text-[#8a9a98]">إجراءات النظام</div>
+            <div className="text-[12px] font-semibold text-[#8a9a98]">{ui('إجراءات النظام')}</div>
             <h2 className="mt-1.5 text-[22px] font-extrabold text-[#223738]">{sectionTitle}</h2>
           </div>
           <a
@@ -169,17 +173,16 @@ export default function ServicesDashboardPage() {
       <section className="overflow-hidden rounded-[26px] border border-white/80 bg-white shadow-[0_20px_44px_-36px_rgba(15,23,42,0.22)]">
         <div className="grid gap-5 p-5 xl:grid-cols-[1.05fr_0.95fr] xl:p-6">
           <div className="rounded-[24px] bg-[linear-gradient(135deg,#7c1e3e_0%,#8e5366_52%,#2a6d6b_100%)] px-5 py-5 text-white shadow-[0_18px_40px_-32px_rgba(124,30,62,0.4)]">
-            <div className="text-[12px] text-white/70">نظام طلب الخدمات</div>
-            <h1 className="mt-2.5 text-[25px] font-extrabold leading-tight">لوحة تشغيل الخدمات</h1>
+            <div className="text-[12px] text-white/70">{ui('نظام طلب الخدمات')}</div>
+            <h1 className="mt-2.5 text-[25px] font-extrabold leading-tight">{ui('لوحة تشغيل الخدمات')}</h1>
             <p className="mt-2.5 max-w-[620px] text-[13px] leading-7 text-white/84">
-              لوحة تفاعلية لإدارة طلبات الصيانة والنظافة والشراء المباشر والمراسلات، مع
-              إبراز الطلبات التي تحتاج قرارًا أو متابعة مباشرة.
+              {ui('لوحة تفاعلية لإدارة طلبات الصيانة والنظافة والشراء المباشر والمراسلات، مع إبراز الطلبات التي تحتاج قرارًا أو متابعة مباشرة.')}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <HeroMetric title="إجمالي الطلبات الحالية" value={total} />
-              <HeroMetric title="إشعارات غير مقروءة" value={metrics?.unreadNotifications ?? 0} />
-              <HeroMetric title="طلبات أخرى" value={metrics?.otherPending ?? 0} />
+              <HeroMetric title={ui('إجمالي الطلبات الحالية')} value={total} />
+              <HeroMetric title={ui('إشعارات غير مقروءة')} value={metrics?.unreadNotifications ?? 0} />
+              <HeroMetric title={ui('طلبات أخرى')} value={metrics?.otherPending ?? 0} />
             </div>
           </div>
 
@@ -190,7 +193,7 @@ export default function ServicesDashboardPage() {
                 href={card.href}
                 className={`rounded-[22px] bg-gradient-to-l ${card.accent} px-4 py-4 text-white shadow-[0_16px_32px_-30px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5`}
               >
-                <div className="text-[12px] text-white/72">أولوية تشغيل</div>
+                <div className="text-[12px] text-white/72">{ui('أولوية تشغيل')}</div>
                 <div className="mt-2 flex items-end justify-between gap-4">
                   <div>
                     <div className="text-[19px] font-extrabold">{card.title}</div>
@@ -207,9 +210,9 @@ export default function ServicesDashboardPage() {
       <section className="grid gap-4 xl:grid-cols-[0.88fr_1.12fr]">
         <div className="rounded-[26px] border border-[#dde6e4] bg-white p-5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)]">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[19px] font-extrabold text-[#223738]">الوصول السريع</h2>
+            <h2 className="text-[19px] font-extrabold text-[#223738]">{ui('الوصول السريع')}</h2>
             <span className="rounded-full bg-[#f3f7f6] px-3 py-1 text-[12px] text-[#6f8080]">
-              أدوات تشغيل مباشرة
+              {ui('أدوات تشغيل مباشرة')}
             </span>
           </div>
 
@@ -229,9 +232,9 @@ export default function ServicesDashboardPage() {
 
         <div className="rounded-[26px] border border-[#dde6e4] bg-white p-5 shadow-[0_16px_34px_-32px_rgba(15,23,42,0.2)]">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[19px] font-extrabold text-[#223738]">حجم العمل الحالي</h2>
+            <h2 className="text-[19px] font-extrabold text-[#223738]">{ui('حجم العمل الحالي')}</h2>
             <a href="/services/reports" className="text-[13px] font-semibold text-[#0f5e61]">
-              عرض التقارير
+              {ui('عرض التقارير')}
             </a>
           </div>
 
@@ -253,11 +256,10 @@ export default function ServicesDashboardPage() {
           </div>
 
           <div className="mt-5 rounded-[20px] border border-[#e4eceb] bg-[#f8fbfb] p-4">
-            <div className="text-[12px] font-semibold text-[#8a9a98]">قراءة تنفيذية</div>
+            <div className="text-[12px] font-semibold text-[#8a9a98]">{ui('قراءة تنفيذية')}</div>
             <div className="mt-2.5 text-[20px] font-extrabold text-[#223738]">{total}</div>
             <div className="mt-1.5 text-[13px] leading-6 text-[#6f8080]">
-              إجمالي الطلبات المفتوحة حاليًا عبر مسارات الخدمات المختلفة، مع تركيز على
-              ما يحتاج اعتمادًا أو متابعة تشغيلية فورية.
+              {ui('إجمالي الطلبات المفتوحة حاليًا عبر مسارات الخدمات المختلفة، مع تركيز على ما يحتاج اعتمادًا أو متابعة تشغيلية فورية.')}
             </div>
           </div>
         </div>

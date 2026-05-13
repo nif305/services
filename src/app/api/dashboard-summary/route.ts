@@ -4,6 +4,7 @@ import {
   DraftStatus,
   ItemStatus,
   ItemType,
+  Prisma,
   RequestStatus,
   ReturnStatus,
   Role,
@@ -11,6 +12,12 @@ import {
   SuggestionStatus,
 } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+
+type GroupCountRow = Record<string, unknown> & {
+  _count: {
+    _all: number;
+  };
+};
 
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
@@ -51,10 +58,49 @@ async function resolveSessionUser(request: NextRequest) {
     user = await prisma.user.findUnique({ where: { employeeId: cookieEmployeeId }, select: { id: true, status: true } });
   }
 
-  if (!user) throw new Error('تعذر التحقق من المستخدم الحالي. أعد تسجيل الدخول ثم حاول مرة أخرى.');
-  if (user.status !== Status.ACTIVE) throw new Error('الحساب غير نشط.');
+  if (!user) throw new Error('Unable to resolve current user.');
+  if (user.status !== Status.ACTIVE) throw new Error('User account is not active.');
 
   return { id: user.id, role: effectiveRole };
+}
+
+async function runDashboardQuery<T>(query: () => Promise<T>): Promise<T> {
+  try {
+    return await query();
+  } catch (error: any) {
+    const message = String(error?.message || '');
+    const isTransientConnectionIssue =
+      error?.code === 'P1017' ||
+      message.includes('Server has closed the connection') ||
+      message.includes("Can't reach database server");
+
+    if (!isTransientConnectionIssue) {
+      throw error;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return query();
+  }
+}
+
+function sumCounts(rows: GroupCountRow[]) {
+  return rows.reduce((total, row) => total + (row._count?._all || 0), 0);
+}
+
+function countBy(rows: GroupCountRow[], key: string, value: string) {
+  return rows
+    .filter((row) => String(row[key]) === value)
+    .reduce((total, row) => total + (row._count?._all || 0), 0);
+}
+
+function countCategoryByStatus(rows: GroupCountRow[], category: string, statuses?: string[]) {
+  return rows
+    .filter((row) => {
+      const matchesCategory = String(row.category) === category;
+      const matchesStatus = !statuses || statuses.includes(String(row.status));
+      return matchesCategory && matchesStatus;
+    })
+    .reduce((total, row) => total + (row._count?._all || 0), 0);
 }
 
 export async function GET(request: NextRequest) {
@@ -62,113 +108,106 @@ export async function GET(request: NextRequest) {
     const session = await resolveSessionUser(request);
     const isPrivileged = session.role === Role.MANAGER || session.role === Role.WAREHOUSE;
 
-    const requestWhere = isPrivileged ? {} : { requesterId: session.id };
-    const returnWhere = isPrivileged ? {} : { requesterId: session.id };
-    const suggestionWhere = isPrivileged ? {} : { requesterId: session.id };
-    const activeCustodyWhere = isPrivileged
-      ? { status: { in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED] } }
-      : { userId: session.id, status: { in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED] } };
-    const custodyWhere = isPrivileged
-      ? {}
-      : { userId: session.id };
-    const draftWhere: { sourceId?: { in: string[] } } = {};
+    const requestWhere: Prisma.RequestWhereInput = isPrivileged ? {} : { requesterId: session.id };
+    const returnWhere: Prisma.ReturnRequestWhereInput = isPrivileged ? {} : { requesterId: session.id };
+    const suggestionWhere: Prisma.SuggestionWhereInput = isPrivileged ? {} : { requesterId: session.id };
+    const custodyWhere: Prisma.CustodyRecordWhereInput = isPrivileged ? {} : { userId: session.id };
+    const draftWhere: Prisma.EmailDraftWhereInput = {};
 
     const userSuggestionIds = isPrivileged
       ? []
-      : await prisma.suggestion.findMany({ where: suggestionWhere, select: { id: true } }).then((rows) => rows.map((row) => row.id));
+      : await runDashboardQuery(() =>
+          prisma.suggestion.findMany({ where: suggestionWhere, select: { id: true } }).then((rows) => rows.map((row) => row.id))
+        );
+
     if (!isPrivileged) {
       draftWhere.sourceId = { in: userSuggestionIds };
     }
 
-    const [
-      totalInventory,
-      lowStock,
-      outOfStock,
-      returnableItems,
-      consumableItems,
-      materialRequestsTotal,
-      pendingRequests,
-      approvedRequests,
-      issuedRequests,
-      returnedRequests,
-      rejectedRequests,
-      requestItemsCount,
-      returnRequestsTotal,
-      pendingReturns,
-      approvedReturns,
-      rejectedReturns,
-      custodyTotal,
-      activeCustody,
-      returnedCustody,
-      delayedCustody,
-      serviceRequestsTotal,
-      serviceUnderReview,
-      serviceApproved,
-      serviceImplemented,
-      serviceRejected,
-      maintenanceTotal,
-      maintenancePending,
-      cleaningTotal,
-      cleaningPending,
-      purchaseTotal,
-      purchasePending,
-      otherTotal,
-      otherPending,
-      emailDraftsTotal,
-      activeEmailDrafts,
-      copiedEmailDrafts,
-      sentEmailDrafts,
-      unreadNotifications,
-      latestUpdates,
-    ] = await Promise.all([
-      prisma.inventoryItem.count(),
-      prisma.inventoryItem.count({ where: { status: ItemStatus.LOW_STOCK } }),
-      prisma.inventoryItem.count({ where: { status: ItemStatus.OUT_OF_STOCK } }),
-      prisma.inventoryItem.count({ where: { type: ItemType.RETURNABLE } }),
-      prisma.inventoryItem.count({ where: { type: ItemType.CONSUMABLE } }),
-      prisma.request.count({ where: requestWhere }),
-      prisma.request.count({ where: { ...requestWhere, status: { in: [RequestStatus.PENDING, RequestStatus.APPROVED] } } }),
-      prisma.request.count({ where: { ...requestWhere, status: RequestStatus.APPROVED } }),
-      prisma.request.count({ where: { ...requestWhere, status: RequestStatus.ISSUED } }),
-      prisma.request.count({ where: { ...requestWhere, status: RequestStatus.RETURNED } }),
-      prisma.request.count({ where: { ...requestWhere, status: RequestStatus.REJECTED } }),
-      prisma.requestItem.count({ where: isPrivileged ? {} : { request: { requesterId: session.id } } }),
-      prisma.returnRequest.count({ where: returnWhere }),
-      prisma.returnRequest.count({ where: { ...returnWhere, status: ReturnStatus.PENDING } }),
-      prisma.returnRequest.count({ where: { ...returnWhere, status: ReturnStatus.APPROVED } }),
-      prisma.returnRequest.count({ where: { ...returnWhere, status: ReturnStatus.REJECTED } }),
-      prisma.custodyRecord.count({ where: custodyWhere }),
-      prisma.custodyRecord.count({ where: activeCustodyWhere }),
-      prisma.custodyRecord.count({ where: { ...custodyWhere, status: CustodyStatus.RETURNED } }),
-      prisma.custodyRecord.count({ where: { ...activeCustodyWhere, status: CustodyStatus.OVERDUE } }),
-      prisma.suggestion.count({ where: suggestionWhere }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, status: SuggestionStatus.UNDER_REVIEW } }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, status: SuggestionStatus.APPROVED } }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, status: SuggestionStatus.IMPLEMENTED } }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, status: SuggestionStatus.REJECTED } }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'MAINTENANCE' } }),
-      prisma.suggestion.count({
-        where: { ...suggestionWhere, category: 'MAINTENANCE', status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] } },
-      }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'CLEANING' } }),
-      prisma.suggestion.count({
-        where: { ...suggestionWhere, category: 'CLEANING', status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] } },
-      }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'PURCHASE' } }),
-      prisma.suggestion.count({
-        where: { ...suggestionWhere, category: 'PURCHASE', status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] } },
-      }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'OTHER' } }),
-      prisma.suggestion.count({
-        where: { ...suggestionWhere, category: 'OTHER', status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] } },
-      }),
-      prisma.emailDraft.count({ where: draftWhere }),
-      prisma.emailDraft.count({ where: { ...draftWhere, status: DraftStatus.DRAFT } }),
-      prisma.emailDraft.count({ where: { ...draftWhere, status: DraftStatus.COPIED } }),
-      prisma.emailDraft.count({ where: { ...draftWhere, status: DraftStatus.SENT } }),
-      prisma.notification.count({ where: { userId: session.id, isRead: false } }),
-      prisma.notification.findMany({ where: { userId: session.id }, orderBy: { createdAt: 'desc' }, take: 4 }),
-    ]);
+    // Keep these reads sequential. The production database can close the connection
+    // when the dashboard fires too many aggregate queries at once.
+    const inventoryStatusRows = await runDashboardQuery(() =>
+      prisma.inventoryItem.groupBy({ by: ['status'], _count: { _all: true } })
+    );
+    const inventoryTypeRows = await runDashboardQuery(() =>
+      prisma.inventoryItem.groupBy({ by: ['type'], _count: { _all: true } })
+    );
+    const requestStatusRows = await runDashboardQuery(() =>
+      prisma.request.groupBy({ by: ['status'], where: requestWhere, _count: { _all: true } })
+    );
+    const requestItemsCount = await runDashboardQuery(() =>
+      prisma.requestItem.count({ where: isPrivileged ? {} : { request: { requesterId: session.id } } })
+    );
+    const returnStatusRows = await runDashboardQuery(() =>
+      prisma.returnRequest.groupBy({ by: ['status'], where: returnWhere, _count: { _all: true } })
+    );
+    const custodyStatusRows = await runDashboardQuery(() =>
+      prisma.custodyRecord.groupBy({ by: ['status'], where: custodyWhere, _count: { _all: true } })
+    );
+    const suggestionStatusRows = await runDashboardQuery(() =>
+      prisma.suggestion.groupBy({ by: ['status'], where: suggestionWhere, _count: { _all: true } })
+    );
+    const suggestionCategoryRows = await runDashboardQuery(() =>
+      prisma.suggestion.groupBy({ by: ['category', 'status'], where: suggestionWhere, _count: { _all: true } })
+    );
+    const emailDraftStatusRows = await runDashboardQuery(() =>
+      prisma.emailDraft.groupBy({ by: ['status'], where: draftWhere, _count: { _all: true } })
+    );
+    const unreadNotifications = await runDashboardQuery(() =>
+      prisma.notification.count({ where: { userId: session.id, isRead: false } })
+    );
+    const latestUpdates = await runDashboardQuery(() =>
+      prisma.notification.findMany({ where: { userId: session.id }, orderBy: { createdAt: 'desc' }, take: 4 })
+    );
+
+    const totalInventory = sumCounts(inventoryStatusRows);
+    const lowStock = countBy(inventoryStatusRows, 'status', ItemStatus.LOW_STOCK);
+    const outOfStock = countBy(inventoryStatusRows, 'status', ItemStatus.OUT_OF_STOCK);
+    const returnableItems = countBy(inventoryTypeRows, 'type', ItemType.RETURNABLE);
+    const consumableItems = countBy(inventoryTypeRows, 'type', ItemType.CONSUMABLE);
+
+    const materialRequestsTotal = sumCounts(requestStatusRows);
+    const pendingRequests =
+      countBy(requestStatusRows, 'status', RequestStatus.PENDING) +
+      countBy(requestStatusRows, 'status', RequestStatus.APPROVED);
+    const approvedRequests = countBy(requestStatusRows, 'status', RequestStatus.APPROVED);
+    const issuedRequests = countBy(requestStatusRows, 'status', RequestStatus.ISSUED);
+    const returnedRequests = countBy(requestStatusRows, 'status', RequestStatus.RETURNED);
+    const rejectedRequests = countBy(requestStatusRows, 'status', RequestStatus.REJECTED);
+
+    const returnRequestsTotal = sumCounts(returnStatusRows);
+    const pendingReturns = countBy(returnStatusRows, 'status', ReturnStatus.PENDING);
+    const approvedReturns = countBy(returnStatusRows, 'status', ReturnStatus.APPROVED);
+    const rejectedReturns = countBy(returnStatusRows, 'status', ReturnStatus.REJECTED);
+
+    const custodyTotal = sumCounts(custodyStatusRows);
+    const activeCustody =
+      countBy(custodyStatusRows, 'status', CustodyStatus.ACTIVE) +
+      countBy(custodyStatusRows, 'status', CustodyStatus.OVERDUE) +
+      countBy(custodyStatusRows, 'status', CustodyStatus.RETURN_REQUESTED);
+    const returnedCustody = countBy(custodyStatusRows, 'status', CustodyStatus.RETURNED);
+    const delayedCustody = countBy(custodyStatusRows, 'status', CustodyStatus.OVERDUE);
+
+    const serviceRequestsTotal = sumCounts(suggestionStatusRows);
+    const serviceUnderReview = countBy(suggestionStatusRows, 'status', SuggestionStatus.UNDER_REVIEW);
+    const serviceApproved = countBy(suggestionStatusRows, 'status', SuggestionStatus.APPROVED);
+    const serviceImplemented = countBy(suggestionStatusRows, 'status', SuggestionStatus.IMPLEMENTED);
+    const serviceRejected = countBy(suggestionStatusRows, 'status', SuggestionStatus.REJECTED);
+
+    const openServiceStatuses = [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW];
+    const maintenanceTotal = countCategoryByStatus(suggestionCategoryRows, 'MAINTENANCE');
+    const maintenancePending = countCategoryByStatus(suggestionCategoryRows, 'MAINTENANCE', openServiceStatuses);
+    const cleaningTotal = countCategoryByStatus(suggestionCategoryRows, 'CLEANING');
+    const cleaningPending = countCategoryByStatus(suggestionCategoryRows, 'CLEANING', openServiceStatuses);
+    const purchaseTotal = countCategoryByStatus(suggestionCategoryRows, 'PURCHASE');
+    const purchasePending = countCategoryByStatus(suggestionCategoryRows, 'PURCHASE', openServiceStatuses);
+    const otherTotal = countCategoryByStatus(suggestionCategoryRows, 'OTHER');
+    const otherPending = countCategoryByStatus(suggestionCategoryRows, 'OTHER', openServiceStatuses);
+
+    const emailDraftsTotal = sumCounts(emailDraftStatusRows);
+    const activeEmailDrafts = countBy(emailDraftStatusRows, 'status', DraftStatus.DRAFT);
+    const copiedEmailDrafts = countBy(emailDraftStatusRows, 'status', DraftStatus.COPIED);
+    const sentEmailDrafts = countBy(emailDraftStatusRows, 'status', DraftStatus.SENT);
 
     return NextResponse.json({
       metrics: {
@@ -215,8 +254,9 @@ export async function GET(request: NextRequest) {
       latestUpdates,
     });
   } catch (error: any) {
-    const message = error?.message || 'تعذر جلب ملخص لوحة التحكم';
-    const statusCode = message.includes('الحساب غير نشط') || message.includes('تعذر التحقق من المستخدم الحالي') ? 401 : 500;
+    console.error('[dashboard-summary] failed', error);
+    const message = error?.message || 'Unable to load dashboard summary.';
+    const statusCode = message.includes('Unable to resolve current user') || message.includes('not active') ? 401 : 500;
     return NextResponse.json({ error: message }, { status: statusCode });
   }
 }

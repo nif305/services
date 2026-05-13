@@ -209,54 +209,69 @@ export async function GET(request: NextRequest) {
     const copiedEmailDrafts = countBy(emailDraftStatusRows, 'status', DraftStatus.COPIED);
     const sentEmailDrafts = countBy(emailDraftStatusRows, 'status', DraftStatus.SENT);
 
-    return NextResponse.json({
-      metrics: {
-        totalInventory,
-        lowStock,
-        outOfStock,
-        availableInventory: Math.max(totalInventory - outOfStock, 0),
-        returnableItems,
-        consumableItems,
-        materialRequestsTotal,
-        pendingRequests,
-        approvedRequests,
-        issuedRequests,
-        returnedRequests,
-        rejectedRequests,
-        returnRequestsTotal,
-        pendingReturns,
-        approvedReturns,
-        rejectedReturns,
-        custodyTotal,
-        activeCustody,
-        returnedCustody,
-        delayedCustody,
-        serviceRequestsTotal,
-        serviceUnderReview,
-        serviceApproved,
-        serviceImplemented,
-        serviceRejected,
-        maintenanceTotal,
-        maintenancePending,
-        cleaningTotal,
-        cleaningPending,
-        purchaseTotal,
-        purchasePending,
-        otherTotal,
-        otherPending,
-        emailDraftsTotal,
-        activeEmailDrafts,
-        copiedEmailDrafts,
-        sentEmailDrafts,
-        unreadNotifications,
-        requestItemsCount,
+    return NextResponse.json(
+      {
+        metrics: {
+          totalInventory,
+          lowStock,
+          outOfStock,
+          availableInventory: Math.max(totalInventory - outOfStock, 0),
+          returnableItems,
+          consumableItems,
+          materialRequestsTotal,
+          pendingRequests,
+          approvedRequests,
+          issuedRequests,
+          returnedRequests,
+          rejectedRequests,
+          returnRequestsTotal,
+          pendingReturns,
+          approvedReturns,
+          rejectedReturns,
+          custodyTotal,
+          activeCustody,
+          returnedCustody,
+          delayedCustody,
+          serviceRequestsTotal,
+          serviceUnderReview,
+          serviceApproved,
+          serviceImplemented,
+          serviceRejected,
+          maintenanceTotal,
+          maintenancePending,
+          cleaningTotal,
+          cleaningPending,
+          purchaseTotal,
+          purchasePending,
+          otherTotal,
+          otherPending,
+          emailDraftsTotal,
+          activeEmailDrafts,
+          copiedEmailDrafts,
+          sentEmailDrafts,
+          unreadNotifications,
+          requestItemsCount,
+        },
+        latestUpdates,
       },
-      latestUpdates,
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('[dashboard-summary] failed', error);
     const message = error?.message || 'Unable to load dashboard summary.';
     const statusCode = message.includes('Unable to resolve current user') || message.includes('not active') ? 401 : 500;
-    return NextResponse.json({ error: message }, { status: statusCode });
+    return NextResponse.json(
+      { error: message },
+      {
+        status: statusCode,
+        headers: {
+          'Cache-Control': 'no-store, max-age=0',
+        },
+      }
+    );
   }
 }

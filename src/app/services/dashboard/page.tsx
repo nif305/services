@@ -25,7 +25,7 @@ type SummaryMetrics = {
 
 export default function ServicesDashboardPage() {
   const [metrics, setMetrics] = useState<SummaryMetrics | null>(null);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { language } = useI18n();
   const isEmployee = user?.role === 'user';
   const ui = (source: string) => translateStaticUiText(source, language);
@@ -42,11 +42,36 @@ export default function ServicesDashboardPage() {
     (metrics?.otherPending ?? 0);
 
   useEffect(() => {
-    fetch('/api/dashboard-summary', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((json) => setMetrics(json?.metrics || null))
-      .catch(() => setMetrics(null));
-  }, []);
+    if (authLoading) return;
+
+    if (!user?.id) {
+      setMetrics(null);
+      return;
+    }
+
+    let mounted = true;
+
+    fetch('/api/dashboard-summary', {
+      credentials: 'include',
+      cache: 'no-store',
+      headers: { 'x-active-role': user.role },
+    })
+      .then(async (response) => {
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(json?.error || 'Unable to load dashboard summary');
+        return json;
+      })
+      .then((json) => {
+        if (mounted) setMetrics(json?.metrics || null);
+      })
+      .catch(() => {
+        if (mounted) setMetrics(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [authLoading, user?.id, user?.role]);
 
   const series = useMemo(
     () => [

@@ -636,13 +636,22 @@ function DashboardSwitcher({
 }
 
 function UnifiedDashboard() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const role = normalizeRole(user?.role);
   const [metrics, setMetrics] = useState<DashboardMetrics>(EMPTY_METRICS);
   const [latestUpdates, setLatestUpdates] = useState<GenericItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
+
+    if (!user?.id) {
+      setMetrics(EMPTY_METRICS);
+      setLatestUpdates([]);
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     const load = async () => {
@@ -670,7 +679,7 @@ function UnifiedDashboard() {
     return () => {
       mounted = false;
     };
-  }, [role]);
+  }, [authLoading, role, user?.id]);
 
   const inventoryStatusData = useMemo(
     () => [

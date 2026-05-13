@@ -4,6 +4,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { getInventorySearchTerms } from '@/lib/inventoryLocalization';
 
 type InventoryFilters = {
   page?: number;
@@ -308,18 +309,19 @@ export const InventoryService = {
   }: InventoryFilters) => {
     const skip = (page - 1) * limit;
     const requestOnly = onlyAvailableForRequest || requestMode;
+    const searchTerms = getInventorySearchTerms(search);
 
     const where: Prisma.InventoryItemWhereInput = {
       AND: [
-        search
+        searchTerms.length
           ? {
-              OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
-                { category: { contains: search, mode: 'insensitive' } },
-                { subcategory: { contains: search, mode: 'insensitive' } },
-                { location: { contains: search, mode: 'insensitive' } },
-              ],
+              OR: searchTerms.flatMap((term) => [
+                { name: { contains: term, mode: 'insensitive' as const } },
+                { code: { contains: term, mode: 'insensitive' as const } },
+                { category: { contains: term, mode: 'insensitive' as const } },
+                { subcategory: { contains: term, mode: 'insensitive' as const } },
+                { location: { contains: term, mode: 'insensitive' as const } },
+              ]),
             }
           : {},
         category ? { category } : {},

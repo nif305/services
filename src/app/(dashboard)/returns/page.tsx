@@ -3,10 +3,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { getInventoryDisplayName } from '@/lib/inventoryLocalization';
 
 type ReturnStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 type ItemCondition = 'GOOD' | 'PARTIAL_DAMAGE' | 'TOTAL_DAMAGE';
@@ -151,8 +153,9 @@ function formatDate(value?: string | null) {
   }
 }
 
-function getReturnItemName(ret?: ReturnItem | null) {
-  return ret?.custody?.item?.name || ret?.requestItem?.item?.name || '-';
+function getReturnItemName(ret?: ReturnItem | null, language: 'ar' | 'en' = 'ar') {
+  const item = ret?.custody?.item || ret?.requestItem?.item;
+  return item ? getInventoryDisplayName(item, language) : '-';
 }
 
 function getReturnItemCode(ret?: ReturnItem | null) {
@@ -171,6 +174,7 @@ function getReturnQuantity(ret?: ReturnItem | null) {
 
 export default function ReturnsPage() {
   const { user } = useAuth();
+  const { language } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
   const role = (user?.role || '').toLowerCase();
@@ -619,7 +623,7 @@ export default function ReturnsPage() {
 
                   <div className="mt-3 grid gap-2 rounded-[20px] bg-slate-50 p-3 text-[13px] leading-7 text-slate-600 md:grid-cols-2 sm:p-4">
                     <div>
-                      المادة: <span className="text-slate-900">{getReturnItemName(ret)}</span>
+                      المادة: <span className="text-slate-900">{getReturnItemName(ret, language)}</span>
                     </div>
                     <div>
                       المستخدم:{' '}
@@ -796,7 +800,7 @@ export default function ReturnsPage() {
                 <option value="">اختر المادة</option>
                 {custodies.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.item?.name || '-'} {item.item?.code ? `- ${item.item.code}` : ''}
+                    {getInventoryDisplayName(item.item, language)} {item.item?.code ? `- ${item.item.code}` : ''}
                   </option>
                 ))}
               </select>
@@ -824,7 +828,7 @@ export default function ReturnsPage() {
 
                     return (
                       <option key={item.id} value={item.id}>
-                        {item.item?.name || '-'}
+                        {getInventoryDisplayName(item.item, language)}
                         {item.item?.code ? ` - ${item.item.code}` : ''}
                         {item.request?.code ? ` - طلب ${item.request.code}` : ''}
                         {` - المتبقي للإرجاع ${remaining}`}
@@ -937,7 +941,7 @@ export default function ReturnsPage() {
           <div className="rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-7 text-slate-700">
             المسار: <span className="text-slate-900">{sourceTypeLabel(selectedReturn?.sourceType)}</span>
             <br />
-            المادة: <span className="text-slate-900">{getReturnItemName(selectedReturn)}</span>
+            المادة: <span className="text-slate-900">{getReturnItemName(selectedReturn, language)}</span>
             <br />
             الكمية: <span className="text-slate-900">{getReturnQuantity(selectedReturn)}</span>
             <br />

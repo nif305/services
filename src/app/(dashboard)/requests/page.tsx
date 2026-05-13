@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -9,6 +10,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
+import {
+  getInventoryDisplayName,
+  getInventoryDisplayUnit,
+  getInventorySearchText,
+  getInventoryTypeLabel,
+} from '@/lib/inventoryLocalization';
 
 type InventoryItem = {
   id: string;
@@ -157,9 +164,11 @@ function TextArea({
 function RequestItemsPreview({
   items,
   requestCode,
+  language,
 }: {
   items: RequestItemRow[];
   requestCode: string;
+  language: 'ar' | 'en';
 }) {
   const [open, setOpen] = useState(false);
 
@@ -193,7 +202,7 @@ function RequestItemsPreview({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-base font-bold text-[#152625]">
-                    {item.item?.name || 'مادة'}
+                    {getInventoryDisplayName(item.item, language)}
                   </div>
                   <div className="mt-1 text-xs text-[#61706f]">الكمية: {item.quantity}</div>
                   {item.expectedReturnDate ? (
@@ -209,7 +218,7 @@ function RequestItemsPreview({
                 </div>
 
                 <Badge variant={item.item?.type === 'RETURNABLE' ? 'info' : 'neutral'}>
-                  {item.item?.type === 'RETURNABLE' ? 'مسترجعة' : 'استهلاكية'}
+                  {getInventoryTypeLabel(item.item?.type, language)}
                 </Badge>
               </div>
             </div>
@@ -269,6 +278,7 @@ function FormShell({
 
 export default function RequestsPage() {
   const { user } = useAuth();
+  const { language } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -384,7 +394,14 @@ export default function RequestsPage() {
   const fetchInventory = useCallback(async () => {
     setInventoryLoading(true);
     try {
-      const res = await fetch('/api/inventory?limit=200', { cache: 'no-store', credentials: 'include' });
+      const params = new URLSearchParams({
+        limit: '200',
+        lang: language,
+      });
+      const res = await fetch(`/api/inventory?${params.toString()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
       const data = await res.json();
       setAvailableItems(Array.isArray(data?.data) ? data.data : []);
     } catch {
@@ -392,7 +409,7 @@ export default function RequestsPage() {
     } finally {
       setInventoryLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     fetchRequests();
@@ -482,13 +499,11 @@ export default function RequestsPage() {
 
     return inventoryBase
       .filter((item) => {
-        const haystack = normalizeArabic(
-          [item.name, item.code, item.category, item.subcategory].filter(Boolean).join(' ')
-        );
+        const haystack = normalizeArabic(getInventorySearchText(item, language));
         return haystack.includes(q);
       })
       .slice(0, 20);
-  }, [availableItems, itemSearch]);
+  }, [availableItems, itemSearch, language]);
 
   const selectedInventoryItem = useMemo(() => {
     return availableItems.find((item) => item.id === selectedInventoryId) || null;
@@ -874,7 +889,7 @@ export default function RequestsPage() {
                       <div>
                         <div className="text-[11px] text-[#6f7b7a]">المواد المطلوبة</div>
                         <div className="mt-2">
-                          <RequestItemsPreview items={req.items || []} requestCode={req.code} />
+                          <RequestItemsPreview items={req.items || []} requestCode={req.code} language={language} />
                         </div>
                       </div>
                     </div>
@@ -977,7 +992,7 @@ export default function RequestsPage() {
                         </td>
 
                         <td className="p-4">
-                          <RequestItemsPreview items={req.items || []} requestCode={req.code} />
+                          <RequestItemsPreview items={req.items || []} requestCode={req.code} language={language} />
                         </td>
 
                         <td className="p-4">
@@ -1152,7 +1167,7 @@ export default function RequestsPage() {
                                 <div className="grid gap-2 sm:grid-cols-[minmax(0,1.4fr)_110px_110px] sm:gap-3">
                                   <div className="min-w-0">
                                     <div className="truncate text-sm font-semibold text-[#152625]">
-                                      {item.name}
+                                      {getInventoryDisplayName(item, language)}
                                     </div>
                                     <div className="mt-1 text-xs text-[#61706f]">
                                       {item.code ? item.code : '—'}
@@ -1161,7 +1176,7 @@ export default function RequestsPage() {
 
                                   <div className="text-sm text-[#304342] sm:self-center">
                                     {item.availableQty}
-                                    {item.unit ? ` ${item.unit}` : ''}
+                                    {item.unit ? ` ${getInventoryDisplayUnit(item, language)}` : ''}
                                   </div>
 
                                   <div className="sm:self-center">
@@ -1186,7 +1201,7 @@ export default function RequestsPage() {
                     {selectedInventoryItem ? (
                       <div className="rounded-2xl border border-[#e7ebea] bg-[#f8f9f9] p-4">
                         <div className="mb-3 text-sm font-semibold text-[#152625]">
-                          {selectedInventoryItem.name}
+                          {getInventoryDisplayName(selectedInventoryItem, language)}
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-3">
@@ -1247,10 +1262,10 @@ export default function RequestsPage() {
                             >
                               <div className="mb-3">
                                 <div className="text-sm font-semibold text-[#152625]">
-                                  {itemInfo?.name || 'مادة'}
+                                  {getInventoryDisplayName(itemInfo, language)}
                                 </div>
                                 <div className="mt-1 text-xs text-[#61706f]">
-                                  {isReturnable ? 'مسترجعة' : 'استهلاكية'}
+                                  {getInventoryTypeLabel(itemInfo?.type, language)}
                                 </div>
                               </div>
 
@@ -1352,7 +1367,7 @@ export default function RequestsPage() {
                           >
                             <div className="mb-3">
                               <div className="text-sm font-semibold text-[#152625]">
-                                {itemInfo?.name || 'مادة'}
+                                {getInventoryDisplayName(itemInfo, language)}
                               </div>
                               <div className="mt-1 text-xs text-[#61706f]">
                                 المصروف غير المعاد: {activeIssued}

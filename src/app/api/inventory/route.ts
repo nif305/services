@@ -3,6 +3,7 @@ import { ItemStatus, ItemType } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { InventoryService } from '@/services/inventory.service';
 import { approvedInventorySeed } from '@/lib/inventory/approvedInventory';
+import { getInventorySearchTerms } from '@/lib/inventoryLocalization';
 
 function normalizeStatus(status: string | null): ItemStatus | undefined {
   if (!status) return undefined;
@@ -36,19 +37,20 @@ export async function GET(request: NextRequest) {
     const search = (searchParams.get('search') || '').trim();
     const status = normalizeStatus(searchParams.get('status'));
     const type = normalizeType(searchParams.get('type'));
+    const searchTerms = getInventorySearchTerms(search);
     const requestMode =
       searchParams.get('onlyAvailableForRequest') === 'true' ||
       searchParams.get('requestMode') === 'true';
 
     const baseWhere: any = {
-      ...(search
+      ...(searchTerms.length
         ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { code: { contains: search, mode: 'insensitive' } },
-              { category: { contains: search, mode: 'insensitive' } },
-              { subcategory: { contains: search, mode: 'insensitive' } },
-            ],
+            OR: searchTerms.flatMap((term) => [
+              { name: { contains: term, mode: 'insensitive' as const } },
+              { code: { contains: term, mode: 'insensitive' as const } },
+              { category: { contains: term, mode: 'insensitive' as const } },
+              { subcategory: { contains: term, mode: 'insensitive' as const } },
+            ]),
           }
         : {}),
       ...(status ? { status } : {}),

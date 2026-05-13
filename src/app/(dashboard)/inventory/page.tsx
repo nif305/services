@@ -2,12 +2,20 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { Skeleton } from '@/components/ui/Skeleton';
+import {
+  getInventoryDisplayCategory,
+  getInventoryDisplayName,
+  getInventoryDisplaySubcategory,
+  getInventoryDisplayUnit,
+  getInventoryTypeLabel,
+} from '@/lib/inventoryLocalization';
 
 type InventoryItem = {
   id: string;
@@ -139,11 +147,15 @@ const getGeneratedCodePreview = (
   return `${categoryPrefix}-${typePrefix}-${numericPart}`;
 };
 
+const getLocalizedTypeLabel = (type: 'RETURNABLE' | 'CONSUMABLE', language: 'ar' | 'en') =>
+  getInventoryTypeLabel(type, language);
+
 const statCardClass =
   'surface-card-strong cursor-pointer rounded-[22px] p-4 transition duration-200 hover:-translate-y-1 hover:shadow-lg sm:rounded-[24px] sm:p-5';
 
 export default function InventoryPage() {
   const { user } = useAuth();
+  const { language } = useI18n();
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -463,7 +475,9 @@ export default function InventoryPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-extrabold text-slate-900">{item.name}</p>
+                      <p className="text-sm font-extrabold text-slate-900">
+                        {getInventoryDisplayName(item, language)}
+                      </p>
                       <p className="mt-1 text-xs font-semibold text-[#016564]">
                         {getDisplayCode(item)}
                       </p>
@@ -476,19 +490,19 @@ export default function InventoryPage() {
                     <div>
                       <p className="text-[11px] text-slate-500">الفئة</p>
                       <p className="mt-1 text-[13px] font-semibold text-slate-800">
-                        {item.category}
+                        {getInventoryDisplayCategory(item, language) || '-'}
                       </p>
                     </div>
                     <div>
                       <p className="text-[11px] text-slate-500">النوع</p>
                       <p className="mt-1 text-[13px] font-semibold text-slate-800">
-                        {getTypeLabel(item.type)}
+                        {getLocalizedTypeLabel(item.type, language)}
                       </p>
                     </div>
                     <div>
                       <p className="text-[11px] text-slate-500">الكمية</p>
                       <p className="mt-1 text-[13px] font-semibold text-slate-800">
-                        {formatNumber(item.quantity)} {item.unit}
+                        {formatNumber(item.quantity)} {getInventoryDisplayUnit(item, language)}
                       </p>
                     </div>
                     <div>
@@ -569,23 +583,31 @@ export default function InventoryPage() {
 
                       <td className="p-4">
                         <div className="min-w-[220px]">
-                          <p className="font-bold text-slate-900">{item.name}</p>
+                          <p className="font-bold text-slate-900">
+                            {getInventoryDisplayName(item, language)}
+                          </p>
                         </div>
                       </td>
 
                       <td className="p-4 text-sm text-slate-700">
                         <div className="space-y-1">
-                          <p className="font-semibold">{item.category}</p>
+                          <p className="font-semibold">
+                            {getInventoryDisplayCategory(item, language) || '-'}
+                          </p>
                           {item.subcategory ? (
-                            <p className="text-xs text-slate-500">{item.subcategory}</p>
+                            <p className="text-xs text-slate-500">
+                              {getInventoryDisplaySubcategory(item, language)}
+                            </p>
                           ) : null}
                         </div>
                       </td>
 
-                      <td className="p-4 text-sm text-slate-700">{getTypeLabel(item.type)}</td>
+                      <td className="p-4 text-sm text-slate-700">
+                        {getLocalizedTypeLabel(item.type, language)}
+                      </td>
 
                       <td className="p-4 text-sm font-bold text-slate-800">
-                        {formatNumber(item.quantity)} {item.unit}
+                        {formatNumber(item.quantity)} {getInventoryDisplayUnit(item, language)}
                       </td>
 
                       <td className="p-4 text-sm text-slate-700">

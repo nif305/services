@@ -2,10 +2,15 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useI18n } from '@/hooks/useI18n';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
+import {
+  getInventoryDisplayCategory,
+  getInventoryDisplayName,
+} from '@/lib/inventoryLocalization';
 
 type CustodyStatus = 'ACTIVE' | 'RETURN_REQUESTED' | 'RETURNED' | 'OVERDUE';
 
@@ -101,15 +106,15 @@ function statusVariant(status: CustodyStatus): 'success' | 'warning' | 'danger' 
   return 'neutral';
 }
 
-function mapCustodyRow(row: CustodyApiRow): CustodyItem | null {
+function mapCustodyRow(row: CustodyApiRow, language: 'ar' | 'en'): CustodyItem | null {
   if (row.item?.type && row.item.type !== 'RETURNABLE') return null;
   if (!row.item?.code && !row.item?.name) return null;
 
   return {
     id: row.id,
     code: row.item?.code || '-',
-    itemName: row.item?.name || 'مادة بدون اسم',
-    category: row.item?.category || row.user?.department || null,
+    itemName: getInventoryDisplayName(row.item, language),
+    category: getInventoryDisplayCategory(row.item, language) || row.user?.department || null,
     assignedToUserId: row.userId,
     assignedToUserName: row.user?.fullName || 'المستخدم',
     assignedDate: row.issueDate,
@@ -121,6 +126,7 @@ function mapCustodyRow(row: CustodyApiRow): CustodyItem | null {
 }
 
 export default function CustodyPage() {
+  const { language } = useI18n();
   const [items, setItems] = useState<CustodyItem[]>([]);
   const [stats, setStats] = useState<CustodyStats>({
     total: 0,
@@ -160,7 +166,7 @@ export default function CustodyPage() {
 
       const data: CustodyApiResponse = await response.json().catch(() => ({ data: [] }));
       const mapped = Array.isArray(data?.data)
-        ? (data.data.map(mapCustodyRow).filter(Boolean) as CustodyItem[])
+        ? (data.data.map((row) => mapCustodyRow(row, language)).filter(Boolean) as CustodyItem[])
         : [];
       const nextPagination: PaginationState = {
         page: Number(data?.pagination?.page || page || 1),
@@ -189,7 +195,7 @@ export default function CustodyPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilter, pagination.limit, pagination.page]);
+  }, [activeFilter, language, pagination.limit, pagination.page]);
 
   useEffect(() => {
     void refresh(pagination.page);

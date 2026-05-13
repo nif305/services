@@ -643,16 +643,8 @@ function UnifiedDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (authLoading) return;
-
-    if (!user?.id) {
-      setMetrics(EMPTY_METRICS);
-      setLatestUpdates([]);
-      setLoading(false);
-      return;
-    }
-
     let mounted = true;
+    const headers = user?.role ? { 'x-active-role': role } : undefined;
 
     const load = async () => {
       setLoading(true);
@@ -660,16 +652,17 @@ function UnifiedDashboard() {
         const res = await fetch(`/api/dashboard-summary?scope=global&ts=${Date.now()}`, {
           credentials: 'include',
           cache: 'no-store',
-          headers: { 'x-active-role': role },
+          headers,
         });
         const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error || 'Unable to load dashboard summary');
         if (!mounted) return;
         setMetrics({ ...EMPTY_METRICS, ...(json?.metrics || {}) });
         setLatestUpdates(Array.isArray(json?.latestUpdates) ? json.latestUpdates : []);
       } catch {
         if (!mounted) return;
-        setMetrics(EMPTY_METRICS);
-        setLatestUpdates([]);
+        setMetrics((current) => current);
+        setLatestUpdates((current) => current);
       } finally {
         if (mounted) setLoading(false);
       }

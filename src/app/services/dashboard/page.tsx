@@ -42,19 +42,13 @@ export default function ServicesDashboardPage() {
     (metrics?.otherPending ?? 0);
 
   useEffect(() => {
-    if (authLoading) return;
-
-    if (!user?.id) {
-      setMetrics(null);
-      return;
-    }
-
     let mounted = true;
+    const headers = user?.role ? { 'x-active-role': user.role } : undefined;
 
     fetch(`/api/dashboard-summary?scope=global&ts=${Date.now()}`, {
       credentials: 'include',
       cache: 'no-store',
-      headers: { 'x-active-role': user.role },
+      headers,
     })
       .then(async (response) => {
         const json = await response.json().catch(() => ({}));
@@ -65,7 +59,8 @@ export default function ServicesDashboardPage() {
         if (mounted) setMetrics(json?.metrics || null);
       })
       .catch(() => {
-        if (mounted) setMetrics(null);
+        // Keep any successful summary already shown instead of silently
+        // falling back to zeros during auth/session refresh races.
       });
 
     return () => {

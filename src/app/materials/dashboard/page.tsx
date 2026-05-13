@@ -45,19 +45,13 @@ export default function MaterialsDashboardPage() {
   const custodyTotal = metrics?.custodyTotal ?? metrics?.activeCustody ?? 0;
 
   useEffect(() => {
-    if (authLoading) return;
-
-    if (!user?.id) {
-      setMetrics(null);
-      return;
-    }
-
     let mounted = true;
+    const headers = user?.role ? { 'x-active-role': user.role } : undefined;
 
     fetch(`/api/dashboard-summary?scope=global&ts=${Date.now()}`, {
       credentials: 'include',
       cache: 'no-store',
-      headers: { 'x-active-role': user.role },
+      headers,
     })
       .then(async (response) => {
         const json = await response.json().catch(() => ({}));
@@ -68,7 +62,8 @@ export default function MaterialsDashboardPage() {
         if (mounted) setMetrics(json?.metrics || null);
       })
       .catch(() => {
-        if (mounted) setMetrics(null);
+        // Keep the last successful summary instead of replacing the dashboard
+        // with zeros when auth/session refresh races the first client render.
       });
 
     return () => {

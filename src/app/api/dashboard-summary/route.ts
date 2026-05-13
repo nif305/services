@@ -44,18 +44,24 @@ async function resolveSessionUser(request: NextRequest) {
   let user = null;
 
   if (cookieId) {
-    user = await prisma.user.findUnique({ where: { id: cookieId }, select: { id: true, status: true } });
+    user = await runDashboardQuery(() =>
+      prisma.user.findUnique({ where: { id: cookieId }, select: { id: true, status: true } })
+    );
   }
 
   if (!user && cookieEmail) {
-    user = await prisma.user.findFirst({
-      where: { email: { equals: cookieEmail, mode: 'insensitive' } },
-      select: { id: true, status: true },
-    });
+    user = await runDashboardQuery(() =>
+      prisma.user.findFirst({
+        where: { email: { equals: cookieEmail, mode: 'insensitive' } },
+        select: { id: true, status: true },
+      })
+    );
   }
 
   if (!user && cookieEmployeeId) {
-    user = await prisma.user.findUnique({ where: { employeeId: cookieEmployeeId }, select: { id: true, status: true } });
+    user = await runDashboardQuery(() =>
+      prisma.user.findUnique({ where: { employeeId: cookieEmployeeId }, select: { id: true, status: true } })
+    );
   }
 
   if (!user) throw new Error('Unable to resolve current user.');
@@ -65,22 +71,31 @@ async function resolveSessionUser(request: NextRequest) {
 }
 
 async function runDashboardQuery<T>(query: () => Promise<T>): Promise<T> {
-  try {
-    return await query();
-  } catch (error: any) {
-    const message = String(error?.message || '');
-    const isTransientConnectionIssue =
-      error?.code === 'P1017' ||
-      message.includes('Server has closed the connection') ||
-      message.includes("Can't reach database server");
+  const delays = [150, 450, 900];
+  let lastError: unknown;
 
-    if (!isTransientConnectionIssue) {
-      throw error;
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    try {
+      return await query();
+    } catch (error: any) {
+      lastError = error;
+      const message = String(error?.message || '');
+      const isTransientConnectionIssue =
+        ['P1001', 'P1002', 'P1008', 'P1017'].includes(String(error?.code || '')) ||
+        message.includes('Server has closed the connection') ||
+        message.includes("Can't reach database server") ||
+        message.includes('Connection terminated') ||
+        message.includes('connection timeout');
+
+      if (!isTransientConnectionIssue || attempt === delays.length) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
     }
-
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    return query();
   }
+
+  throw lastError;
 }
 
 function sumCounts(rows: GroupCountRow[]) {

@@ -6,10 +6,20 @@ import { useI18n } from '@/hooks/useI18n';
 import { translateStaticUiText } from '@/lib/i18n';
 
 type SummaryMetrics = {
+  serviceRequestsTotal: number;
+  serviceApproved: number;
+  serviceImplemented: number;
+  serviceRejected: number;
+  maintenanceTotal: number;
   maintenancePending: number;
+  cleaningTotal: number;
   cleaningPending: number;
+  purchaseTotal: number;
   purchasePending: number;
+  otherTotal: number;
   otherPending: number;
+  emailDraftsTotal: number;
+  activeEmailDrafts: number;
   unreadNotifications: number;
 };
 
@@ -19,6 +29,17 @@ export default function ServicesDashboardPage() {
   const { language } = useI18n();
   const isEmployee = user?.role === 'user';
   const ui = (source: string) => translateStaticUiText(source, language);
+  const serviceRequestsTotal =
+    metrics?.serviceRequestsTotal ??
+    ((metrics?.maintenancePending ?? 0) +
+      (metrics?.cleaningPending ?? 0) +
+      (metrics?.purchasePending ?? 0) +
+      (metrics?.otherPending ?? 0));
+  const pendingServicesTotal =
+    (metrics?.maintenancePending ?? 0) +
+    (metrics?.cleaningPending ?? 0) +
+    (metrics?.purchasePending ?? 0) +
+    (metrics?.otherPending ?? 0);
 
   useEffect(() => {
     fetch('/api/dashboard-summary', { cache: 'no-store' })
@@ -29,15 +50,15 @@ export default function ServicesDashboardPage() {
 
   const series = useMemo(
     () => [
-      { label: ui('الصيانة'), value: metrics?.maintenancePending ?? 0, color: '#0f5e61' },
-      { label: ui('النظافة'), value: metrics?.cleaningPending ?? 0, color: '#4f8f7a' },
-      { label: ui('الشراء المباشر'), value: metrics?.purchasePending ?? 0, color: '#c3a66f' },
-      { label: ui('الطلبات الأخرى'), value: metrics?.otherPending ?? 0, color: '#7c1e3e' },
+      { label: ui('الصيانة'), value: metrics?.maintenanceTotal ?? metrics?.maintenancePending ?? 0, color: '#0f5e61' },
+      { label: ui('النظافة'), value: metrics?.cleaningTotal ?? metrics?.cleaningPending ?? 0, color: '#4f8f7a' },
+      { label: ui('الشراء المباشر'), value: metrics?.purchaseTotal ?? metrics?.purchasePending ?? 0, color: '#c3a66f' },
+      { label: ui('الطلبات الأخرى'), value: metrics?.otherTotal ?? metrics?.otherPending ?? 0, color: '#7c1e3e' },
     ],
     [metrics, language]
   );
 
-  const total = series.reduce((sum, item) => sum + item.value, 0);
+  const total = serviceRequestsTotal || series.reduce((sum, item) => sum + item.value, 0);
   const maxVal = Math.max(...series.map((item) => item.value), 1);
 
   const quickActions = [
@@ -114,24 +135,31 @@ export default function ServicesDashboardPage() {
   const priorityCards = [
     {
       title: ui('طلبات الصيانة'),
-      value: metrics?.maintenancePending ?? 0,
-      hint: ui('متابعة البلاغات والأعمال المفتوحة'),
+      value: metrics?.maintenanceTotal ?? metrics?.maintenancePending ?? 0,
+      hint: ui('إجمالي طلبات الصيانة'),
       href: '/services/maintenance',
       accent: 'from-[#0f5e61] to-[#4b7f81]',
     },
     {
       title: ui('طلبات النظافة'),
-      value: metrics?.cleaningPending ?? 0,
-      hint: ui('مهام التشغيل والخدمة اليومية'),
+      value: metrics?.cleaningTotal ?? metrics?.cleaningPending ?? 0,
+      hint: ui('إجمالي طلبات النظافة'),
       href: '/services/cleaning',
       accent: 'from-[#3e8370] to-[#7ea493]',
     },
     {
       title: ui('الشراء المباشر'),
-      value: metrics?.purchasePending ?? 0,
-      hint: ui('طلبات تحتاج تنسيقًا أو تعميدًا'),
+      value: metrics?.purchaseTotal ?? metrics?.purchasePending ?? 0,
+      hint: ui('إجمالي طلبات الشراء المباشر'),
       href: '/services/purchases',
       accent: 'from-[#8a6a37] to-[#c3a66f]',
+    },
+    {
+      title: ui('طلبات أخرى'),
+      value: metrics?.otherTotal ?? metrics?.otherPending ?? 0,
+      hint: ui('إجمالي الطلبات الأخرى'),
+      href: '/services/other',
+      accent: 'from-[#63344c] to-[#8e5366]',
     },
   ];
 
@@ -180,9 +208,9 @@ export default function ServicesDashboardPage() {
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <HeroMetric title={ui('إجمالي الطلبات الحالية')} value={total} />
-              <HeroMetric title={ui('إشعارات غير مقروءة')} value={metrics?.unreadNotifications ?? 0} />
-              <HeroMetric title={ui('طلبات أخرى')} value={metrics?.otherPending ?? 0} />
+              <HeroMetric title={ui('إجمالي طلبات الخدمات')} value={total} />
+              <HeroMetric title={ui('طلبات بانتظار الاعتماد')} value={pendingServicesTotal} />
+              <HeroMetric title={ui('مسودات خارجية نشطة')} value={metrics?.activeEmailDrafts ?? 0} />
             </div>
           </div>
 
@@ -259,7 +287,7 @@ export default function ServicesDashboardPage() {
             <div className="text-[12px] font-semibold text-[#8a9a98]">{ui('قراءة تنفيذية')}</div>
             <div className="mt-2.5 text-[20px] font-extrabold text-[#223738]">{total}</div>
             <div className="mt-1.5 text-[13px] leading-6 text-[#6f8080]">
-              {ui('إجمالي الطلبات المفتوحة حاليًا عبر مسارات الخدمات المختلفة، مع تركيز على ما يحتاج اعتمادًا أو متابعة تشغيلية فورية.')}
+              {ui('إجمالي طلبات الخدمات بجميع حالاتها مع إبراز ما يحتاج اعتمادًا أو متابعة تشغيلية فورية.')}
             </div>
           </div>
         </div>

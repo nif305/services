@@ -12,11 +12,19 @@ type SummaryMetrics = {
   availableInventory: number;
   returnableItems: number;
   consumableItems: number;
+  materialRequestsTotal: number;
   pendingRequests: number;
+  approvedRequests: number;
   issuedRequests: number;
+  returnedRequests: number;
   rejectedRequests: number;
+  returnRequestsTotal: number;
   pendingReturns: number;
+  approvedReturns: number;
+  rejectedReturns: number;
+  custodyTotal: number;
   activeCustody: number;
+  returnedCustody: number;
   delayedCustody: number;
   unreadNotifications: number;
 };
@@ -27,6 +35,14 @@ export default function MaterialsDashboardPage() {
   const { language } = useI18n();
   const isEmployee = user?.role === 'user';
   const ui = (source: string) => translateStaticUiText(source, language);
+  const materialRequestsTotal =
+    metrics?.materialRequestsTotal ??
+    ((metrics?.pendingRequests ?? 0) +
+      (metrics?.issuedRequests ?? 0) +
+      (metrics?.returnedRequests ?? 0) +
+      (metrics?.rejectedRequests ?? 0));
+  const returnRequestsTotal = metrics?.returnRequestsTotal ?? metrics?.pendingReturns ?? 0;
+  const custodyTotal = metrics?.custodyTotal ?? metrics?.activeCustody ?? 0;
 
   useEffect(() => {
     fetch('/api/dashboard-summary', { cache: 'no-store' })
@@ -47,6 +63,13 @@ export default function MaterialsDashboardPage() {
 
   const actionCards = [
     {
+      title: ui('إجمالي طلبات المواد'),
+      value: materialRequestsTotal,
+      hint: ui('كل الطلبات بجميع حالاتها'),
+      href: '/materials/requests',
+      accent: 'from-[#123f45] to-[#5b7f81]',
+    },
+    {
       title: ui('طلبات تحتاج صرفًا'),
       value: metrics?.pendingRequests ?? 0,
       hint: ui('قائمة التنفيذ اليومية للمستودع'),
@@ -54,18 +77,25 @@ export default function MaterialsDashboardPage() {
       accent: 'from-[#0f5e61] to-[#41797a]',
     },
     {
-      title: ui('مرتجعات معلقة'),
-      value: metrics?.pendingReturns ?? 0,
-      hint: ui('طلبات إرجاع بانتظار الاستلام'),
-      href: '/materials/returns',
-      accent: 'from-[#8a6a37] to-[#c3a66f]',
+      title: ui('طلبات مصروفة'),
+      value: metrics?.issuedRequests ?? 0,
+      hint: ui('طلبات تم تنفيذها أو صرفها'),
+      href: '/materials/requests',
+      accent: 'from-[#2e725f] to-[#78a08b]',
     },
     {
-      title: ui('عهد نشطة'),
-      value: metrics?.activeCustody ?? 0,
-      hint: ui('مواد لدى الموظفين تحتاج متابعة'),
+      title: ui('إجمالي العهد'),
+      value: custodyTotal,
+      hint: ui('العهد النشطة والمعادة'),
       href: '/materials/custody',
       accent: 'from-[#1b4f68] to-[#5f8fa2]',
+    },
+    {
+      title: ui('طلبات الإرجاع'),
+      value: returnRequestsTotal,
+      hint: ui('المفتوحة والمغلقة'),
+      href: '/materials/returns',
+      accent: 'from-[#8a6a37] to-[#c3a66f]',
     },
   ];
 
@@ -171,10 +201,13 @@ export default function MaterialsDashboardPage() {
         : { label: ui('جميع طلبات المواد'), href: '/materials/requests' };
 
   const workflow = [
+    { label: ui('إجمالي طلبات المواد'), value: materialRequestsTotal },
     { label: ui('طلبات بانتظار الإجراء'), value: metrics?.pendingRequests ?? 0 },
     { label: ui('طلبات مصروفة'), value: metrics?.issuedRequests ?? 0 },
+    { label: ui('طلبات معادة'), value: metrics?.returnedRequests ?? 0 },
     { label: ui('طلبات مرفوضة'), value: metrics?.rejectedRequests ?? 0 },
-    { label: ui('عهد متأخرة'), value: metrics?.delayedCustody ?? 0 },
+    { label: ui('عهد نشطة'), value: metrics?.activeCustody ?? 0 },
+    { label: ui('عهد معادة'), value: metrics?.returnedCustody ?? 0 },
   ];
   const workflowMax = Math.max(...workflow.map((item) => item.value), 1);
 
@@ -231,13 +264,13 @@ export default function MaterialsDashboardPage() {
                 <>
                   <HeroMetric title={ui('طلبات بانتظار الإجراء')} value={metrics?.pendingRequests ?? 0} />
                   <HeroMetric title={ui('طلبات تم صرفها')} value={metrics?.issuedRequests ?? 0} />
-                  <HeroMetric title={ui('إشعارات غير مقروءة')} value={metrics?.unreadNotifications ?? 0} />
+                  <HeroMetric title={ui('إجمالي العهد')} value={custodyTotal} />
                 </>
               ) : (
                 <>
-                  <HeroMetric title={ui('إجمالي الأصناف')} value={metrics?.totalInventory ?? 0} />
-                  <HeroMetric title={ui('مواد متاحة')} value={metrics?.availableInventory ?? 0} />
-                  <HeroMetric title={ui('إشعارات غير مقروءة')} value={metrics?.unreadNotifications ?? 0} />
+                  <HeroMetric title={ui('إجمالي طلبات المواد')} value={materialRequestsTotal} />
+                  <HeroMetric title={ui('طلبات مصروفة')} value={metrics?.issuedRequests ?? 0} />
+                  <HeroMetric title={ui('إجمالي العهد')} value={custodyTotal} />
                 </>
               )}
             </div>

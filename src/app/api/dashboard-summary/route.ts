@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CustodyStatus, ItemStatus, ItemType, RequestStatus, Role, Status, SuggestionStatus } from '@prisma/client';
+import {
+  CustodyStatus,
+  DraftStatus,
+  ItemStatus,
+  ItemType,
+  RequestStatus,
+  ReturnStatus,
+  Role,
+  Status,
+  SuggestionStatus,
+} from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 function mapRole(role: string): Role {
@@ -55,27 +65,107 @@ export async function GET(request: NextRequest) {
     const requestWhere = isPrivileged ? {} : { requesterId: session.id };
     const returnWhere = isPrivileged ? {} : { requesterId: session.id };
     const suggestionWhere = isPrivileged ? {} : { requesterId: session.id };
-    const custodyWhere = isPrivileged
+    const activeCustodyWhere = isPrivileged
       ? { status: { in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED] } }
       : { userId: session.id, status: { in: [CustodyStatus.ACTIVE, CustodyStatus.OVERDUE, CustodyStatus.RETURN_REQUESTED] } };
+    const custodyWhere = isPrivileged
+      ? {}
+      : { userId: session.id };
+    const draftWhere: { sourceId?: { in: string[] } } = {};
 
-    const [totalInventory, lowStock, outOfStock, returnableItems, consumableItems, pendingRequests, issuedRequests, rejectedRequests, requestItemsCount, pendingReturns, activeCustody, delayedCustody, maintenancePending, cleaningPending, purchasePending, otherPending, unreadNotifications, latestUpdates] = await Promise.all([
+    const userSuggestionIds = isPrivileged
+      ? []
+      : await prisma.suggestion.findMany({ where: suggestionWhere, select: { id: true } }).then((rows) => rows.map((row) => row.id));
+    if (!isPrivileged) {
+      draftWhere.sourceId = { in: userSuggestionIds };
+    }
+
+    const [
+      totalInventory,
+      lowStock,
+      outOfStock,
+      returnableItems,
+      consumableItems,
+      materialRequestsTotal,
+      pendingRequests,
+      approvedRequests,
+      issuedRequests,
+      returnedRequests,
+      rejectedRequests,
+      requestItemsCount,
+      returnRequestsTotal,
+      pendingReturns,
+      approvedReturns,
+      rejectedReturns,
+      custodyTotal,
+      activeCustody,
+      returnedCustody,
+      delayedCustody,
+      serviceRequestsTotal,
+      serviceUnderReview,
+      serviceApproved,
+      serviceImplemented,
+      serviceRejected,
+      maintenanceTotal,
+      maintenancePending,
+      cleaningTotal,
+      cleaningPending,
+      purchaseTotal,
+      purchasePending,
+      otherTotal,
+      otherPending,
+      emailDraftsTotal,
+      activeEmailDrafts,
+      copiedEmailDrafts,
+      sentEmailDrafts,
+      unreadNotifications,
+      latestUpdates,
+    ] = await Promise.all([
       prisma.inventoryItem.count(),
       prisma.inventoryItem.count({ where: { status: ItemStatus.LOW_STOCK } }),
       prisma.inventoryItem.count({ where: { status: ItemStatus.OUT_OF_STOCK } }),
       prisma.inventoryItem.count({ where: { type: ItemType.RETURNABLE } }),
       prisma.inventoryItem.count({ where: { type: ItemType.CONSUMABLE } }),
+      prisma.request.count({ where: requestWhere }),
       prisma.request.count({ where: { ...requestWhere, status: { in: [RequestStatus.PENDING, RequestStatus.APPROVED] } } }),
+      prisma.request.count({ where: { ...requestWhere, status: RequestStatus.APPROVED } }),
       prisma.request.count({ where: { ...requestWhere, status: RequestStatus.ISSUED } }),
+      prisma.request.count({ where: { ...requestWhere, status: RequestStatus.RETURNED } }),
       prisma.request.count({ where: { ...requestWhere, status: RequestStatus.REJECTED } }),
       prisma.requestItem.count({ where: isPrivileged ? {} : { request: { requesterId: session.id } } }),
-      prisma.returnRequest.count({ where: { ...returnWhere, status: 'PENDING' } }),
+      prisma.returnRequest.count({ where: returnWhere }),
+      prisma.returnRequest.count({ where: { ...returnWhere, status: ReturnStatus.PENDING } }),
+      prisma.returnRequest.count({ where: { ...returnWhere, status: ReturnStatus.APPROVED } }),
+      prisma.returnRequest.count({ where: { ...returnWhere, status: ReturnStatus.REJECTED } }),
       prisma.custodyRecord.count({ where: custodyWhere }),
-      prisma.custodyRecord.count({ where: { ...custodyWhere, status: CustodyStatus.OVERDUE } }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'MAINTENANCE', status: SuggestionStatus.PENDING } }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'CLEANING', status: SuggestionStatus.PENDING } }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'PURCHASE', status: SuggestionStatus.PENDING } }),
-      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'OTHER', status: SuggestionStatus.PENDING } }),
+      prisma.custodyRecord.count({ where: activeCustodyWhere }),
+      prisma.custodyRecord.count({ where: { ...custodyWhere, status: CustodyStatus.RETURNED } }),
+      prisma.custodyRecord.count({ where: { ...activeCustodyWhere, status: CustodyStatus.OVERDUE } }),
+      prisma.suggestion.count({ where: suggestionWhere }),
+      prisma.suggestion.count({ where: { ...suggestionWhere, status: SuggestionStatus.UNDER_REVIEW } }),
+      prisma.suggestion.count({ where: { ...suggestionWhere, status: SuggestionStatus.APPROVED } }),
+      prisma.suggestion.count({ where: { ...suggestionWhere, status: SuggestionStatus.IMPLEMENTED } }),
+      prisma.suggestion.count({ where: { ...suggestionWhere, status: SuggestionStatus.REJECTED } }),
+      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'MAINTENANCE' } }),
+      prisma.suggestion.count({
+        where: { ...suggestionWhere, category: 'MAINTENANCE', status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] } },
+      }),
+      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'CLEANING' } }),
+      prisma.suggestion.count({
+        where: { ...suggestionWhere, category: 'CLEANING', status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] } },
+      }),
+      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'PURCHASE' } }),
+      prisma.suggestion.count({
+        where: { ...suggestionWhere, category: 'PURCHASE', status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] } },
+      }),
+      prisma.suggestion.count({ where: { ...suggestionWhere, category: 'OTHER' } }),
+      prisma.suggestion.count({
+        where: { ...suggestionWhere, category: 'OTHER', status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] } },
+      }),
+      prisma.emailDraft.count({ where: draftWhere }),
+      prisma.emailDraft.count({ where: { ...draftWhere, status: DraftStatus.DRAFT } }),
+      prisma.emailDraft.count({ where: { ...draftWhere, status: DraftStatus.COPIED } }),
+      prisma.emailDraft.count({ where: { ...draftWhere, status: DraftStatus.SENT } }),
       prisma.notification.count({ where: { userId: session.id, isRead: false } }),
       prisma.notification.findMany({ where: { userId: session.id }, orderBy: { createdAt: 'desc' }, take: 4 }),
     ]);
@@ -88,16 +178,37 @@ export async function GET(request: NextRequest) {
         availableInventory: Math.max(totalInventory - outOfStock, 0),
         returnableItems,
         consumableItems,
+        materialRequestsTotal,
         pendingRequests,
+        approvedRequests,
         issuedRequests,
+        returnedRequests,
         rejectedRequests,
+        returnRequestsTotal,
         pendingReturns,
+        approvedReturns,
+        rejectedReturns,
+        custodyTotal,
         activeCustody,
+        returnedCustody,
         delayedCustody,
+        serviceRequestsTotal,
+        serviceUnderReview,
+        serviceApproved,
+        serviceImplemented,
+        serviceRejected,
+        maintenanceTotal,
         maintenancePending,
+        cleaningTotal,
         cleaningPending,
+        purchaseTotal,
         purchasePending,
+        otherTotal,
         otherPending,
+        emailDraftsTotal,
+        activeEmailDrafts,
+        copiedEmailDrafts,
+        sentEmailDrafts,
         unreadNotifications,
         requestItemsCount,
       },

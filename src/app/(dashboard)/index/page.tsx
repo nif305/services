@@ -14,12 +14,26 @@ type DashboardMetrics = {
   availableInventory: number;
   returnableItems: number;
   consumableItems: number;
+  materialRequestsTotal: number;
   pendingRequests: number;
+  approvedRequests: number;
   issuedRequests: number;
+  returnedRequests: number;
   rejectedRequests: number;
+  returnRequestsTotal: number;
   pendingReturns: number;
+  approvedReturns: number;
+  rejectedReturns: number;
+  custodyTotal: number;
   activeCustody: number;
+  returnedCustody: number;
   delayedCustody: number;
+  serviceRequestsTotal: number;
+  serviceApproved: number;
+  serviceImplemented: number;
+  serviceRejected: number;
+  emailDraftsTotal: number;
+  activeEmailDrafts: number;
   maintenancePending: number;
   cleaningPending: number;
   purchasePending: number;
@@ -35,12 +49,26 @@ const EMPTY_METRICS: DashboardMetrics = {
   availableInventory: 0,
   returnableItems: 0,
   consumableItems: 0,
+  materialRequestsTotal: 0,
   pendingRequests: 0,
+  approvedRequests: 0,
   issuedRequests: 0,
+  returnedRequests: 0,
   rejectedRequests: 0,
+  returnRequestsTotal: 0,
   pendingReturns: 0,
+  approvedReturns: 0,
+  rejectedReturns: 0,
+  custodyTotal: 0,
   activeCustody: 0,
+  returnedCustody: 0,
   delayedCustody: 0,
+  serviceRequestsTotal: 0,
+  serviceApproved: 0,
+  serviceImplemented: 0,
+  serviceRejected: 0,
+  emailDraftsTotal: 0,
+  activeEmailDrafts: 0,
   maintenancePending: 0,
   cleaningPending: 0,
   purchasePending: 0,
@@ -362,7 +390,9 @@ function LatestUpdates({ items, loading }: { items: GenericItem[]; loading: bool
 function ManagerDashboard(props: any) {
   const { metrics, inventoryStatusData, requestFlowData, servicesData, latestUpdates, loading } = props;
   const actions = [
+    { title: 'إجمالي طلبات المواد', count: metrics.materialRequestsTotal, hint: 'كل طلبات المواد بجميع حالاتها', href: '/requests', critical: false },
     { title: 'طلبات صرف بانتظار التنفيذ', count: metrics.pendingRequests, hint: 'طلبات مواد تحتاج تدخلًا مباشرًا', href: '/requests', critical: metrics.pendingRequests > 0 },
+    { title: 'إجمالي طلبات الخدمات', count: metrics.serviceRequestsTotal, hint: 'صيانة ونظافة وشراء وطلبات أخرى', href: '/suggestions', critical: false },
     { title: 'طلبات صيانة بانتظار الاعتماد', count: metrics.maintenancePending, hint: 'طلبات خدمية تحتاج قرار المدير', href: '/suggestions?type=MAINTENANCE', critical: metrics.maintenancePending > 0 },
     { title: 'طلبات نظافة بانتظار الاعتماد', count: metrics.cleaningPending, hint: 'طلبات نظافة تحتاج قرار المدير', href: '/suggestions?type=CLEANING', critical: metrics.cleaningPending > 0 },
     { title: 'طلبات شراء مباشر بانتظار الاعتماد', count: metrics.purchasePending, hint: 'طلبات شراء تحتاج قرار المدير', href: '/suggestions?type=PURCHASE', critical: metrics.purchasePending > 0 },
@@ -394,12 +424,12 @@ function ManagerDashboard(props: any) {
           </SurfaceCard>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <ClickableStatCard href="/inventory" title="إجمالي الأصناف" value={metrics.totalInventory} note="عدد المواد المعرفة في النظام" tone="primary" />
+            <ClickableStatCard href="/requests" title="إجمالي طلبات المواد" value={metrics.materialRequestsTotal} note="كل الطلبات بجميع حالاتها" tone="primary" />
             <ClickableStatCard href="/requests" title="طلبات بانتظار الإجراء" value={metrics.pendingRequests + metrics.pendingReturns} note="صرف أو استلام" tone="danger" />
-            <ClickableStatCard href="/notifications" title="تنبيهات غير مقروءة" value={metrics.unreadNotifications} note="آخر ما وصلك داخل النظام" tone="gold" />
+            <ClickableStatCard href="/suggestions" title="إجمالي طلبات الخدمات" value={metrics.serviceRequestsTotal} note="كل طلبات الخدمات بجميع حالاتها" tone="gold" />
             <ClickableStatCard href="/inventory?status=LOW_STOCK" title="مواد منخفضة" value={metrics.lowStock} note="تحتاج متابعة قريبة" tone="gold" />
             <ClickableStatCard href="/inventory?status=OUT_OF_STOCK" title="مواد نافدة" value={metrics.outOfStock} note="تؤثر على الجاهزية" tone="danger" />
-            <ClickableStatCard href="/custody?filter=late" title="عهد متأخرة" value={metrics.delayedCustody} note="مواد تجاوزت الموعد المحدد" tone="default" />
+            <ClickableStatCard href="/custody" title="إجمالي العهد" value={metrics.custodyTotal} note="العهد النشطة والمعادة" tone="default" />
             <ClickableStatCard href="/suggestions?type=MAINTENANCE" title="طلبات صيانة" value={metrics.maintenancePending} note="بانتظار اعتماد المدير" tone="danger" />
             <ClickableStatCard href="/suggestions?type=CLEANING" title="طلبات نظافة" value={metrics.cleaningPending} note="بانتظار اعتماد المدير" tone="primary" />
             <ClickableStatCard href="/suggestions?type=PURCHASE" title="طلبات شراء مباشر" value={metrics.purchasePending} note="بانتظار اعتماد المدير" tone="gold" />
@@ -419,7 +449,8 @@ function ManagerDashboard(props: any) {
             {links.map((link) => <QuickAction key={link.href} href={link.href} label={link.label} />)}
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <ClickableStatCard href="/suggestions" title="الخدمات المفتوحة" value={metrics.maintenancePending + metrics.cleaningPending + metrics.purchasePending + metrics.otherPending} note="صيانة وشراء ونظافة وطلبات أخرى" tone="default" />
+            <ClickableStatCard href="/suggestions" title="طلبات الخدمات" value={metrics.serviceRequestsTotal} note="صيانة وشراء ونظافة وطلبات أخرى" tone="default" />
+            <ClickableStatCard href="/email-drafts" title="المراسلات الخارجية" value={metrics.emailDraftsTotal} note="مسودات البريد ومتابعتها" tone="gold" />
             <StatCard title="بنود الطلبات" value={metrics.requestItemsCount} note="إجمالي البنود المسجلة" tone="primary" />
           </div>
         </SectionCard>
@@ -438,6 +469,7 @@ function ManagerDashboard(props: any) {
 function WarehouseDashboard(props: any) {
   const { metrics, inventoryStatusData, requestFlowData, latestUpdates, loading } = props;
   const actions = [
+    { title: 'إجمالي طلبات المواد', count: metrics.materialRequestsTotal, hint: 'كل الطلبات بجميع حالاتها', href: '/requests', critical: false },
     { title: 'طلبات بانتظار الصرف', count: metrics.pendingRequests, hint: 'نفّذ الصرف للطلبات الجديدة', href: '/requests', critical: metrics.pendingRequests > 0 },
     { title: 'إرجاعات تنتظر الاستلام', count: metrics.pendingReturns, hint: 'أغلق عمليات الاستلام والتوثيق', href: '/returns', critical: metrics.pendingReturns > 0 },
     { title: 'مواد منخفضة الكمية', count: metrics.lowStock, hint: 'أصناف قريبة من حد الأمان', href: '/inventory', critical: metrics.lowStock > 0 },
@@ -466,11 +498,12 @@ function WarehouseDashboard(props: any) {
           </SurfaceCard>
 
           <div className="grid gap-3 sm:grid-cols-3">
+            <StatCard title="إجمالي طلبات المواد" value={metrics.materialRequestsTotal} note="كل الطلبات بجميع حالاتها" tone="primary" />
             <StatCard title="طلبات تنتظر الصرف" value={metrics.pendingRequests} note="أولوية التنفيذ الأولى" tone="danger" />
             <StatCard title="إرجاعات تنتظر الاستلام" value={metrics.pendingReturns} note="تحتاج توثيقًا واستلامًا" tone="gold" />
             <StatCard title="مواد نافدة" value={metrics.outOfStock} note="قد تعطل الطلبات الجديدة" tone="danger" />
             <StatCard title="مواد منخفضة" value={metrics.lowStock} note="أصناف قريبة من حد الأمان" tone="gold" />
-            <StatCard title="العهدة النشطة" value={metrics.activeCustody} note="مواد ما زالت لدى المستخدمين" tone="primary" />
+            <StatCard title="إجمالي العهد" value={metrics.custodyTotal} note="العهد النشطة والمعادة" tone="primary" />
             <StatCard title="مواد قابلة للإرجاع" value={metrics.returnableItems} note="مرتبطة بالإرجاع والمتابعة" tone="success" />
           </div>
         </div>
@@ -507,6 +540,7 @@ function WarehouseDashboard(props: any) {
 function UserDashboard(props: any) {
   const { metrics, latestUpdates, loading } = props;
   const actions = [
+    { title: 'إجمالي طلباتي', count: metrics.materialRequestsTotal, hint: 'كل طلبات المواد بجميع حالاتها', href: '/requests' },
     { title: 'طلباتي الجديدة', count: metrics.pendingRequests, hint: 'طلبات مواد ما زالت قيد الانتظار', href: '/requests' },
     { title: 'طلباتي المصروفة', count: metrics.issuedRequests, hint: 'طلبات تم صرفها لك بالفعل', href: '/requests' },
     { title: 'عهدتي النشطة', count: metrics.activeCustody, hint: 'مواد مسجلة عليك حاليًا', href: '/custody' },
@@ -526,9 +560,9 @@ function UserDashboard(props: any) {
     <div className="space-y-5">
       <Hero badge="لوحة الموظف" title="لوحة متابعة الطلبات والعهدة" text="مخصصة لمتابعة طلباتك وعهدتك وإرجاعاتك وتحديثاتك الأحدث بشكل مباشر وواضح.">
         <div className="grid gap-3 sm:grid-cols-4">
-          <StatCard title="طلباتي الجديدة" value={metrics.pendingRequests} note="ما زالت قيد الانتظار" tone="primary" />
+          <StatCard title="إجمالي طلباتي" value={metrics.materialRequestsTotal} note="كل طلبات المواد بجميع حالاتها" tone="primary" />
           <StatCard title="طلبات مصروفة" value={metrics.issuedRequests} note="تم تنفيذها لك بالفعل" tone="success" />
-          <StatCard title="عهدتي النشطة" value={metrics.activeCustody} note="مواد ما زالت مسجلة عليك" tone="gold" />
+          <StatCard title="إجمالي عهدتي" value={metrics.custodyTotal} note="النشطة والمعادة" tone="gold" />
           <StatCard title="تنبيهات غير مقروءة" value={metrics.unreadNotifications} note="آخر ما وصلك داخل النظام" tone="danger" />
         </div>
       </Hero>
@@ -649,8 +683,10 @@ function UnifiedDashboard() {
 
   const requestFlowData = useMemo(
     () => [
+      { name: 'إجمالي الطلبات', value: metrics.materialRequestsTotal },
       { name: 'جديد', value: metrics.pendingRequests },
       { name: 'تم الصرف', value: metrics.issuedRequests },
+      { name: 'تمت الإعادة', value: metrics.returnedRequests },
       { name: 'مرفوض', value: metrics.rejectedRequests },
       { name: 'إرجاع مفتوح', value: metrics.pendingReturns },
     ],
@@ -659,10 +695,11 @@ function UnifiedDashboard() {
 
   const servicesData = useMemo(
     () => [
-      { name: 'صيانة', value: metrics.maintenancePending },
-      { name: 'شراء مباشر', value: metrics.purchasePending },
-      { name: 'نظافة', value: metrics.cleaningPending },
-      { name: 'طلبات أخرى', value: metrics.otherPending },
+      { name: 'إجمالي الخدمات', value: metrics.serviceRequestsTotal },
+      { name: 'بانتظار الاعتماد', value: metrics.maintenancePending + metrics.cleaningPending + metrics.purchasePending + metrics.otherPending },
+      { name: 'معتمدة', value: metrics.serviceApproved },
+      { name: 'منفذة', value: metrics.serviceImplemented },
+      { name: 'مرفوضة', value: metrics.serviceRejected },
     ],
     [metrics]
   );

@@ -8,6 +8,7 @@ export const CustodyService = {
     page = 1,
     limit = 50,
     status,
+    openId,
     returnableOnly = false,
     excludeReturned = false,
   }: {
@@ -16,6 +17,7 @@ export const CustodyService = {
     page?: number;
     limit?: number;
     status?: string | null;
+    openId?: string | null;
     returnableOnly?: boolean;
     excludeReturned?: boolean;
   }) => {
@@ -55,57 +57,88 @@ export const CustodyService = {
       ],
     };
 
-    const [records, total, active, overdue, returnRequested] = await Promise.all([
+    const include = {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          department: true,
+          email: true,
+        },
+      },
+      item: {
+        select: {
+          name: true,
+          code: true,
+          category: true,
+          type: true,
+        },
+      },
+      request: {
+        select: {
+          id: true,
+          code: true,
+          purpose: true,
+          createdAt: true,
+        },
+      },
+      returnRequests: {
+        orderBy: {
+          createdAt: 'desc',
+        },
+        select: {
+          id: true,
+          code: true,
+          status: true,
+          conditionNote: true,
+          rejectionReason: true,
+          createdAt: true,
+        },
+      },
+    } as const;
+
+    const [records, openRecord, total, active, overdue, returnRequested, returned] = await Promise.all([
       prisma.custodyRecord.findMany({
         where,
         skip: (safePage - 1) * safeLimit,
         take: safeLimit,
-        include: {
-          user: {
-            select: {
-              fullName: true,
-              department: true,
-            },
-          },
-          item: {
-            select: {
-              name: true,
-              code: true,
-              category: true,
-              type: true,
-            },
-          },
-          returnRequests: {
-            orderBy: {
-              createdAt: 'desc',
-            },
-            select: {
-              id: true,
-              code: true,
-              status: true,
-              conditionNote: true,
-              rejectionReason: true,
-              createdAt: true,
-            },
-          },
-        },
+        include,
         orderBy: [{ expectedReturn: 'asc' }, { issueDate: 'desc' }],
       }),
+      openId
+        ? prisma.custodyRecord.findFirst({
+            where: {
+              AND: [
+                { id: openId },
+                normalizedRole === 'USER' ? { userId } : {},
+                returnableOnly ? { item: { type: ItemType.RETURNABLE } } : {},
+              ],
+            },
+            include,
+          })
+        : Promise.resolve(null),
       prisma.custodyRecord.count({ where }),
       prisma.custodyRecord.count({ where: { ...statsWhere, AND: [...statsWhere.AND, { status: CustodyStatus.ACTIVE }] } }),
       prisma.custodyRecord.count({ where: { ...statsWhere, AND: [...statsWhere.AND, { status: CustodyStatus.OVERDUE }] } }),
       prisma.custodyRecord.count({
         where: { ...statsWhere, AND: [...statsWhere.AND, { status: CustodyStatus.RETURN_REQUESTED }] },
       }),
+      prisma.custodyRecord.count({ where: { ...statsWhere, AND: [...statsWhere.AND, { status: CustodyStatus.RETURNED }] } }),
     ]);
 
+    const visibleRecords =
+      openRecord && !records.some((record) => record.id === openRecord.id)
+        ? [openRecord, ...records].slice(0, safeLimit)
+        : records;
+
     return {
-      data: records,
+      data: visibleRecords,
       stats: {
         total: excludeReturned ? active + overdue + returnRequested : total,
         active,
         overdue,
         returnRequested,
+        returned,
       },
       pagination: {
         total,

@@ -108,7 +108,8 @@ export async function GET(request: NextRequest) {
     const pageParam = request.nextUrl.searchParams.get('page');
     const limitParam = request.nextUrl.searchParams.get('limit');
     const status = request.nextUrl.searchParams.get('status');
-    const usePaginatedMode = pageParam !== null || limitParam !== null || status !== null;
+    const openId = request.nextUrl.searchParams.get('open');
+    const usePaginatedMode = pageParam !== null || limitParam !== null || status !== null || openId !== null;
 
     if (!usePaginatedMode) {
       const custodyRecords = await prisma.custodyRecord.findMany({
@@ -133,8 +134,18 @@ export async function GET(request: NextRequest) {
           },
           user: {
             select: {
+              id: true,
               fullName: true,
               department: true,
+              email: true,
+            },
+          },
+          request: {
+            select: {
+              id: true,
+              code: true,
+              purpose: true,
+              createdAt: true,
             },
           },
           returnRequests: {
@@ -167,6 +178,7 @@ export async function GET(request: NextRequest) {
       page: Number.isFinite(pageValue) ? pageValue : 1,
       limit: Number.isFinite(limitValue) ? limitValue : 10,
       status,
+      openId,
       returnableOnly: session.role === Role.USER,
       excludeReturned: session.role === Role.USER && String(status || '').trim() === '',
     });

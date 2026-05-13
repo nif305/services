@@ -61,9 +61,9 @@ function normalizeNotification(item: NotificationMeta): NotificationMeta {
   const entityType = String(item.entityType || '').toLowerCase();
 
   const severity =
-    type.includes('CRITICAL') || type.includes('OUT_OF_STOCK')
+    type.includes('CRITICAL') || type.includes('OUT_OF_STOCK') || type.includes('OVERDUE')
       ? 'critical'
-      : type.includes('LOW_STOCK') || type.includes('NEW_') || type.includes('PENDING') || type.includes('REMINDER')
+      : type.includes('LOW_STOCK') || type.includes('NEW_') || type.includes('PENDING') || type.includes('REMINDER') || type.includes('CUSTODY') || type.includes('RETURN_')
         ? 'action'
         : 'info';
 
@@ -111,7 +111,10 @@ function resolveItemLinkForRole(item: NotificationMeta, role?: string | null): s
 
   if (item.link) {
     const target = canonicalizeAppHref(item.link, role);
-    return entityType === 'suggestion' ? appendOpenParam(target, item.entityId) : target;
+    if (['suggestion', 'custody', 'request', 'return', 'message', 'inventory'].includes(entityType) && !target.includes('open=')) {
+      return appendOpenParam(target, item.entityId);
+    }
+    return target;
   }
 
   if (entityType === 'message' && item.entityId) return `${canonicalizeAppHref('/messages', role)}?open=${item.entityId}`;

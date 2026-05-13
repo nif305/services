@@ -5,8 +5,8 @@ import { AlertService } from '@/services/alert.service';
 
 type NotificationFilterKey = 'ALL' | 'UNREAD' | 'ALERT' | 'NOTIFICATION' | 'CRITICAL' | 'ACTION';
 const WAREHOUSE_ALERT_SYNC_INTERVAL_MS = 15 * 60 * 1000;
-const WAREHOUSE_ALERT_SYNC_ACTION = 'SYNC_WAREHOUSE_ALERTS';
-const WAREHOUSE_ALERT_SYNC_ENTITY = 'warehouse-alert-sync';
+const ALERT_SYNC_ACTION = 'SYNC_SMART_ALERTS';
+const ALERT_SYNC_ENTITY_PREFIX = 'smart-alert-sync';
 
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
@@ -19,6 +19,7 @@ function buildCriticalWhere() {
   return [
     { type: { contains: 'CRITICAL', mode: 'insensitive' as const } },
     { type: { contains: 'OUT_OF_STOCK', mode: 'insensitive' as const } },
+    { type: { contains: 'OVERDUE', mode: 'insensitive' as const } },
   ];
 }
 
@@ -28,6 +29,8 @@ function buildActionWhere() {
     { type: { contains: 'NEW_', mode: 'insensitive' as const } },
     { type: { contains: 'PENDING', mode: 'insensitive' as const } },
     { type: { contains: 'REMINDER', mode: 'insensitive' as const } },
+    { type: { contains: 'CUSTODY', mode: 'insensitive' as const } },
+    { type: { contains: 'RETURN_', mode: 'insensitive' as const } },
   ];
 }
 
@@ -150,15 +153,14 @@ function authStatusCode(error: any) {
   return null;
 }
 
-async function syncWarehouseAlertsWhenDue(sessionUser: Awaited<ReturnType<typeof resolveSessionUser>>) {
-  if (sessionUser.role !== Role.WAREHOUSE) return;
-
+async function syncSmartAlertsWhenDue(sessionUser: Awaited<ReturnType<typeof resolveSessionUser>>) {
   try {
+    const syncEntityId = `${ALERT_SYNC_ENTITY_PREFIX}:${sessionUser.id}:${sessionUser.role}`;
     const latestSync = await prisma.auditLog.findFirst({
       where: {
-        action: WAREHOUSE_ALERT_SYNC_ACTION,
+        action: ALERT_SYNC_ACTION,
         entity: 'Notification',
-        entityId: WAREHOUSE_ALERT_SYNC_ENTITY,
+        entityId: syncEntityId,
       },
       orderBy: { createdAt: 'desc' },
       select: { createdAt: true },
@@ -168,21 +170,29 @@ async function syncWarehouseAlertsWhenDue(sessionUser: Awaited<ReturnType<typeof
       return;
     }
 
-    await AlertService.syncWarehouseAlerts();
+    if (sessionUser.role === Role.WAREHOUSE) {
+      await AlertService.syncWarehouseAlerts();
+    } else if (sessionUser.role === Role.MANAGER) {
+      await AlertService.syncManagerAlerts();
+    } else {
+      await AlertService.syncUserAlerts();
+    }
+
     await prisma.auditLog.create({
       data: {
         userId: sessionUser.id,
-        action: WAREHOUSE_ALERT_SYNC_ACTION,
+        action: ALERT_SYNC_ACTION,
         entity: 'Notification',
-        entityId: WAREHOUSE_ALERT_SYNC_ENTITY,
+        entityId: syncEntityId,
         details: JSON.stringify({
           source: 'notifications-api',
           intervalMinutes: WAREHOUSE_ALERT_SYNC_INTERVAL_MS / 60000,
+          role: sessionUser.role,
         }),
       },
     });
   } catch (error) {
-    console.error('Failed to sync warehouse alerts before loading notifications', error);
+    console.error('Failed to sync smart alerts before loading notifications', error);
   }
 }
 
@@ -197,7 +207,7 @@ export async function GET(request: NextRequest) {
     const limit = Number.isFinite(limitParam) ? Math.min(Math.max(1, Math.trunc(limitParam)), 200) : 100;
     const skip = (page - 1) * limit;
 
-    await syncWarehouseAlertsWhenDue(sessionUser);
+    await syncSmartAlertsWhenDue(sessionUser);
 
     const where = {
       AND: [{ userId: sessionUser.id }, buildFilterWhere(filter), buildSearchWhere(search)],

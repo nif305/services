@@ -2,7 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useI18n } from '@/hooks/useI18n';
+import { useAuth } from '@/context/AuthContext';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -28,12 +30,17 @@ type CustodyItem = {
   code: string;
   itemName: string;
   category?: string | null;
+  quantity: number;
   assignedToUserId: string;
   assignedToUserName: string;
+  assignedToDepartment?: string | null;
+  assignedToEmail?: string | null;
   assignedDate: string;
   dueDate?: string | null;
   notes?: string | null;
   status: CustodyStatus;
+  requestCode?: string | null;
+  requestPurpose?: string | null;
   returnRequests: ReturnRequestSummary[];
 };
 
@@ -46,14 +53,23 @@ type CustodyApiRow = {
   status: CustodyStatus;
   userId: string;
   user?: {
+    id?: string | null;
     fullName?: string | null;
     department?: string | null;
+    email?: string | null;
   } | null;
+  quantity?: number | null;
   item?: {
     name?: string | null;
     code?: string | null;
     category?: string | null;
     type?: 'RETURNABLE' | 'CONSUMABLE' | null;
+  } | null;
+  request?: {
+    id?: string | null;
+    code?: string | null;
+    purpose?: string | null;
+    createdAt?: string | null;
   } | null;
   returnRequests?: ReturnRequestSummary[];
 };
@@ -63,6 +79,7 @@ type CustodyStats = {
   active: number;
   overdue: number;
   returnRequested: number;
+  returned?: number;
 };
 
 type PaginationState = {
@@ -115,24 +132,35 @@ function mapCustodyRow(row: CustodyApiRow, language: 'ar' | 'en'): CustodyItem |
     code: row.item?.code || '-',
     itemName: getInventoryDisplayName(row.item, language),
     category: getInventoryDisplayCategory(row.item, language) || row.user?.department || null,
+    quantity: Number(row.quantity || 0),
     assignedToUserId: row.userId,
     assignedToUserName: row.user?.fullName || 'المستخدم',
+    assignedToDepartment: row.user?.department || null,
+    assignedToEmail: row.user?.email || null,
     assignedDate: row.issueDate,
     dueDate: row.dueDate || row.expectedReturn || null,
     notes: row.notes || null,
     status: row.status,
+    requestCode: row.request?.code || null,
+    requestPurpose: row.request?.purpose || null,
     returnRequests: Array.isArray(row.returnRequests) ? row.returnRequests : [],
   };
 }
 
 export default function CustodyPage() {
+  const { user } = useAuth();
   const { language } = useI18n();
+  const searchParams = useSearchParams();
+  const openId = String(searchParams.get('open') || '').trim();
+  const activeRole = String(user?.role || 'user').toLowerCase();
+  const canManageCustody = activeRole === 'manager' || activeRole === 'warehouse';
   const [items, setItems] = useState<CustodyItem[]>([]);
   const [stats, setStats] = useState<CustodyStats>({
     total: 0,
     active: 0,
     overdue: 0,
     returnRequested: 0,
+    returned: 0,
   });
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
@@ -144,6 +172,7 @@ export default function CustodyPage() {
   const [submittingReturnId, setSubmittingReturnId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'ACTIVE' | 'OVERDUE' | 'RETURN_REQUESTED'>('ALL');
   const [selectedItem, setSelectedItem] = useState<CustodyItem | null>(null);
+  const [search, setSearch] = useState('');
 
   const refresh = useCallback(async (page = pagination.page) => {
     setLoading(true);
@@ -156,6 +185,10 @@ export default function CustodyPage() {
 
       if (activeFilter !== 'ALL') {
         params.set('status', activeFilter);
+      }
+
+      if (openId) {
+        params.set('open', openId);
       }
 
       const response = await fetch(`/api/custody?${params.toString()}`, {
@@ -186,16 +219,17 @@ export default function CustodyPage() {
         active: Number(data?.stats?.active || 0),
         overdue: Number(data?.stats?.overdue || 0),
         returnRequested: Number(data?.stats?.returnRequested || 0),
+        returned: Number(data?.stats?.returned || 0),
       });
       setPagination(nextPagination);
     } catch {
       setItems([]);
-      setStats({ total: 0, active: 0, overdue: 0, returnRequested: 0 });
+      setStats({ total: 0, active: 0, overdue: 0, returnRequested: 0, returned: 0 });
       setPagination((prev) => ({ ...prev, total: 0, totalPages: 1 }));
     } finally {
       setLoading(false);
     }
-  }, [activeFilter, language, pagination.limit, pagination.page]);
+  }, [activeFilter, language, openId, pagination.limit, pagination.page]);
 
   useEffect(() => {
     void refresh(pagination.page);
@@ -205,10 +239,40 @@ export default function CustodyPage() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   }, [activeFilter]);
 
+  useEffect(() => {
+    if (!openId || loading) return;
+    const match = items.find((item) => item.id === openId);
+    if (match && selectedItem?.id !== match.id) {
+      setSelectedItem(match);
+    }
+  }, [items, loading, openId, selectedItem?.id]);
+
   const pendingReturnFor = useCallback(
     (item: CustodyItem) => item.returnRequests.find((r) => r.status === 'PENDING'),
     []
   );
+
+  const visibleItems = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return items;
+
+    return items.filter((item) =>
+      [
+        item.code,
+        item.itemName,
+        item.category,
+        item.assignedToUserName,
+        item.assignedToDepartment,
+        item.assignedToEmail,
+        item.requestCode,
+        item.requestPurpose,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [items, search]);
 
   const createReturnRequest = async (item: CustodyItem) => {
     if (pendingReturnFor(item) || item.status === 'RETURN_REQUESTED') return;
@@ -249,9 +313,13 @@ export default function CustodyPage() {
       <div className="rounded-[24px] border border-surface-border bg-white p-4 shadow-soft sm:rounded-[28px] sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">عهدتي</h1>
+            <h1 className="text-[24px] leading-[1.25] text-primary sm:text-[30px]">
+              {canManageCustody ? 'العهد لدى الموظفين' : 'عهدتي'}
+            </h1>
             <p className="mt-2 text-[13px] leading-7 text-surface-subtle sm:text-[14px]">
-              تظهر هنا المواد المسترجعة التي ما زالت بعهدتك ولم تُغلق بعد.
+              {canManageCustody
+                ? 'متابعة واضحة لكل العهد المسجلة على الموظفين، مع اسم المستلم وحالة الإرجاع والطلب المرتبط.'
+                : 'تظهر هنا المواد المسترجعة التي ما زالت بعهدتك، ويمكنك رفع طلب إرجاعها ومتابعة حالتها.'}
             </p>
           </div>
 
@@ -306,17 +374,27 @@ export default function CustodyPage() {
         </div>
       </div>
 
+      <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[28px]">
+        <label className="block text-[12px] font-bold text-slate-600">بحث سريع داخل العهد المعروضة</label>
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={canManageCustody ? 'ابحث باسم المستلم، المادة، رقم الطلب، أو الإدارة' : 'ابحث باسم المادة أو رقم الطلب'}
+          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
+        />
+      </div>
+
       <div className="grid gap-3 xl:grid-cols-2 sm:gap-4">
         {loading ? (
           <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
             جاري تحميل العهد...
           </Card>
-        ) : items.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <Card className="rounded-[24px] p-8 text-center text-slate-500 sm:rounded-[28px] xl:col-span-2">
             لا توجد مواد مسجلة عليك حاليًا
           </Card>
         ) : (
-          items.map((item) => {
+          visibleItems.map((item) => {
             const openReturn = pendingReturnFor(item);
 
             return (
@@ -333,9 +411,24 @@ export default function CustodyPage() {
                       </span>
                     </div>
 
+                    <div className="mb-3 rounded-[20px] border border-[#016564]/15 bg-[#016564]/5 p-3">
+                      <div className="text-[11px] font-bold text-[#61706f]">مستلم العهدة</div>
+                      <div className="mt-1 text-[17px] font-extrabold text-[#123f45]">{item.assignedToUserName}</div>
+                      <div className="mt-1 flex flex-wrap gap-2 text-[12px] text-slate-600">
+                        <span>{item.assignedToDepartment || 'بدون إدارة محددة'}</span>
+                        {item.assignedToEmail ? <span>{item.assignedToEmail}</span> : null}
+                      </div>
+                    </div>
+
                     <h3 className="text-[20px] leading-8 text-primary sm:text-[22px]">{item.itemName}</h3>
 
                     <div className="mt-3 grid gap-2 rounded-[18px] bg-slate-50 p-3 text-[13px] leading-7 text-slate-600 sm:rounded-[20px] sm:p-4 md:grid-cols-2">
+                      <div>
+                        الكمية: <span className="text-slate-900">{item.quantity || '-'}</span>
+                      </div>
+                      <div>
+                        رقم طلب الصرف: <span className="text-slate-900">{item.requestCode || '-'}</span>
+                      </div>
                       <div>
                         الفئة: <span className="text-slate-900">{item.category || '-'}</span>
                       </div>
@@ -423,6 +516,18 @@ export default function CustodyPage() {
       <Modal isOpen={!!selectedItem} onClose={() => setSelectedItem(null)} title="تفاصيل العهدة">
         <div className="space-y-4">
           <div className="rounded-[18px] border border-surface-border bg-slate-50 p-4 text-[14px] leading-8 text-slate-700 break-words">
+            <div>
+              مستلم العهدة: <span className="text-slate-900">{selectedItem?.assignedToUserName || '-'}</span>
+            </div>
+            <div>
+              الإدارة: <span className="text-slate-900">{selectedItem?.assignedToDepartment || '-'}</span>
+            </div>
+            <div>
+              الكمية: <span className="text-slate-900">{selectedItem?.quantity || '-'}</span>
+            </div>
+            <div>
+              رقم طلب الصرف: <span className="text-slate-900">{selectedItem?.requestCode || '-'}</span>
+            </div>
             <div>
               المادة: <span className="text-slate-900">{selectedItem?.itemName || '-'}</span>
             </div>

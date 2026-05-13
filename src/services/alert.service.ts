@@ -1,4 +1,5 @@
 import {
+  CustodyStatus,
   ItemStatus,
   ItemType,
   Priority,
@@ -11,6 +12,8 @@ import { prisma } from '@/lib/prisma';
 const PURCHASE_REMINDER_TYPE = 'WAREHOUSE_PURCHASE_REMINDER';
 const MAINTENANCE_REMINDER_TYPE = 'WAREHOUSE_MAINTENANCE_REMINDER';
 const REQUEST_CREATED_TYPE = 'WAREHOUSE_REQUEST_CREATED';
+const CUSTODY_USER_REMINDER_TYPE = 'CUSTODY_OVERDUE_REMINDER';
+const CUSTODY_OPERATIONS_REMINDER_TYPE = 'CUSTODY_OVERDUE_OPERATIONS';
 
 type JsonObject = Record<string, any>;
 type ServiceCategory = 'MAINTENANCE' | 'PURCHASE';
@@ -154,6 +157,16 @@ async function loadWarehouseUsers() {
     where: {
       status: Status.ACTIVE,
       roles: { has: Role.WAREHOUSE },
+    },
+    select: { id: true },
+  });
+}
+
+async function loadCustodyOperationsUsers() {
+  return prisma.user.findMany({
+    where: {
+      status: Status.ACTIVE,
+      roles: { hasSome: [Role.MANAGER, Role.WAREHOUSE] },
     },
     select: { id: true },
   });
@@ -311,6 +324,120 @@ async function buildSuggestionFromReminder(params: {
     category: params.category,
     existing: false,
   };
+}
+
+async function syncCustodyDeadlineAlerts() {
+  const now = new Date();
+
+  await prisma.custodyRecord.updateMany({
+    where: {
+      status: CustodyStatus.ACTIVE,
+      expectedReturn: { lt: now },
+    },
+    data: { status: CustodyStatus.OVERDUE },
+  });
+
+  const overdueRecords = await prisma.custodyRecord.findMany({
+    where: {
+      status: CustodyStatus.OVERDUE,
+      expectedReturn: { lt: now },
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          department: true,
+        },
+      },
+      item: {
+        select: {
+          code: true,
+          name: true,
+        },
+      },
+      request: {
+        select: {
+          code: true,
+        },
+      },
+    },
+    orderBy: { expectedReturn: 'asc' },
+  });
+
+  if (!overdueRecords.length) return [];
+
+  const operationsUsers = await loadCustodyOperationsUsers();
+  const targetIds = Array.from(
+    new Set([
+      ...overdueRecords.map((record) => record.userId),
+      ...operationsUsers.map((user) => user.id),
+    ])
+  );
+
+  const existingNotifications = await prisma.notification.findMany({
+    where: {
+      userId: { in: targetIds },
+      type: { in: [CUSTODY_USER_REMINDER_TYPE, CUSTODY_OPERATIONS_REMINDER_TYPE] },
+      entityId: { in: overdueRecords.map((record) => record.id) },
+      OR: [
+        { isRead: false },
+        { createdAt: { gte: addDays(new Date(), -3) } },
+      ],
+    },
+    select: {
+      userId: true,
+      type: true,
+      entityId: true,
+    },
+  });
+
+  const existingKeys = new Set(
+    existingNotifications.map((item) => `${item.userId}:${item.type}:${item.entityId}`)
+  );
+
+  const toCreate = [];
+
+  for (const record of overdueRecords) {
+    const itemName = record.item?.name || 'مادة مسجلة كعهدة';
+    const itemCode = record.item?.code || record.request?.code || record.id;
+    const dueLabel = record.expectedReturn ? formatDate(record.expectedReturn) : 'غير محدد';
+    const custodyLink = `/materials/custody?open=${record.id}`;
+
+    const employeeKey = `${record.userId}:${CUSTODY_USER_REMINDER_TYPE}:${record.id}`;
+    if (!existingKeys.has(employeeKey)) {
+      toCreate.push({
+        userId: record.userId,
+        type: CUSTODY_USER_REMINDER_TYPE,
+        title: 'تذكير بإرجاع عهدة متأخرة',
+        message: `العهدة "${itemName}" برقم ${itemCode} تجاوزت موعد الإرجاع المحدد (${dueLabel}). يرجى رفع طلب إرجاع أو التواصل مع مسؤول المخزن.`,
+        link: custodyLink,
+        entityId: record.id,
+        entityType: 'CUSTODY',
+      });
+    }
+
+    for (const operationsUser of operationsUsers) {
+      const operationsKey = `${operationsUser.id}:${CUSTODY_OPERATIONS_REMINDER_TYPE}:${record.id}`;
+      if (existingKeys.has(operationsKey)) continue;
+
+      toCreate.push({
+        userId: operationsUser.id,
+        type: CUSTODY_OPERATIONS_REMINDER_TYPE,
+        title: 'عهدة متأخرة تحتاج متابعة',
+        message: `العهدة "${itemName}" لدى ${record.user?.fullName || 'موظف'} تجاوزت موعد الإرجاع (${dueLabel}).`,
+        link: custodyLink,
+        entityId: record.id,
+        entityType: 'CUSTODY',
+      });
+    }
+  }
+
+  if (toCreate.length) {
+    await prisma.notification.createMany({ data: toCreate });
+  }
+
+  return overdueRecords;
 }
 
 export const AlertService = {
@@ -478,12 +605,23 @@ export const AlertService = {
   },
 
   syncWarehouseAlerts: async () => {
-    const [lowStock, maintenance] = await Promise.all([
+    const [lowStock, maintenance, custody] = await Promise.all([
       AlertService.checkLowStock(),
       AlertService.checkMaintenanceNeeds(),
+      syncCustodyDeadlineAlerts(),
     ]);
 
-    return { lowStock, maintenance };
+    return { lowStock, maintenance, custody };
+  },
+
+  syncManagerAlerts: async () => {
+    const custody = await syncCustodyDeadlineAlerts();
+    return { custody };
+  },
+
+  syncUserAlerts: async () => {
+    const custody = await syncCustodyDeadlineAlerts();
+    return { custody };
   },
 
   createManagerRequestFromNotification: async (params: {

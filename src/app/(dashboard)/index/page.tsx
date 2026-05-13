@@ -657,7 +657,7 @@ function UnifiedDashboard() {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/dashboard-summary', {
+        const res = await fetch(`/api/dashboard-summary?scope=global&ts=${Date.now()}`, {
           credentials: 'include',
           cache: 'no-store',
           headers: { 'x-active-role': role },

@@ -106,23 +106,14 @@ function countCategoryByStatus(rows: GroupCountRow[], category: string, statuses
 export async function GET(request: NextRequest) {
   try {
     const session = await resolveSessionUser(request);
-    const isPrivileged = session.role === Role.MANAGER || session.role === Role.WAREHOUSE;
-
-    const requestWhere: Prisma.RequestWhereInput = isPrivileged ? {} : { requesterId: session.id };
-    const returnWhere: Prisma.ReturnRequestWhereInput = isPrivileged ? {} : { requesterId: session.id };
-    const suggestionWhere: Prisma.SuggestionWhereInput = isPrivileged ? {} : { requesterId: session.id };
-    const custodyWhere: Prisma.CustodyRecordWhereInput = isPrivileged ? {} : { userId: session.id };
+    // Dashboard cards are operational summaries, not row-level lists. Keep them
+    // global so every role sees the platform state instead of an empty personal
+    // slice; detailed pages still enforce their own role-based access rules.
+    const requestWhere: Prisma.RequestWhereInput = {};
+    const returnWhere: Prisma.ReturnRequestWhereInput = {};
+    const suggestionWhere: Prisma.SuggestionWhereInput = {};
+    const custodyWhere: Prisma.CustodyRecordWhereInput = {};
     const draftWhere: Prisma.EmailDraftWhereInput = {};
-
-    const userSuggestionIds = isPrivileged
-      ? []
-      : await runDashboardQuery(() =>
-          prisma.suggestion.findMany({ where: suggestionWhere, select: { id: true } }).then((rows) => rows.map((row) => row.id))
-        );
-
-    if (!isPrivileged) {
-      draftWhere.sourceId = { in: userSuggestionIds };
-    }
 
     // Keep these reads sequential. The production database can close the connection
     // when the dashboard fires too many aggregate queries at once.
@@ -136,7 +127,7 @@ export async function GET(request: NextRequest) {
       prisma.request.groupBy({ by: ['status'], where: requestWhere, _count: { _all: true } })
     );
     const requestItemsCount = await runDashboardQuery(() =>
-      prisma.requestItem.count({ where: isPrivileged ? {} : { request: { requesterId: session.id } } })
+      prisma.requestItem.count()
     );
     const returnStatusRows = await runDashboardQuery(() =>
       prisma.returnRequest.groupBy({ by: ['status'], where: returnWhere, _count: { _all: true } })

@@ -51,7 +51,7 @@ export default function ServicesDashboardPage() {
 
     let mounted = true;
 
-    fetch('/api/dashboard-summary', {
+    fetch(`/api/dashboard-summary?scope=global&ts=${Date.now()}`, {
       credentials: 'include',
       cache: 'no-store',
       headers: { 'x-active-role': user.role },

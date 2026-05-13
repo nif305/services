@@ -54,7 +54,7 @@ export default function MaterialsDashboardPage() {
 
     let mounted = true;
 
-    fetch('/api/dashboard-summary', {
+    fetch(`/api/dashboard-summary?scope=global&ts=${Date.now()}`, {
       credentials: 'include',
       cache: 'no-store',
       headers: { 'x-active-role': user.role },

@@ -14,6 +14,20 @@ function hasArabic(value: string) {
   return /[\u0600-\u06FF]/.test(value);
 }
 
+function isPlainDynamicValue(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return true;
+
+  // Dashboard counters, dates, quantities, percentages, and codes are rendered
+  // by React from live data. They must not be captured as "original" UI labels.
+  return /^[\d\u0660-\u0669\u06F0-\u06F9\s.,:;/%+\-–—()#]+$/.test(trimmed);
+}
+
+function isTranslatableNow(value: string, language: AppLanguage) {
+  if (isPlainDynamicValue(value)) return false;
+  return translateStaticUiText(value, language) !== value;
+}
+
 function shouldSkipElement(element: Element | null) {
   if (!element) return true;
   if (SKIPPED_TAGS.has(element.tagName)) return true;
@@ -41,7 +55,20 @@ export function StaticUiTranslator({ language }: { language: AppLanguage }) {
       const lastApplied = textLastApplied.current.get(node);
       let source = textOriginals.current.get(node);
 
-      if (!source || (current !== lastApplied && hasArabic(current))) {
+      if (isPlainDynamicValue(current)) {
+        textOriginals.current.delete(node);
+        textLastApplied.current.delete(node);
+        return;
+      }
+
+      const currentLooksTranslatable = hasArabic(current) || isTranslatableNow(current, language);
+      if (!currentLooksTranslatable && (!source || current !== lastApplied)) {
+        textOriginals.current.delete(node);
+        textLastApplied.current.delete(node);
+        return;
+      }
+
+      if (!source || (current !== lastApplied && currentLooksTranslatable)) {
         source = current;
         textOriginals.current.set(node, source);
       }
@@ -74,7 +101,21 @@ export function StaticUiTranslator({ language }: { language: AppLanguage }) {
 
         const lastApplied = applied.get(attr);
         let source = originals.get(attr);
-        if (!source || (current !== lastApplied && hasArabic(current))) {
+
+        if (isPlainDynamicValue(current)) {
+          originals.delete(attr);
+          applied.delete(attr);
+          continue;
+        }
+
+        const currentLooksTranslatable = hasArabic(current) || isTranslatableNow(current, language);
+        if (!currentLooksTranslatable && (!source || current !== lastApplied)) {
+          originals.delete(attr);
+          applied.delete(attr);
+          continue;
+        }
+
+        if (!source || (current !== lastApplied && currentLooksTranslatable)) {
           source = current;
           originals.set(attr, source);
         }

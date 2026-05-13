@@ -7,12 +7,41 @@ type NotificationFilterKey = 'ALL' | 'UNREAD' | 'ALERT' | 'NOTIFICATION' | 'CRIT
 const WAREHOUSE_ALERT_SYNC_INTERVAL_MS = 15 * 60 * 1000;
 const ALERT_SYNC_ACTION = 'SYNC_SMART_ALERTS';
 const ALERT_SYNC_ENTITY_PREFIX = 'smart-alert-sync';
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, max-age=0' };
 
 function mapRole(role: string): Role {
   const normalized = String(role || '').trim().toLowerCase();
   if (normalized === 'manager') return Role.MANAGER;
   if (normalized === 'warehouse') return Role.WAREHOUSE;
   return Role.USER;
+}
+
+async function runNotificationQuery<T>(query: () => Promise<T>): Promise<T> {
+  const delays = [150, 450, 900];
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    try {
+      return await query();
+    } catch (error: any) {
+      lastError = error;
+      const message = String(error?.message || '');
+      const isTransientConnectionIssue =
+        ['P1001', 'P1002', 'P1008', 'P1017'].includes(String(error?.code || '')) ||
+        message.includes('Server has closed the connection') ||
+        message.includes("Can't reach database server") ||
+        message.includes('Connection terminated') ||
+        message.includes('connection timeout');
+
+      if (!isTransientConnectionIssue || attempt === delays.length) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+  }
+
+  throw lastError;
 }
 
 function buildCriticalWhere() {
@@ -100,24 +129,30 @@ async function resolveSessionUser(request: NextRequest) {
   let user = null as null | { id: string; status: Status; roles: Role[] };
 
   if (cookieId) {
-    user = await prisma.user.findUnique({
-      where: { id: cookieId },
-      select: { id: true, status: true, roles: true },
-    });
+    user = await runNotificationQuery(() =>
+      prisma.user.findUnique({
+        where: { id: cookieId },
+        select: { id: true, status: true, roles: true },
+      })
+    );
   }
 
   if (!user && cookieEmail) {
-    user = await prisma.user.findFirst({
-      where: { email: { equals: cookieEmail, mode: 'insensitive' } },
-      select: { id: true, status: true, roles: true },
-    });
+    user = await runNotificationQuery(() =>
+      prisma.user.findFirst({
+        where: { email: { equals: cookieEmail, mode: 'insensitive' } },
+        select: { id: true, status: true, roles: true },
+      })
+    );
   }
 
   if (!user && cookieEmployeeId) {
-    user = await prisma.user.findUnique({
-      where: { employeeId: cookieEmployeeId },
-      select: { id: true, status: true, roles: true },
-    });
+    user = await runNotificationQuery(() =>
+      prisma.user.findUnique({
+        where: { employeeId: cookieEmployeeId },
+        select: { id: true, status: true, roles: true },
+      })
+    );
   }
 
   if (!user) {
@@ -156,15 +191,17 @@ function authStatusCode(error: any) {
 async function syncSmartAlertsWhenDue(sessionUser: Awaited<ReturnType<typeof resolveSessionUser>>) {
   try {
     const syncEntityId = `${ALERT_SYNC_ENTITY_PREFIX}:${sessionUser.id}:${sessionUser.role}`;
-    const latestSync = await prisma.auditLog.findFirst({
-      where: {
-        action: ALERT_SYNC_ACTION,
-        entity: 'Notification',
-        entityId: syncEntityId,
-      },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true },
-    });
+    const latestSync = await runNotificationQuery(() =>
+      prisma.auditLog.findFirst({
+        where: {
+          action: ALERT_SYNC_ACTION,
+          entity: 'Notification',
+          entityId: syncEntityId,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      })
+    );
 
     if (latestSync && Date.now() - latestSync.createdAt.getTime() < WAREHOUSE_ALERT_SYNC_INTERVAL_MS) {
       return;
@@ -178,19 +215,21 @@ async function syncSmartAlertsWhenDue(sessionUser: Awaited<ReturnType<typeof res
       await AlertService.syncUserAlerts();
     }
 
-    await prisma.auditLog.create({
-      data: {
-        userId: sessionUser.id,
-        action: ALERT_SYNC_ACTION,
-        entity: 'Notification',
-        entityId: syncEntityId,
-        details: JSON.stringify({
-          source: 'notifications-api',
-          intervalMinutes: WAREHOUSE_ALERT_SYNC_INTERVAL_MS / 60000,
-          role: sessionUser.role,
-        }),
-      },
-    });
+    await runNotificationQuery(() =>
+      prisma.auditLog.create({
+        data: {
+          userId: sessionUser.id,
+          action: ALERT_SYNC_ACTION,
+          entity: 'Notification',
+          entityId: syncEntityId,
+          details: JSON.stringify({
+            source: 'notifications-api',
+            intervalMinutes: WAREHOUSE_ALERT_SYNC_INTERVAL_MS / 60000,
+            role: sessionUser.role,
+          }),
+        },
+      })
+    );
   } catch (error) {
     console.error('Failed to sync smart alerts before loading notifications', error);
   }
@@ -213,28 +252,34 @@ export async function GET(request: NextRequest) {
       AND: [{ userId: sessionUser.id }, buildFilterWhere(filter), buildSearchWhere(search)],
     };
 
-    const [data, total, unread, alerts, critical, actions] = await Promise.all([
-      prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.notification.count({ where }),
-      prisma.notification.count({ where: { userId: sessionUser.id, isRead: false } }),
-      prisma.notification.count({ where: { userId: sessionUser.id, OR: buildAlertWhere() } }),
-      prisma.notification.count({ where: { userId: sessionUser.id, OR: buildCriticalWhere() } }),
-      prisma.notification.count({ where: { userId: sessionUser.id, OR: buildActionWhere() } }),
+    const [data, total, unread, alerts, critical, actions, totalAll] = await Promise.all([
+      runNotificationQuery(() =>
+        prisma.notification.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        })
+      ),
+      runNotificationQuery(() => prisma.notification.count({ where })),
+      runNotificationQuery(() => prisma.notification.count({ where: { userId: sessionUser.id, isRead: false } })),
+      runNotificationQuery(() => prisma.notification.count({ where: { userId: sessionUser.id, OR: buildAlertWhere() } })),
+      runNotificationQuery(() => prisma.notification.count({ where: { userId: sessionUser.id, OR: buildCriticalWhere() } })),
+      runNotificationQuery(() => prisma.notification.count({ where: { userId: sessionUser.id, OR: buildActionWhere() } })),
+      runNotificationQuery(() => prisma.notification.count({ where: { userId: sessionUser.id } })),
     ]);
 
     return NextResponse.json({
       data,
       stats: {
-        total: await prisma.notification.count({ where: { userId: sessionUser.id } }),
+        total: totalAll,
         unread,
         alerts,
         critical,
         actions,
+        hasUnread: unread > 0,
+        hasCritical: critical > 0,
+        actionRequired: actions > 0,
       },
       pagination: {
         page,
@@ -242,11 +287,12 @@ export async function GET(request: NextRequest) {
         total,
         totalPages: Math.max(1, Math.ceil(total / limit)),
       },
-    });
+      generatedAt: new Date().toISOString(),
+    }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'تعذر جلب الإشعارات' },
-      { status: authStatusCode(error) || 500 }
+      { status: authStatusCode(error) || 500, headers: NO_STORE_HEADERS }
     );
   }
 }
@@ -257,32 +303,38 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
 
     if (body?.all) {
-      const result = await prisma.notification.updateMany({
-        where: { userId: sessionUser.id, isRead: false },
-        data: { isRead: true, readAt: new Date() },
-      });
+      const result = await runNotificationQuery(() =>
+        prisma.notification.updateMany({
+          where: { userId: sessionUser.id, isRead: false },
+          data: { isRead: true, readAt: new Date() },
+        })
+      );
 
-      return NextResponse.json({ data: result });
+      return NextResponse.json({ data: result }, { headers: NO_STORE_HEADERS });
     }
 
-    const notification = await prisma.notification.findUnique({
-      where: { id: String(body.id || '') },
-    });
+    const notification = await runNotificationQuery(() =>
+      prisma.notification.findUnique({
+        where: { id: String(body.id || '') },
+      })
+    );
 
     if (!notification || notification.userId !== sessionUser.id) {
       return NextResponse.json({ error: 'الإشعار غير موجود أو غير مصرح' }, { status: 404 });
     }
 
-    const result = await prisma.notification.update({
-      where: { id: notification.id },
-      data: { isRead: true, readAt: new Date() },
-    });
+    const result = await runNotificationQuery(() =>
+      prisma.notification.update({
+        where: { id: notification.id },
+        data: { isRead: true, readAt: new Date() },
+      })
+    );
 
-    return NextResponse.json({ data: result });
+    return NextResponse.json({ data: result }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'تعذر تحديث الإشعار' },
-      { status: authStatusCode(error) || 400 }
+      { status: authStatusCode(error) || 400, headers: NO_STORE_HEADERS }
     );
   }
 }
@@ -307,11 +359,11 @@ export async function POST(request: NextRequest) {
       actorId: sessionUser.id,
     });
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ data }, { headers: NO_STORE_HEADERS });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'تعذر تحويل التذكير إلى طلب مدير' },
-      { status: authStatusCode(error) || 400 }
+      { status: authStatusCode(error) || 400, headers: NO_STORE_HEADERS }
     );
   }
 }

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useI18n } from '@/hooks/useI18n';
 import { LanguageToggle } from '@/components/layout/LanguageToggle';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 import { type AppRole, type WorkspaceKey } from '@/lib/workspace';
 
 const ROLE_ORDER: AppRole[] = ['manager', 'warehouse', 'user'];
@@ -12,7 +13,7 @@ const ROLE_ORDER: AppRole[] = ['manager', 'warehouse', 'user'];
 export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { user, originalUser, canUseRoleSwitch, switchViewRole, logout } = useAuth();
 
   const availableRoles = useMemo<AppRole[]>(() => {
@@ -39,20 +40,11 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
           </button>
 
           <div className="flex items-center gap-2 rounded-2xl border border-[#dbe5e3] bg-[#fbfcfc] px-3 py-2">
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#e3ecea] bg-white text-[#2A6364]"
-              aria-label={t('common.notifications')}
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-                <path d="M6.5 16.5h11l-1.25-1.7v-4a4.75 4.75 0 10-9.5 0v4L5.5 16.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-                <path d="M10.5 19a1.75 1.75 0 003.5 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-              </svg>
-            </button>
+            {user?.id ? <NotificationBell userId={user.id} /> : null}
 
             <div className="flex items-center gap-3 rounded-xl bg-white px-3 py-2">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#f4f8f8] text-[#2A6364]">
-                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
                   <circle cx="12" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.7" />
                   <path d="M5.5 19c1.65-3.1 4.35-4.65 6.5-4.65S16.85 15.9 18.5 19" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                 </svg>
@@ -69,7 +61,11 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
           <LanguageToggle />
 
           {canUseRoleSwitch && availableRoles.length > 1 ? (
-            <div className="inline-flex items-center gap-1 rounded-[20px] border border-[#dbe5e3] bg-[#f7f9f9] p-1">
+            <div
+              className="inline-flex items-center gap-1 rounded-[20px] border border-[#dbe5e3] bg-[#f7f9f9] p-1"
+              role="group"
+              aria-label={language === 'en' ? 'Role switcher' : 'تبديل الدور'}
+            >
               {availableRoles.map((role) => {
                 const active = user?.role === role;
                 return (
@@ -77,6 +73,7 @@ export function WorkspaceHeader({ workspace }: { workspace: WorkspaceKey }) {
                     key={role}
                     type="button"
                     onClick={() => onRoleChange(role)}
+                    aria-pressed={active}
                     className={active
                       ? 'min-w-[116px] rounded-[16px] bg-[#2A6364] px-4 py-2.5 text-[15px] font-semibold text-white shadow-[0_14px_28px_-22px_rgba(42,99,100,0.8)]'
                       : 'min-w-[116px] rounded-[16px] px-4 py-2.5 text-[15px] font-semibold text-[#3e5756] transition hover:bg-white'}

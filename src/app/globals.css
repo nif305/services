@@ -160,6 +160,22 @@ button,
   touch-action: manipulation;
 }
 
+button,
+a,
+input,
+select,
+textarea,
+[role='button'],
+[tabindex]:not([tabindex='-1']) {
+  -webkit-tap-highlight-color: rgba(1, 101, 100, 0.14);
+}
+
+:where(button, a, input, select, textarea, [role='button'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 3px solid rgba(1, 101, 100, 0.82);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(1, 101, 100, 0.08);
+}
+
 textarea {
   resize: vertical;
 }
@@ -358,6 +374,31 @@ html[dir='ltr'] .text-left {
 
   .safe-top {
     padding-top: env(safe-area-inset-top);
+  }
+
+  .skip-link {
+    position: fixed;
+    inset-block-start: 12px;
+    inset-inline-start: 12px;
+    z-index: 9999;
+    border-radius: 999px;
+    border: 2px solid var(--nauss-primary);
+    background: #ffffff;
+    color: var(--nauss-primary-deep);
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 800;
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+    transform: translateY(-140%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .skip-link:focus,
+  .skip-link:focus-visible {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /* ========= On-brand status palette overrides ========= */
@@ -604,6 +645,29 @@ html[dir='ltr'] .text-left {
   .surface-card-strong,
   .stat-card {
     border-radius: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :where(button, a, input, select, textarea, [role='button'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 3px;
+    box-shadow: none;
   }
 }
 

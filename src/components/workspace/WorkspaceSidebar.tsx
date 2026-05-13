@@ -56,7 +56,10 @@ export function WorkspaceSidebar({ workspace, role }: { workspace: WorkspaceKey;
         </div>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <nav
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
+        aria-label={language === 'en' ? 'Workspace navigation' : 'تنقل مساحة العمل'}
+      >
         <div className="space-y-5">
           {groups.map((group) => (
             <div key={group.key}>
@@ -68,6 +71,7 @@ export function WorkspaceSidebar({ workspace, role }: { workspace: WorkspaceKey;
                     <Link
                       key={item.href}
                       href={item.href}
+                      aria-current={active ? 'page' : undefined}
                       className={cn(
                         'group flex items-center gap-3 rounded-[18px] border px-4 py-3 transition',
                         active
@@ -75,7 +79,10 @@ export function WorkspaceSidebar({ workspace, role }: { workspace: WorkspaceKey;
                           : 'border-[#e2ebea] bg-white text-[#264243] hover:border-[#cfe0dc] hover:bg-[#f8fbfb]'
                       )}
                     >
-                      <span className={cn('inline-flex h-10 w-10 items-center justify-center rounded-[14px] text-[16px] font-semibold', active ? 'bg-white/10 text-white' : 'bg-[#f4f8f8] text-[#2A6364]')}>
+                      <span
+                        className={cn('inline-flex h-10 w-10 items-center justify-center rounded-[14px] text-[16px] font-semibold', active ? 'bg-white/10 text-white' : 'bg-[#f4f8f8] text-[#2A6364]')}
+                        aria-hidden="true"
+                      >
                         {ICONS[item.href] || '•'}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-[15px] font-semibold">{item.label}</span>

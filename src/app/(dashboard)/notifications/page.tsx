@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
+import { useI18n } from '@/hooks/useI18n';
 import { NOTIFICATIONS_UPDATED_EVENT } from '@/lib/notifications';
 import { canonicalizeAppHref } from '@/lib/system';
 
@@ -40,6 +41,41 @@ type PaginationState = {
   total: number;
   totalPages: number;
 };
+
+const A11Y_COPY = {
+  ar: {
+    loading: 'جاري تحديث الإشعارات',
+    updated: 'تم تحديث الإشعارات',
+    list: 'قائمة الإشعارات',
+    filters: 'تصفية الإشعارات',
+    stats: 'ملخص الإشعارات',
+    page: 'صفحة الإشعارات',
+    previous: 'الصفحة السابقة',
+    next: 'الصفحة التالية',
+    total: 'إجمالي الإشعارات',
+    unread: 'الإشعارات غير المقروءة',
+    alerts: 'التنبيهات',
+    critical: 'التنبيهات الحرجة',
+    actions: 'إشعارات تحتاج إجراء',
+    loadError: 'تعذر تحميل الإشعارات. حاول التحديث مرة أخرى.',
+  },
+  en: {
+    loading: 'Updating notifications',
+    updated: 'Notifications updated',
+    list: 'Notifications list',
+    filters: 'Notification filters',
+    stats: 'Notifications summary',
+    page: 'Notifications page',
+    previous: 'Previous page',
+    next: 'Next page',
+    total: 'Total notifications',
+    unread: 'Unread notifications',
+    alerts: 'Alerts',
+    critical: 'Critical alerts',
+    actions: 'Notifications requiring action',
+    loadError: 'Unable to load notifications. Try refreshing again.',
+  },
+} as const;
 
 function formatDate(date?: string) {
   if (!date) return '—';
@@ -143,6 +179,8 @@ function emitNotificationsUpdated() {
 export default function NotificationsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { language } = useI18n();
+  const a11y = A11Y_COPY[language === 'en' ? 'en' : 'ar'];
   const [filter, setFilter] = useState<FilterKey>('ALL');
   const [search, setSearch] = useState('');
   const [items, setItems] = useState<NotificationMeta[]>([]);
@@ -162,11 +200,13 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [loadError, setLoadError] = useState('');
   const deferredSearch = useDeferredValue(search);
 
   const refreshNotifications = useCallback(
     async (page = pagination.page) => {
       setLoading(true);
+      setLoadError('');
 
       const params = new URLSearchParams({
         page: String(page),
@@ -178,37 +218,46 @@ export default function NotificationsPage() {
         params.set('search', deferredSearch.trim());
       }
 
-      const response = await fetch(`/api/notifications?${params.toString()}`, {
-        cache: 'no-store',
-        credentials: 'include',
-      }).catch(() => null);
+      try {
+        const response = await fetch(`/api/notifications?${params.toString()}`, {
+          cache: 'no-store',
+          credentials: 'include',
+        });
 
-      const json = response ? await response.json().catch(() => null) : null;
-      const rows = Array.isArray(json?.data) ? json.data.map(normalizeNotification) : [];
-      const nextPagination: PaginationState = {
-        page: Number(json?.pagination?.page || page || 1),
-        limit: Number(json?.pagination?.limit || pagination.limit || 5),
-        total: Number(json?.pagination?.total || 0),
-        totalPages: Math.max(1, Number(json?.pagination?.totalPages || 1)),
-      };
+        const json = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(json?.error || a11y.loadError);
+        }
 
-      if (page > nextPagination.totalPages && nextPagination.totalPages > 0) {
-        setPagination((prev) => ({ ...prev, page: nextPagination.totalPages }));
-        return;
+        const rows = Array.isArray(json?.data) ? json.data.map(normalizeNotification) : [];
+        const nextPagination: PaginationState = {
+          page: Number(json?.pagination?.page || page || 1),
+          limit: Number(json?.pagination?.limit || pagination.limit || 5),
+          total: Number(json?.pagination?.total || 0),
+          totalPages: Math.max(1, Number(json?.pagination?.totalPages || 1)),
+        };
+
+        if (page > nextPagination.totalPages && nextPagination.totalPages > 0) {
+          setPagination((prev) => ({ ...prev, page: nextPagination.totalPages }));
+          return;
+        }
+
+        setItems(rows);
+        setStats({
+          total: Number(json?.stats?.total || 0),
+          unread: Number(json?.stats?.unread || 0),
+          alerts: Number(json?.stats?.alerts || 0),
+          critical: Number(json?.stats?.critical || 0),
+          actions: Number(json?.stats?.actions || 0),
+        });
+        setPagination(nextPagination);
+      } catch (error: any) {
+        setLoadError(error?.message || a11y.loadError);
+      } finally {
+        setLoading(false);
       }
-
-      setItems(rows);
-      setStats({
-        total: Number(json?.stats?.total || 0),
-        unread: Number(json?.stats?.unread || 0),
-        alerts: Number(json?.stats?.alerts || 0),
-        critical: Number(json?.stats?.critical || 0),
-        actions: Number(json?.stats?.actions || 0),
-      });
-      setPagination(nextPagination);
-      setLoading(false);
     },
-    [deferredSearch, filter, pagination.limit, pagination.page]
+    [a11y.loadError, deferredSearch, filter, pagination.limit, pagination.page]
   );
 
   useEffect(() => {
@@ -316,11 +365,18 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
+    <div className="space-y-4 sm:space-y-5" aria-busy={loading}>
+      <div className="sr-only" role="status" aria-live="polite">
+        {loading ? a11y.loading : `${a11y.updated}. ${a11y.total}: ${stats.total}. ${a11y.unread}: ${stats.unread}.`}
+      </div>
+
+      <section
+        className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5"
+        aria-labelledby="notifications-heading"
+      >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">
+            <h1 id="notifications-heading" className="text-[24px] font-extrabold leading-[1.25] text-[#016564] sm:text-[30px]">
               الإشعارات والتنبيهات
             </h1>
             <p className="mt-2 text-[13px] leading-7 text-[#61706f] sm:text-sm">
@@ -328,29 +384,29 @@ export default function NotificationsPage() {
             </p>
           </div>
 
-          <Button variant="secondary" onClick={handleMarkAllRead} className="w-full sm:w-auto">
+          <Button variant="secondary" onClick={handleMarkAllRead} disabled={stats.unread <= 0} aria-disabled={stats.unread <= 0} className="w-full sm:w-auto">
             تعليم الكل كمقروء
           </Button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+        <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-5" role="group" aria-label={a11y.stats}>
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl" aria-label={`${a11y.total}: ${stats.total}`}>
             <div className="text-[12px] text-[#6f7b7a]">إجمالي الإشعارات</div>
             <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564]">{stats.total}</div>
           </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl" aria-label={`${a11y.unread}: ${stats.unread}`}>
             <div className="text-[12px] text-[#6f7b7a]">غير المقروءة</div>
             <div className="mt-1 text-[22px] font-extrabold leading-none text-[#d0b284]">{stats.unread}</div>
           </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl" aria-label={`${a11y.alerts}: ${stats.alerts}`}>
             <div className="text-[12px] text-[#6f7b7a]">التنبيهات</div>
             <div className="mt-1 text-[22px] font-extrabold leading-none text-[#8a6a28]">{stats.alerts}</div>
           </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl" aria-label={`${a11y.critical}: ${stats.critical}`}>
             <div className="text-[12px] text-[#6f7b7a]">الحرجة</div>
             <div className="mt-1 text-[22px] font-extrabold leading-none text-[#7c1e3e]">{stats.critical}</div>
           </Card>
-          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl">
+          <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none sm:rounded-2xl" aria-label={`${a11y.actions}: ${stats.actions}`}>
             <div className="text-[12px] text-[#6f7b7a]">تحتاج إجراء</div>
             <div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564]">{stats.actions}</div>
           </Card>
@@ -359,6 +415,8 @@ export default function NotificationsPage() {
 
       {feedback ? (
         <section
+          role={feedback.type === 'error' ? 'alert' : 'status'}
+          aria-live={feedback.type === 'error' ? 'assertive' : 'polite'}
           className={`rounded-[24px] border px-4 py-3 text-sm shadow-sm sm:rounded-[28px] ${
             feedback.type === 'error'
               ? 'border-red-200 bg-red-50 text-red-700'
@@ -369,7 +427,16 @@ export default function NotificationsPage() {
         </section>
       ) : null}
 
-      <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5">
+      {loadError ? (
+        <section
+          role="alert"
+          className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm sm:rounded-[28px]"
+        >
+          {loadError}
+        </section>
+      ) : null}
+
+      <section className="rounded-[24px] border border-[#d6d7d4] bg-white p-4 shadow-sm sm:rounded-[28px] sm:p-5" aria-label={a11y.filters}>
         <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
           <Input
             label="بحث"
@@ -378,7 +445,7 @@ export default function NotificationsPage() {
             placeholder="العنوان، المحتوى، أو نوع الإشعار"
           />
 
-          <div className="flex flex-wrap gap-2 self-end">
+          <div className="flex flex-wrap gap-2 self-end" role="group" aria-label={a11y.filters}>
             {[
               ['ALL', 'الكل'],
               ['UNREAD', 'غير المقروءة'],
@@ -391,6 +458,7 @@ export default function NotificationsPage() {
                 key={key}
                 type="button"
                 onClick={() => setFilter(key as FilterKey)}
+                aria-pressed={filter === key}
                 className={`rounded-full px-4 py-2 text-xs transition ${
                   filter === key
                     ? 'bg-[#016564] text-white'
@@ -404,7 +472,7 @@ export default function NotificationsPage() {
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="space-y-3" role={!loading && items.length > 0 ? 'list' : undefined} aria-label={a11y.list}>
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((item) => (
@@ -419,6 +487,8 @@ export default function NotificationsPage() {
           items.map((item) => (
             <Card
               key={item.id}
+              role="listitem"
+              aria-label={item.title}
               className={`rounded-[24px] border p-4 shadow-sm transition sm:rounded-[28px] sm:p-5 ${itemClasses(item)}`}
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -447,6 +517,7 @@ export default function NotificationsPage() {
                     <Button
                       loading={busyId === item.id}
                       onClick={() => handleCreateManagerRequest(item.id)}
+                      aria-label={`${a11y.actions}: ${item.title}`}
                       className="w-full sm:w-auto"
                     >
                       إنشاء طلب للمدير
@@ -454,13 +525,13 @@ export default function NotificationsPage() {
                   ) : null}
 
                   {!item.isRead ? (
-                    <Button variant="ghost" onClick={() => handleMarkRead(item.id)} className="w-full sm:w-auto">
+                    <Button variant="ghost" onClick={() => handleMarkRead(item.id)} aria-label={`${a11y.unread}: ${item.title}`} className="w-full sm:w-auto">
                       تعليم كمقروء
                     </Button>
                   ) : null}
 
                   {resolveItemLinkForRole(item, user?.role) ? (
-                    <Button onClick={() => handleOpenItem(item)} className="w-full sm:w-auto">
+                    <Button onClick={() => handleOpenItem(item)} aria-label={`${a11y.page}: ${item.title}`} className="w-full sm:w-auto">
                       فتح العنصر
                     </Button>
                   ) : null}
@@ -477,6 +548,7 @@ export default function NotificationsPage() {
             type="button"
             onClick={() => setPagination((prev) => ({ ...prev, page: Math.max(prev.page - 1, 1) }))}
             disabled={pagination.page <= 1}
+            aria-label={a11y.previous}
             className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
           >
             السابق
@@ -496,6 +568,7 @@ export default function NotificationsPage() {
               }))
             }
             disabled={pagination.page >= pagination.totalPages}
+            aria-label={a11y.next}
             className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
           >
             التالي

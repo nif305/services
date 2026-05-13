@@ -238,12 +238,15 @@ async function syncSmartAlertsWhenDue(sessionUser: Awaited<ReturnType<typeof res
 export async function GET(request: NextRequest) {
   try {
     const sessionUser = await resolveSessionUser(request);
+    const mode = String(request.nextUrl.searchParams.get('mode') || '').trim().toLowerCase();
+    const maxLimit = mode === 'bell' ? 10 : 200;
+    const fallbackLimit = mode === 'bell' ? 5 : 100;
     const pageParam = Number(request.nextUrl.searchParams.get('page') || 1);
-    const limitParam = Number(request.nextUrl.searchParams.get('limit') || 100);
+    const limitParam = Number(request.nextUrl.searchParams.get('limit') || fallbackLimit);
     const filter = request.nextUrl.searchParams.get('filter');
     const search = request.nextUrl.searchParams.get('search');
     const page = Number.isFinite(pageParam) ? Math.max(1, Math.trunc(pageParam)) : 1;
-    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(1, Math.trunc(limitParam)), 200) : 100;
+    const limit = Number.isFinite(limitParam) ? Math.min(Math.max(1, Math.trunc(limitParam)), maxLimit) : fallbackLimit;
     const skip = (page - 1) * limit;
 
     await syncSmartAlertsWhenDue(sessionUser);
@@ -251,6 +254,42 @@ export async function GET(request: NextRequest) {
     const where = {
       AND: [{ userId: sessionUser.id }, buildFilterWhere(filter), buildSearchWhere(search)],
     };
+
+    if (mode === 'bell') {
+      const [data, total, unread] = await Promise.all([
+        runNotificationQuery(() =>
+          prisma.notification.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+          })
+        ),
+        runNotificationQuery(() => prisma.notification.count({ where })),
+        runNotificationQuery(() => prisma.notification.count({ where: { userId: sessionUser.id, isRead: false } })),
+      ]);
+
+      return NextResponse.json({
+        data,
+        stats: {
+          total,
+          unread,
+          alerts: 0,
+          critical: 0,
+          actions: 0,
+          hasUnread: unread > 0,
+          hasCritical: false,
+          actionRequired: false,
+        },
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
+        generatedAt: new Date().toISOString(),
+      }, { headers: NO_STORE_HEADERS });
+    }
 
     const [data, total, unread, alerts, critical, actions, totalAll] = await Promise.all([
       runNotificationQuery(() =>

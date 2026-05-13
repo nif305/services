@@ -28,13 +28,15 @@ type NormalizedNotification = ServerNotification & {
 type NotificationCopy = {
   title: string;
   close: string;
-  markAll: string;
+  closeButton: string;
+  markPreview: string;
   viewAll: string;
   none: string;
   loading: string;
   unreadSuffix: string;
   noUnread: string;
   loadError: string;
+  previewHint: string;
   critical: string;
   action: string;
   info: string;
@@ -45,13 +47,15 @@ const COPY: Record<'ar' | 'en', NotificationCopy> = {
   ar: {
     title: 'الإشعارات',
     close: 'إغلاق قائمة الإشعارات',
-    markAll: 'تعليم الكل كمقروء',
-    viewAll: 'عرض الكل',
+    closeButton: 'إغلاق',
+    markPreview: 'تعليم المعروض كمقروء',
+    viewAll: 'مركز الإشعارات',
     none: 'لا توجد إشعارات',
     loading: 'جاري تحديث الإشعارات',
     unreadSuffix: 'غير مقروءة',
     noUnread: 'لا توجد إشعارات غير مقروءة',
     loadError: 'تعذر تحديث الإشعارات الآن',
+    previewHint: 'يعرض الجرس آخر الإشعارات فقط للحفاظ على خفة المنصة.',
     critical: 'حرج',
     action: 'إجراء مطلوب',
     info: 'معلومات',
@@ -60,19 +64,24 @@ const COPY: Record<'ar' | 'en', NotificationCopy> = {
   en: {
     title: 'Notifications',
     close: 'Close notifications panel',
-    markAll: 'Mark all as read',
-    viewAll: 'View all',
+    closeButton: 'Close',
+    markPreview: 'Mark shown as read',
+    viewAll: 'Notification Center',
     none: 'No notifications',
     loading: 'Updating notifications',
     unreadSuffix: 'unread',
     noUnread: 'No unread notifications',
     loadError: 'Unable to refresh notifications right now',
+    previewHint: 'The bell shows only the latest notifications to keep the portal fast.',
     critical: 'Critical',
     action: 'Action required',
     info: 'Information',
     openItem: 'Open notification',
   },
 };
+
+const BELL_PREVIEW_LIMIT = 5;
+const NOTIFICATION_BELL_OPENED_EVENT = 'inventory-notification-bell-opened';
 
 function normalizeNotification(item: ServerNotification): NormalizedNotification {
   const type = String(item.type || '').toUpperCase();
@@ -121,7 +130,7 @@ function resolveItemLinkForRole(item: NormalizedNotification, role?: string | nu
 }
 
 function formatRelative(value: string | null | undefined, language: 'ar' | 'en') {
-  if (!value) return '—';
+  if (!value) return '-';
 
   try {
     const diffMs = new Date(value).getTime() - Date.now();
@@ -136,7 +145,7 @@ function formatRelative(value: string | null | undefined, language: 'ar' | 'en')
     if (absMs < day) return formatter.format(Math.round(diffMs / hour), 'hour');
     return formatter.format(Math.round(diffMs / day), 'day');
   } catch {
-    return '—';
+    return '-';
   }
 }
 
@@ -145,21 +154,30 @@ function notifyUpdated() {
   window.dispatchEvent(new Event(NOTIFICATIONS_UPDATED_EVENT));
 }
 
+function previewSummary(language: 'ar' | 'en', visible: number, total: number) {
+  if (visible <= 0) return '';
+  if (total <= visible) return language === 'en' ? `Latest ${visible}` : `آخر ${visible}`;
+  return language === 'en' ? `Latest ${visible} of ${total}` : `آخر ${visible} من أصل ${total}`;
+}
+
 export function NotificationBell({ userId }: { userId: string }) {
   const router = useRouter();
   const { user } = useAuth();
   const { language } = useI18n();
+  const activeLanguage = language === 'en' ? 'en' : 'ar';
+  const instanceId = useId();
   const panelId = useId();
   const titleId = useId();
   const statusId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const firstItemRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const wasOpenRef = useRef(false);
-  const copy = COPY[language === 'en' ? 'en' : 'ar'];
+  const copy = COPY[activeLanguage];
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NormalizedNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -173,7 +191,7 @@ export function NotificationBell({ userId }: { userId: string }) {
     setLoadError('');
 
     try {
-      const response = await fetch('/api/notifications?limit=12', {
+      const response = await fetch(`/api/notifications?mode=bell&limit=${BELL_PREVIEW_LIMIT}`, {
         cache: 'no-store',
         credentials: 'include',
       });
@@ -186,6 +204,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       const rows = Array.isArray(json?.data) ? json.data.map(normalizeNotification) : [];
       setItems(rows);
       setUnreadCount(Number(json?.stats?.unread ?? rows.filter((item) => !item.isRead).length));
+      setTotalCount(Number(json?.stats?.total ?? json?.pagination?.total ?? rows.length));
     } catch {
       setLoadError(copy.loadError);
     } finally {
@@ -216,11 +235,26 @@ export function NotificationBell({ userId }: { userId: string }) {
   }, [refresh, userId]);
 
   useEffect(() => {
+    const closeOtherInstances = (event: Event) => {
+      const openedId = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (openedId && openedId !== instanceId) {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener(NOTIFICATION_BELL_OPENED_EVENT, closeOtherInstances as EventListener);
+    return () => window.removeEventListener(NOTIFICATION_BELL_OPENED_EVENT, closeOtherInstances as EventListener);
+  }, [instanceId]);
+
+  useEffect(() => {
     if (!open) return;
 
+    window.dispatchEvent(new CustomEvent(NOTIFICATION_BELL_OPENED_EVENT, { detail: { id: instanceId } }));
+    void refresh();
+
     const timer = window.setTimeout(() => {
-      firstItemRef.current?.focus();
-      if (!firstItemRef.current) panelRef.current?.focus();
+      closeButtonRef.current?.focus();
+      if (!closeButtonRef.current) panelRef.current?.focus();
     }, 0);
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -235,7 +269,7 @@ export function NotificationBell({ userId }: { userId: string }) {
       window.clearTimeout(timer);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [open]);
+  }, [instanceId, open, refresh]);
 
   useEffect(() => {
     if (wasOpenRef.current && !open) {
@@ -259,18 +293,24 @@ export function NotificationBell({ userId }: { userId: string }) {
     notifyUpdated();
   };
 
-  const markAllRead = async () => {
-    if (unreadCount <= 0) return;
+  const markPreviewRead = async () => {
+    const unreadPreviewIds = items.filter((item) => !item.isRead).map((item) => item.id);
+    if (unreadPreviewIds.length === 0) return;
 
-    await fetch('/api/notifications', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ all: true }),
-    }).catch(() => null);
+    setItems((prev) => prev.map((item) => (unreadPreviewIds.includes(item.id) ? { ...item, isRead: true } : item)));
+    setUnreadCount((value) => Math.max(0, value - unreadPreviewIds.length));
 
-    setItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
-    setUnreadCount(0);
+    await Promise.all(
+      unreadPreviewIds.map((id) =>
+        fetch('/api/notifications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ id }),
+        }).catch(() => null),
+      ),
+    );
+
     notifyUpdated();
   };
 
@@ -285,7 +325,7 @@ export function NotificationBell({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" data-i18n-skip>
       <span id={statusId} className="sr-only" role="status" aria-live="polite">
         {loading ? copy.loading : loadError || unreadLabel}
       </span>
@@ -324,49 +364,66 @@ export function NotificationBell({ userId }: { userId: string }) {
             aria-modal="false"
             aria-labelledby={titleId}
             tabIndex={-1}
-            className="absolute left-0 top-[56px] z-50 w-[min(92vw,420px)] overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl"
+            className="fixed inset-x-3 top-24 z-50 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl sm:absolute sm:inset-auto sm:left-0 sm:top-[56px] sm:w-[min(92vw,420px)]"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <div>
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+              <div className="min-w-0">
                 <div id={titleId} className="text-sm font-bold text-slate-900">
                   {copy.title}
                 </div>
-                <div className="text-xs text-slate-500">{unreadLabel}</div>
+                <div className="truncate text-xs text-slate-500">
+                  {unreadLabel}
+                  {items.length > 0 ? <span> · {previewSummary(activeLanguage, items.length, Math.max(totalCount, items.length))}</span> : null}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
-                  onClick={markAllRead}
-                  disabled={unreadCount <= 0}
+                  onClick={markPreviewRead}
+                  disabled={!items.some((item) => !item.isRead)}
                   className="text-xs text-[#016564] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {copy.markAll}
+                  {copy.markPreview}
                 </button>
-                <Link href={canonicalizeAppHref('/notifications', user?.role)} className="text-xs text-slate-500" onClick={() => setOpen(false)}>
-                  {copy.viewAll}
-                </Link>
+                <button
+                  ref={closeButtonRef}
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-[#016564]/30 hover:text-[#016564]"
+                  aria-label={copy.close}
+                >
+                  {copy.closeButton}
+                </button>
               </div>
             </div>
 
-            <div className="max-h-[420px] overflow-y-auto" aria-busy={loading}>
+            <div className="max-h-[min(68vh,430px)] overflow-y-auto" aria-busy={loading}>
+              {items.length > 0 ? (
+                <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-2 text-xs leading-5 text-slate-500">
+                  {copy.previewHint}{' '}
+                  <Link href={canonicalizeAppHref('/notifications', user?.role)} className="font-bold text-[#016564]" onClick={() => setOpen(false)}>
+                    {copy.viewAll}
+                  </Link>
+                </div>
+              ) : null}
+
               {items.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-slate-500">{loadError || copy.none}</div>
               ) : (
                 <div role="list" aria-label={copy.title}>
-                  {items.slice(0, 12).map((item, index) => {
+                  {items.map((item) => {
                     const severityLabel = item.severity === 'critical' ? copy.critical : item.severity === 'action' ? copy.action : copy.info;
 
                     return (
                       <div key={item.id} role="listitem">
                         <button
-                          ref={index === 0 ? firstItemRef : undefined}
                           type="button"
                           onClick={() => handleOpenItem(item)}
                           className={`block w-full border-b border-slate-100 px-4 py-3 text-right transition hover:bg-slate-50 ${
                             item.isRead ? 'bg-white' : 'bg-[#f8fbfb]'
                           }`}
-                          aria-label={`${copy.openItem}: ${item.title}. ${severityLabel}. ${formatRelative(item.createdAt, language === 'en' ? 'en' : 'ar')}`}
+                          aria-label={`${copy.openItem}: ${item.title}. ${severityLabel}. ${formatRelative(item.createdAt, activeLanguage)}`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -377,8 +434,10 @@ export function NotificationBell({ userId }: { userId: string }) {
                               <div className="mt-1 line-clamp-2 text-xs leading-6 text-slate-600">{item.message}</div>
                               <div className="mt-1 text-[11px] text-slate-400">
                                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">{severityLabel}</span>
-                                <span className="mx-1" aria-hidden="true">•</span>
-                                {formatRelative(item.createdAt, language === 'en' ? 'en' : 'ar')}
+                                <span className="mx-1" aria-hidden="true">
+                                  .
+                                </span>
+                                {formatRelative(item.createdAt, activeLanguage)}
                               </div>
                             </div>
                           </div>

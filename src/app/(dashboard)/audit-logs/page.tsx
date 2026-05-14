@@ -117,7 +117,7 @@ export default function AuditLogsPage() {
     setPagination((prev) => ({ ...prev, page: Math.min(Math.max(1, nextPage), Math.max(1, prev.totalPages)) }));
   }
 
-  if (user?.role !== 'manager') {
+  if (user?.role !== 'manager' && user?.role !== 'warehouse') {
     return <div className="rounded-[22px] border border-red-200 bg-red-50 p-6 text-center text-red-700">غير مصرح لك بالوصول لهذه الصفحة</div>;
   }
 

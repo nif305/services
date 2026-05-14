@@ -426,21 +426,21 @@ export async function GET(request: NextRequest) {
       prisma.suggestion.count({
         where: {
           ...(category ? { category } : {}),
-          ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+          ...(sessionUser.role === Role.MANAGER || sessionUser.role === Role.WAREHOUSE ? {} : { requesterId: sessionUser.id }),
           status: { in: [SuggestionStatus.PENDING, SuggestionStatus.UNDER_REVIEW] },
         },
       }),
       prisma.suggestion.count({
         where: {
           ...(category ? { category } : {}),
-          ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+          ...(sessionUser.role === Role.MANAGER || sessionUser.role === Role.WAREHOUSE ? {} : { requesterId: sessionUser.id }),
           status: { in: [SuggestionStatus.APPROVED, SuggestionStatus.IMPLEMENTED] },
         },
       }),
       prisma.suggestion.count({
         where: {
           ...(category ? { category } : {}),
-          ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+          ...(sessionUser.role === Role.MANAGER || sessionUser.role === Role.WAREHOUSE ? {} : { requesterId: sessionUser.id }),
           status: SuggestionStatus.REJECTED,
         },
       }),

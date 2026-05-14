@@ -1,4 +1,4 @@
-import type { AppLanguage } from '@/context/AuthContext';
+﻿import type { AppLanguage } from '@/context/AuthContext';
 import { getTranslation } from '@/lib/i18n';
 
 export type AppRole = 'manager' | 'warehouse' | 'user';
@@ -37,7 +37,7 @@ export function normalizeRole(role?: string | null): AppRole {
 
 export function canAccessWorkspace(role: AppRole, workspace: WorkspaceKey): boolean {
   if (workspace === 'materials') return true;
-  return role === 'manager' || role === 'user';
+  return role === 'manager' || role === 'warehouse' || role === 'user';
 }
 
 export function getDefaultWorkspacePath(role?: string | null): string {
@@ -77,17 +77,10 @@ export function getWorkspaceGroups(
 ): WorkspaceNavGroup[] {
   const systemItems: WorkspaceNavItem[] = [];
 
-  if (canAccessWorkspace(role, 'materials')) {
-    systemItems.push({
-      href: '/materials/dashboard',
-      label: label(language, 'workspace.materialsTitle'),
-    });
-  }
-
   if (canAccessWorkspace(role, 'services')) {
     systemItems.push({
       href: '/services/dashboard',
-      label: label(language, 'workspace.servicesTitle'),
+      label: 'خدمات مرافق التدريب',
     });
   }
 
@@ -108,7 +101,7 @@ export function getWorkspaceGroups(
           {
             href: '/materials/dashboard',
             label: label(language, 'workspace.materialsDashboardItem'),
-            roles: ['manager', 'warehouse', 'user'],
+            roles: ['manager', 'warehouse'],
           },
         ],
       },
@@ -155,7 +148,7 @@ export function getWorkspaceGroups(
           {
             href: '/services/dashboard',
             label: label(language, 'workspace.servicesDashboardItem'),
-            roles: ['manager', 'user'],
+            roles: ['manager', 'warehouse', 'user'],
           },
         ],
       },
@@ -166,27 +159,27 @@ export function getWorkspaceGroups(
           {
             href: '/services/requests',
             label: label(language, 'workspace.serviceRequestsPortal'),
-            roles: ['manager', 'user'],
+            roles: ['manager', 'warehouse', 'user'],
           },
           {
             href: '/services/maintenance',
             label: label(language, 'workspace.maintenance'),
-            roles: ['manager', 'user'],
+            roles: ['manager', 'warehouse', 'user'],
           },
           {
             href: '/services/cleaning',
             label: label(language, 'workspace.cleaning'),
-            roles: ['manager', 'user'],
+            roles: ['manager', 'warehouse', 'user'],
           },
           {
             href: '/services/hospitality',
             label: 'ملاحظات الضيافة',
-            roles: ['manager', 'user'],
+            roles: ['manager', 'warehouse', 'user'],
           },
           {
             href: '/services/other',
             label: label(language, 'workspace.otherRequests'),
-            roles: ['manager', 'user'],
+            roles: ['manager', 'warehouse', 'user'],
           },
         ],
       },
@@ -197,12 +190,12 @@ export function getWorkspaceGroups(
           {
             href: '/services/approvals',
             label: label(language, 'workspace.serviceApprovals'),
-            roles: ['manager'],
+            roles: ['manager', 'warehouse'],
           },
           {
             href: '/services/email-drafts',
             label: label(language, 'workspace.externalMessages'),
-            roles: ['manager'],
+            roles: ['manager', 'warehouse'],
           },
           getSharedMessagesItem(workspace, language),
         ],
@@ -210,30 +203,30 @@ export function getWorkspaceGroups(
     );
   }
 
-  if (role === 'manager') {
+  if (role === 'manager' || role === 'warehouse') {
     groups.push({
       key: 'governance',
       title: label(language, 'workspace.governance'),
       items: [
         {
-          href: workspace === 'materials' ? '/materials/users' : '/services/users',
+          href: '/services/users',
           label: label(language, 'workspace.users'),
           roles: ['manager'],
         },
         {
-          href: workspace === 'materials' ? '/materials/reports' : '/services/reports',
+          href: '/services/reports',
           label: label(language, 'workspace.reports'),
-          roles: ['manager'],
+          roles: ['manager', 'warehouse'],
         },
         {
-          href: workspace === 'materials' ? '/materials/archive' : '/services/archive',
+          href: '/services/archive',
           label: label(language, 'workspace.archive'),
-          roles: ['manager'],
+          roles: ['manager', 'warehouse'],
         },
         {
-          href: workspace === 'materials' ? '/materials/audit-logs' : '/services/audit-logs',
+          href: '/services/audit-logs',
           label: label(language, 'workspace.auditLogs'),
-          roles: ['manager'],
+          roles: ['manager', 'warehouse'],
         },
       ],
     });
@@ -246,3 +239,4 @@ export function getWorkspaceGroups(
     }))
     .filter((group) => group.items.length > 0);
 }
+

@@ -34,7 +34,7 @@ export default function ServiceRequestsPage() {
         <div className="grid gap-5 p-5 lg:grid-cols-[1.05fr_0.95fr] lg:p-7">
           <div className="rounded-[24px] bg-[linear-gradient(135deg,#123f45_0%,#2A6364_58%,#8a6a37_100%)] px-5 py-6 text-white">
             <div className="text-[13px] font-bold text-white/75">وكالة الجامعة للتدريب</div>
-            <h1 className="mt-3 text-[30px] font-extrabold leading-tight">مرصد مرافق التدريب</h1>
+            <h1 className="mt-3 text-[30px] font-extrabold leading-tight">خدمات مرافق التدريب</h1>
             <p className="mt-3 max-w-2xl text-[14px] leading-8 text-white/88">
               ارفع ملاحظتك على مرافق المبنى خلال أقل من دقيقة. اختر النوع، التقط صورة مباشرة، أضف الموقع والوصف، ثم أرسلها لتدخل مسار الاعتماد والمراسلات الخارجية.
             </p>
@@ -44,7 +44,7 @@ export default function ServiceRequestsPage() {
               <Metric title="مسار رسمي" value="اعتماد" />
             </div>
           </div>
-          <div className="grid gap-3 content-center">
+          <div className="grid content-center gap-3">
             <div className="rounded-[22px] border border-[#e2ebea] bg-[#f8fbfb] p-4">
               <div className="text-[18px] font-extrabold text-[#223738]">كيف تصل الملاحظة؟</div>
               <div className="mt-3 grid gap-2 text-[13px] leading-7 text-[#61706f]">

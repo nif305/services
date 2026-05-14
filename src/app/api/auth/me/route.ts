@@ -23,7 +23,7 @@ function normalizeLanguage(value?: string | null) {
 }
 
 function clearSessionResponse() {
-  const response = NextResponse.json({ user: null }, { status: 401 });
+  const response = NextResponse.json({ user: null }, { status: 200 });
 
   const cookieOptions = {
     httpOnly: true as const,

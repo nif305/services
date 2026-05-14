@@ -4,7 +4,7 @@ import {
   type ArchiveFolderKey,
   type ArchiveSource,
 } from '@/services/archive.service';
-import { isManager, resolveSessionUser } from '@/lib/auth/session';
+import { isManager, isWarehouse, resolveSessionUser } from '@/lib/auth/session';
 
 const SOURCE_FOLDERS: Record<ArchiveSource, ArchiveFolderKey[]> = {
   service: [
@@ -47,7 +47,7 @@ function resolveStatus(error: unknown) {
 export async function GET(request: NextRequest) {
   try {
     const session = await resolveSessionUser(request);
-    if (!isManager(session)) {
+    if (!isManager(session) && !isWarehouse(session)) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 

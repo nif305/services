@@ -201,7 +201,7 @@ export default function ArchivePage() {
   }, [activeFolder, systemSource, deferredSearch]);
 
   useEffect(() => {
-    if (user?.role !== 'manager') return;
+    if (user?.role !== 'manager' && user?.role !== 'warehouse') return;
 
     let mounted = true;
 
@@ -297,7 +297,7 @@ export default function ArchivePage() {
   const activeFolderMeta =
     visibleFolders.find((folder) => folder.key === activeFolder) || visibleFolders[0];
 
-  if (user?.role !== 'manager') {
+  if (user?.role !== 'manager' && user?.role !== 'warehouse') {
     return (
       <div className="rounded-[22px] border border-red-200 bg-red-50 p-6 text-center text-red-700">
         غير مصرح لك بالوصول لهذه الصفحة

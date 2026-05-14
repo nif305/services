@@ -1,8 +1,25 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { WorkspaceShell } from '@/components/workspace/WorkspaceShell';
+import { useAuth } from '@/context/AuthContext';
 
-export const dynamic = 'force-dynamic';
+const PUBLIC_SERVICE_PATHS = new Set([
+  '/services',
+  '/services/requests',
+  '/services/maintenance',
+  '/services/cleaning',
+  '/services/hospitality',
+  '/services/other',
+  '/services/purchases',
+]);
 
-export default function ServicesLayout({ children }: { children: React.ReactNode }) {
+function isPublicServicePath(pathname: string) {
+  return PUBLIC_SERVICE_PATHS.has(pathname);
+}
+
+function PublicServicesLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#f5f7f7]">
       <header className="border-b border-[#dce6e3] bg-white/95">
@@ -11,7 +28,7 @@ export default function ServicesLayout({ children }: { children: React.ReactNode
             <img src="/nauss-gold-logo.png" alt="شعار الجامعة" className="h-14 w-auto object-contain" />
             <div>
               <div className="text-[12px] font-semibold text-[#8a9a98]">وكالة الجامعة للتدريب</div>
-              <div className="text-[20px] font-extrabold text-[#223738]">مرصد مرافق التدريب</div>
+              <div className="text-[20px] font-extrabold text-[#223738]">خدمات مرافق التدريب</div>
             </div>
           </Link>
           <nav className="flex flex-wrap items-center gap-2 text-sm font-bold">
@@ -27,4 +44,19 @@ export default function ServicesLayout({ children }: { children: React.ReactNode
       <main className="mx-auto max-w-[1280px] px-4 py-5">{children}</main>
     </div>
   );
+}
+
+export default function ServicesLayout({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const pathname = usePathname();
+
+  if (!loading && user && (user.role === 'manager' || user.role === 'warehouse')) {
+    return <WorkspaceShell workspace="services">{children}</WorkspaceShell>;
+  }
+
+  if (isPublicServicePath(pathname)) {
+    return <PublicServicesLayout>{children}</PublicServicesLayout>;
+  }
+
+  return <WorkspaceShell workspace="services">{children}</WorkspaceShell>;
 }

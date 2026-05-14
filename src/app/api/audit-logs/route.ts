@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     const systemEntities = resolveSystemEntities(system);
 
     const where =
-      session.activeRole === Role.MANAGER
+      session.activeRole === Role.MANAGER || session.activeRole === Role.WAREHOUSE
         ? {}
         : {
             userId: session.id,

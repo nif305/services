@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -175,6 +176,11 @@ export function NotificationBell({ userId }: { userId: string }) {
   const wasOpenRef = useRef(false);
   const copy = COPY[activeLanguage];
   const [open, setOpen] = useState(false);
+  const [panelPosition, setPanelPosition] = useState<React.CSSProperties>({
+    top: 96,
+    left: 12,
+    width: 'calc(100vw - 24px)',
+  });
   const [items, setItems] = useState<NormalizedNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
@@ -211,6 +217,32 @@ export function NotificationBell({ userId }: { userId: string }) {
       setLoading(false);
     }
   }, [copy.loadError]);
+
+  const updatePanelPosition = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    const rect = buttonRef.current?.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const panelWidth = Math.min(420, Math.max(280, viewportWidth - 24));
+
+    if (!rect || viewportWidth < 640) {
+      setPanelPosition({
+        top: 88,
+        left: 12,
+        width: viewportWidth - 24,
+      });
+      return;
+    }
+
+    const left = Math.max(12, Math.min(viewportWidth - panelWidth - 12, rect.right - panelWidth));
+    const top = Math.max(12, rect.bottom + 12);
+
+    setPanelPosition({
+      top,
+      left,
+      width: panelWidth,
+    });
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -250,6 +282,7 @@ export function NotificationBell({ userId }: { userId: string }) {
     if (!open) return;
 
     window.dispatchEvent(new CustomEvent(NOTIFICATION_BELL_OPENED_EVENT, { detail: { id: instanceId } }));
+    updatePanelPosition();
     void refresh();
 
     const timer = window.setTimeout(() => {
@@ -265,11 +298,15 @@ export function NotificationBell({ userId }: { userId: string }) {
     };
 
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('resize', updatePanelPosition);
+    window.addEventListener('scroll', updatePanelPosition, true);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('resize', updatePanelPosition);
+      window.removeEventListener('scroll', updatePanelPosition, true);
     };
-  }, [instanceId, open, refresh]);
+  }, [instanceId, open, refresh, updatePanelPosition]);
 
   useEffect(() => {
     if (wasOpenRef.current && !open) {
@@ -324,133 +361,146 @@ export function NotificationBell({ userId }: { userId: string }) {
     if (target) router.push(target);
   };
 
-  return (
-    <div className="relative" data-i18n-skip>
-      <span id={statusId} className="sr-only" role="status" aria-live="polite">
-        {loading ? copy.loading : loadError || unreadLabel}
-      </span>
-
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#016564] shadow-soft transition hover:border-[#016564]/20 hover:bg-[#f7fbfa]"
-        aria-label={`${copy.title}: ${unreadLabel}`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        aria-describedby={statusId}
-        title={copy.title}
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M6 16.5h12l-1.5-2V10a4.5 4.5 0 1 0-9 0v4.5l-1.5 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-          <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-
-        {unreadCount > 0 ? (
-          <span className="absolute -top-1 -left-1 flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#7c1e3e] px-1 text-[11px] text-white" aria-hidden="true">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        ) : null}
-      </button>
-
-      {open ? (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/10" aria-hidden="true" onClick={() => setOpen(false)} />
-          <div
-            id={panelId}
-            ref={panelRef}
-            role="dialog"
-            aria-modal="false"
-            aria-labelledby={titleId}
-            tabIndex={-1}
-            className="fixed inset-x-3 top-24 z-50 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl sm:absolute sm:inset-auto sm:left-0 sm:top-[56px] sm:w-[min(92vw,420px)]"
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-              <div className="min-w-0">
-                <div id={titleId} className="text-sm font-bold text-slate-900">
-                  {copy.title}
+  const notificationPanel =
+    open && typeof document !== 'undefined'
+      ? createPortal(
+          <>
+            <div className="fixed inset-0 z-[9998] bg-black/10" aria-hidden="true" onClick={() => setOpen(false)} />
+            <div
+              id={panelId}
+              ref={panelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              tabIndex={-1}
+              style={panelPosition}
+              className="fixed z-[9999] overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-2xl"
+              data-i18n-skip
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div className="min-w-0">
+                  <div id={titleId} className="text-sm font-bold text-slate-900">
+                    {copy.title}
+                  </div>
+                  <div className="truncate text-xs text-slate-500">
+                    {unreadLabel}
+                    {items.length > 0 ? <span> · {previewSummary(activeLanguage, items.length, Math.max(totalCount, items.length))}</span> : null}
+                  </div>
                 </div>
-                <div className="truncate text-xs text-slate-500">
-                  {unreadLabel}
-                  {items.length > 0 ? <span> · {previewSummary(activeLanguage, items.length, Math.max(totalCount, items.length))}</span> : null}
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={markPreviewRead}
+                    disabled={!items.some((item) => !item.isRead)}
+                    className="text-xs text-[#016564] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {copy.markPreview}
+                  </button>
+                  <button
+                    ref={closeButtonRef}
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-[#016564]/30 hover:text-[#016564]"
+                    aria-label={copy.close}
+                  >
+                    {copy.closeButton}
+                  </button>
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={markPreviewRead}
-                  disabled={!items.some((item) => !item.isRead)}
-                  className="text-xs text-[#016564] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {copy.markPreview}
-                </button>
-                <button
-                  ref={closeButtonRef}
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 transition hover:border-[#016564]/30 hover:text-[#016564]"
-                  aria-label={copy.close}
-                >
-                  {copy.closeButton}
-                </button>
-              </div>
-            </div>
+              <div className="max-h-[min(68vh,430px)] overflow-y-auto" aria-busy={loading}>
+                {items.length > 0 ? (
+                  <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-2 text-xs leading-5 text-slate-500">
+                    {copy.previewHint}{' '}
+                    <Link href={canonicalizeAppHref('/notifications', user?.role)} className="font-bold text-[#016564]" onClick={() => setOpen(false)}>
+                      {copy.viewAll}
+                    </Link>
+                  </div>
+                ) : null}
 
-            <div className="max-h-[min(68vh,430px)] overflow-y-auto" aria-busy={loading}>
-              {items.length > 0 ? (
-                <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-2 text-xs leading-5 text-slate-500">
-                  {copy.previewHint}{' '}
-                  <Link href={canonicalizeAppHref('/notifications', user?.role)} className="font-bold text-[#016564]" onClick={() => setOpen(false)}>
-                    {copy.viewAll}
-                  </Link>
-                </div>
-              ) : null}
+                {items.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-slate-500">{loadError || copy.none}</div>
+                ) : (
+                  <div role="list" aria-label={copy.title}>
+                    {items.map((item) => {
+                      const severityLabel = item.severity === 'critical' ? copy.critical : item.severity === 'action' ? copy.action : copy.info;
 
-              {items.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-slate-500">{loadError || copy.none}</div>
-              ) : (
-                <div role="list" aria-label={copy.title}>
-                  {items.map((item) => {
-                    const severityLabel = item.severity === 'critical' ? copy.critical : item.severity === 'action' ? copy.action : copy.info;
-
-                    return (
-                      <div key={item.id} role="listitem">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenItem(item)}
-                          className={`block w-full border-b border-slate-100 px-4 py-3 text-right transition hover:bg-slate-50 ${
-                            item.isRead ? 'bg-white' : 'bg-[#f8fbfb]'
-                          }`}
-                          aria-label={`${copy.openItem}: ${item.title}. ${severityLabel}. ${formatRelative(item.createdAt, activeLanguage)}`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                {!item.isRead ? <span className="h-2 w-2 rounded-full bg-[#d0b284]" aria-hidden="true" /> : null}
-                                <div className="truncate text-sm font-bold text-slate-900">{item.title}</div>
-                              </div>
-                              <div className="mt-1 line-clamp-2 text-xs leading-6 text-slate-600">{item.message}</div>
-                              <div className="mt-1 text-[11px] text-slate-400">
-                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">{severityLabel}</span>
-                                <span className="mx-1" aria-hidden="true">
-                                  .
-                                </span>
-                                {formatRelative(item.createdAt, activeLanguage)}
+                      return (
+                        <div key={item.id} role="listitem">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenItem(item)}
+                            className={`block w-full border-b border-slate-100 px-4 py-3 text-right transition hover:bg-slate-50 ${
+                              item.isRead ? 'bg-white' : 'bg-[#f8fbfb]'
+                            }`}
+                            aria-label={`${copy.openItem}: ${item.title}. ${severityLabel}. ${formatRelative(item.createdAt, activeLanguage)}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  {!item.isRead ? <span className="h-2 w-2 rounded-full bg-[#d0b284]" aria-hidden="true" /> : null}
+                                  <div className="truncate text-sm font-bold text-slate-900">{item.title}</div>
+                                </div>
+                                <div className="mt-1 line-clamp-2 text-xs leading-6 text-slate-600">{item.message}</div>
+                                <div className="mt-1 text-[11px] text-slate-400">
+                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">{severityLabel}</span>
+                                  <span className="mx-1" aria-hidden="true">
+                                    .
+                                  </span>
+                                  {formatRelative(item.createdAt, activeLanguage)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </>
-      ) : null}
-    </div>
+          </>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <>
+      <div className="relative" data-i18n-skip>
+        <span id={statusId} className="sr-only" role="status" aria-live="polite">
+          {loading ? copy.loading : loadError || unreadLabel}
+        </span>
+
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => {
+            updatePanelPosition();
+            setOpen((prev) => !prev);
+          }}
+          className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#016564] shadow-soft transition hover:border-[#016564]/20 hover:bg-[#f7fbfa]"
+          aria-label={`${copy.title}: ${unreadLabel}`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          aria-describedby={statusId}
+          title={copy.title}
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 16.5h12l-1.5-2V10a4.5 4.5 0 1 0-9 0v4.5l-1.5 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+            <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+
+          {unreadCount > 0 ? (
+            <span className="absolute -top-1 -left-1 flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#7c1e3e] px-1 text-[11px] text-white" aria-hidden="true">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          ) : null}
+        </button>
+      </div>
+
+      {notificationPanel}
+    </>
   );
 }

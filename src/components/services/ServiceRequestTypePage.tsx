@@ -616,6 +616,17 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
 
   return (
     <div className="space-y-4 sm:space-y-5">
+      <div className="flex justify-start">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => router.push('/services/requests')}
+          className="w-full border-[#cfdcda] bg-white text-[#27494a] sm:w-auto"
+        >
+          العودة للواجهة الرئيسية
+        </Button>
+      </div>
+
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white px-4 py-4 shadow-sm sm:rounded-[28px] sm:px-5 sm:py-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
@@ -779,7 +790,13 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
               </div>
             ) : null}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button><Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button></div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button type="button" variant="ghost" onClick={() => router.push('/services/requests')} className="w-full sm:w-auto">الواجهة الرئيسية</Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="ghost" onClick={closeCreateMode} className="w-full sm:w-auto">إلغاء</Button>
+              <Button type="submit" loading={submitting} className="w-full sm:w-auto">إرسال الطلب</Button>
+            </div>
+          </div>
         </form>
       </Modal>
 

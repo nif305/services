@@ -64,7 +64,8 @@ type SuggestionRow = {
 type FormState = {
   visitorName: string;
   visitorMobile: string;
-  visitorType: 'EMPLOYEE' | 'TRAINER' | 'TRAINEE';
+  visitorType: 'EMPLOYEE' | 'TRAINEE' | 'TRAINER' | 'OTHER';
+  visitorTypeOther: string;
   scope: RequestScope;
   programName: string;
   location: string;
@@ -83,6 +84,7 @@ const DEFAULT_FORM: FormState = {
   visitorName: '',
   visitorMobile: '',
   visitorType: 'EMPLOYEE',
+  visitorTypeOther: '',
   scope: 'BUILDING',
   programName: '',
   location: '',
@@ -94,7 +96,7 @@ const DEFAULT_FORM: FormState = {
   otherTitle: '',
   otherRecipient: '',
 };
-const MAINTENANCE_PARTS = ['الإنارة', 'الأبواب', 'النوافذ', 'الموكيت', 'التكييف', 'الإلكترونيات', 'الشاشات', 'الطاولات والكراسي', 'القاعات التدريبية', 'ممرات المبنى', 'دورات المياه', 'أخرى'];
+const MAINTENANCE_PARTS = ['الإنارة', 'الأبواب', 'النوافذ', 'الموكيت', 'التكييف', 'الإلكترونيات', 'الشاشات', 'الطاولات والكراسي', 'ممرات المبنى', 'دورات المياه', 'أخرى'];
 const CLEANING_AREAS = ['قاعة تدريبية', 'ممرات المبنى', 'دورات المياه', 'منطقة الضيافة', 'مكاتب', 'مداخل المبنى', 'أخرى'];
 
 function normalizeArabic(value: string) {
@@ -541,6 +543,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
             fullName: form.visitorName.trim(),
             mobile: form.visitorMobile.trim(),
             type: form.visitorType,
+            typeOther: form.visitorType === 'OTHER' ? form.visitorTypeOther.trim() : '',
           },
           attachments: attachmentPayloads,
         }),
@@ -677,10 +680,14 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
                 <label className="block text-sm font-semibold text-slate-700">الصفة</label>
                 <select value={form.visitorType} onChange={(e) => updateForm('visitorType', e.target.value as FormState['visitorType'])} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10">
                   <option value="EMPLOYEE">موظف</option>
-                  <option value="TRAINER">مدرب</option>
                   <option value="TRAINEE">متدرب</option>
+                  <option value="TRAINER">مدرب</option>
+                  <option value="OTHER">أخرى</option>
                 </select>
               </div>
+              {form.visitorType === 'OTHER' ? (
+                <Input label="اكتب الصفة" value={form.visitorTypeOther} onChange={(e) => updateForm('visitorTypeOther', e.target.value)} placeholder="مثال: زائر، متعاون، جهة خارجية" />
+              ) : null}
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -691,7 +698,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
                 <option value="PROGRAM">مرتبط ببرنامج تدريبي</option>
               </select>
             </div>
-            <Input label="الموقع" value={form.location} onChange={(e) => updateForm('location', e.target.value)} placeholder="مثال: القاعة 3 أو الممر الغربي" />
+            <Input label="مكان الملاحظة" value={form.location} onChange={(e) => updateForm('location', e.target.value)} placeholder="مثال: القاعة 3 أو الممر الغربي" />
           </div>
           {form.scope === 'PROGRAM' ? <Input label="اسم البرنامج التدريبي" value={form.programName} onChange={(e) => updateForm('programName', e.target.value)} placeholder="اكتب اسم البرنامج" /> : null}
           {(type === 'MAINTENANCE' || type === 'CLEANING') ? (
@@ -791,7 +798,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
                     ['العنوان', selected.title],
                     ['الوصف', selected.description || '—'],
                     ['مقدم الطلب', selected.requester?.fullName || '—'],
-                    ['الموقع', selected.location || '—'],
+                    ['مكان الملاحظة', selected.location || '—'],
                     ['العنصر المطلوب', selected.itemName || '—'],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="rounded-[18px] border border-[#e7ebea] bg-[#f8fbfb] px-4 py-3">

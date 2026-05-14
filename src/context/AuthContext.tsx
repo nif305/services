@@ -298,7 +298,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveStoredUser(AUTH_STORAGE_KEY, null);
       saveStoredUser(AUTH_ORIGINAL_STORAGE_KEY, null);
       setAllUsers([]);
-      window.location.replace('/login');
+      window.location.replace('/services/requests');
     });
   }, []);
 

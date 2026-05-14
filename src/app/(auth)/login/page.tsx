@@ -93,6 +93,9 @@ export default function LoginPage() {
             </div>
 
             <div className="rounded-[26px] border border-white/80 bg-white/92 p-5 shadow-soft sm:rounded-[32px] sm:p-8">
+              <Link href="/services/requests" className="mb-4 inline-flex rounded-2xl border border-[#dbe5e3] bg-[#f8fbfb] px-4 py-2 text-sm font-bold text-[#27494a]">
+                العودة للواجهة الرئيسية
+              </Link>
               <div className="mb-6 text-center sm:mb-7">
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#016564]/10 text-[#016564] sm:h-14 sm:w-14">
                   <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden="true">

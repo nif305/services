@@ -101,7 +101,7 @@ export default function ReportsPage() {
                 {[
                   ['الصيانة', data.categoryCounts?.maintenance, data.categoryPending?.maintenance],
                   ['النظافة', data.categoryCounts?.cleaning, data.categoryPending?.cleaning],
-                  ['المشتريات المباشرة', data.categoryCounts?.purchase, data.categoryPending?.purchase],
+                  ['ملاحظات الضيافة', data.categoryCounts?.purchase, data.categoryPending?.purchase],
                   ['طلبات أخرى', data.categoryCounts?.other, data.categoryPending?.other],
                 ].map(([label, total, pending]) => (
                   <div key={String(label)} className="rounded-2xl border border-[#e7ebea] p-3">

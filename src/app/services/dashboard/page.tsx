@@ -72,7 +72,7 @@ export default function ServicesDashboardPage() {
     () => [
       { label: ui('الصيانة'), value: metrics?.maintenanceTotal ?? metrics?.maintenancePending ?? 0, color: '#0f5e61' },
       { label: ui('النظافة'), value: metrics?.cleaningTotal ?? metrics?.cleaningPending ?? 0, color: '#4f8f7a' },
-      { label: ui('الشراء المباشر'), value: metrics?.purchaseTotal ?? metrics?.purchasePending ?? 0, color: '#c3a66f' },
+      { label: ui('ملاحظات الضيافة'), value: metrics?.purchaseTotal ?? metrics?.purchasePending ?? 0, color: '#c3a66f' },
       { label: ui('الطلبات الأخرى'), value: metrics?.otherTotal ?? metrics?.otherPending ?? 0, color: '#7c1e3e' },
     ],
     [metrics, language]
@@ -104,8 +104,8 @@ export default function ServicesDashboardPage() {
           icon: <CleaningIcon />,
         },
         {
-          title: ui('شراء مباشر'),
-          hint: ui('رفع طلب شراء مباشر'),
+          title: ui('ملاحظات الضيافة'),
+          hint: ui('رفع ملاحظة على الضيافة'),
           href: '/services/hospitality?new=1',
           icon: <PurchaseIcon />,
         },
@@ -168,9 +168,9 @@ export default function ServicesDashboardPage() {
       accent: 'from-[#3e8370] to-[#7ea493]',
     },
     {
-      title: ui('الشراء المباشر'),
+      title: ui('ملاحظات الضيافة'),
       value: metrics?.purchaseTotal ?? metrics?.purchasePending ?? 0,
-      hint: ui('إجمالي طلبات الشراء المباشر'),
+      hint: ui('إجمالي ملاحظات الضيافة'),
       href: '/services/hospitality',
       accent: 'from-[#8a6a37] to-[#c3a66f]',
     },
@@ -224,7 +224,7 @@ export default function ServicesDashboardPage() {
             <div className="text-[12px] text-white/70">{ui('نظام طلب الخدمات')}</div>
             <h1 className="mt-2.5 text-[25px] font-extrabold leading-tight">{ui('لوحة تشغيل الخدمات')}</h1>
             <p className="mt-2.5 max-w-[620px] text-[13px] leading-7 text-white/84">
-              {ui('لوحة تفاعلية لإدارة طلبات الصيانة والنظافة والشراء المباشر والمراسلات، مع إبراز الطلبات التي تحتاج قرارًا أو متابعة مباشرة.')}
+              {ui('لوحة تفاعلية لإدارة طلبات الصيانة والنظافة وملاحظات الضيافة والمراسلات، مع إبراز الطلبات التي تحتاج قرارًا أو متابعة مباشرة.')}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">

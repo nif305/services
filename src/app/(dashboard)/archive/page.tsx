@@ -79,8 +79,8 @@ const FOLDERS: FolderMeta[] = [
   {
     key: 'service-purchase',
     source: 'service',
-    title: 'طلبات المشتريات المباشرة',
-    subtitle: 'طلبات الشراء المباشر المؤرشفة',
+    title: 'ملاحظات الضيافة',
+    subtitle: 'ملاحظات الضيافة المؤرشفة',
     tone: 'text-[#8a6a28]',
   },
   {

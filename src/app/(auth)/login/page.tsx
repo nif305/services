@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       await login(form.email, form.password);
-      router.replace('/portal');
+      router.replace('/services/dashboard');
       router.refresh();
     } catch (err: any) {
       setError(

@@ -6,6 +6,10 @@ const PUBLIC_FILE = /\.(.*)$/;
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname.startsWith('/materials')) {
+    return NextResponse.redirect(new URL('/services/requests', request.url));
+  }
+
   if (
     PUBLIC_FILE.test(pathname) ||
     pathname.startsWith('/api') ||

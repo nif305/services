@@ -6,7 +6,7 @@ export type AttachmentPayload = {
 
 const DEFAULT_DEPARTMENT = 'إدارة عمليات التدريب';
 const SUPPORT_RECIPIENTS = 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa';
-const PURCHASE_RECIPIENT = 'wa.n1@nauss.edu.sa';
+const HOSPITALITY_RECIPIENT = 'hospitality@nauss.edu.sa';
 
 function escapeHtml(value?: string | null) {
   return String(value || '—')
@@ -56,7 +56,7 @@ export function normalizeRequestType(sourceType?: string | null) {
   const normalized = String(sourceType || '').trim().toLowerCase();
   if (normalized === 'maintenance') return { code: 'MAINTENANCE', label: 'طلب صيانة' };
   if (normalized === 'cleaning') return { code: 'CLEANING', label: 'طلب نظافة' };
-  if (normalized === 'purchase') return { code: 'PURCHASE', label: 'طلب شراء مباشر' };
+  if (normalized === 'hospitality' || normalized === 'purchase') return { code: 'HOSPITALITY', label: 'ملاحظة على الضيافة' };
   return { code: 'OTHER', label: 'طلب آخر' };
 }
 
@@ -85,7 +85,7 @@ export function buildAttachmentSummary(attachments: AttachmentPayload[] = []) {
 
 export function buildRecipientsFromCategory(category?: string | null, provided?: string | null) {
   const normalized = String(category || '').trim().toUpperCase();
-  if (normalized === 'PURCHASE') return PURCHASE_RECIPIENT;
+  if (normalized === 'HOSPITALITY' || normalized === 'PURCHASE') return HOSPITALITY_RECIPIENT;
   if (normalized === 'MAINTENANCE' || normalized === 'CLEANING') return SUPPORT_RECIPIENTS;
   return String(provided || '').trim();
 }
@@ -93,8 +93,8 @@ export function buildRecipientsFromCategory(category?: string | null, provided?:
 export function buildRecipientLabel(category?: string | null) {
   const normalized = String(category || '').trim().toUpperCase();
 
-  if (normalized === 'PURCHASE') {
-    return 'سعادة الأستاذ/ نواف المحارب سلمه الله';
+  if (normalized === 'HOSPITALITY' || normalized === 'PURCHASE') {
+    return 'سعادة مسؤول الضيافة المحترم';
   }
 
   if (normalized === 'MAINTENANCE' || normalized === 'CLEANING') {

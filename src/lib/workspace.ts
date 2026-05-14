@@ -179,8 +179,8 @@ export function getWorkspaceGroups(
             roles: ['manager', 'user'],
           },
           {
-            href: '/services/purchases',
-            label: label(language, 'workspace.purchases'),
+            href: '/services/hospitality',
+            label: 'ملاحظات الضيافة',
             roles: ['manager', 'user'],
           },
           {

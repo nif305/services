@@ -205,8 +205,8 @@ export async function GET(request: NextRequest) {
     const maintenancePending = countCategoryByStatus(suggestionCategoryRows, 'MAINTENANCE', openServiceStatuses);
     const cleaningTotal = countCategoryByStatus(suggestionCategoryRows, 'CLEANING');
     const cleaningPending = countCategoryByStatus(suggestionCategoryRows, 'CLEANING', openServiceStatuses);
-    const purchaseTotal = countCategoryByStatus(suggestionCategoryRows, 'PURCHASE');
-    const purchasePending = countCategoryByStatus(suggestionCategoryRows, 'PURCHASE', openServiceStatuses);
+    const purchaseTotal = countCategoryByStatus(suggestionCategoryRows, 'HOSPITALITY');
+    const purchasePending = countCategoryByStatus(suggestionCategoryRows, 'HOSPITALITY', openServiceStatuses);
     const otherTotal = countCategoryByStatus(suggestionCategoryRows, 'OTHER');
     const otherPending = countCategoryByStatus(suggestionCategoryRows, 'OTHER', openServiceStatuses);
 

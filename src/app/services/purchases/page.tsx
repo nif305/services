@@ -1,1 +1,5 @@
-export { default } from '@/app/(dashboard)/purchases/page';
+import { redirect } from 'next/navigation';
+
+export default function DeprecatedPurchasesPage() {
+  redirect('/services/hospitality');
+}

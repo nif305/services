@@ -106,7 +106,7 @@ export default function ServicesDashboardPage() {
         {
           title: ui('شراء مباشر'),
           hint: ui('رفع طلب شراء مباشر'),
-          href: '/services/purchases?new=1',
+          href: '/services/hospitality?new=1',
           icon: <PurchaseIcon />,
         },
         {
@@ -171,7 +171,7 @@ export default function ServicesDashboardPage() {
       title: ui('الشراء المباشر'),
       value: metrics?.purchaseTotal ?? metrics?.purchasePending ?? 0,
       hint: ui('إجمالي طلبات الشراء المباشر'),
-      href: '/services/purchases',
+      href: '/services/hospitality',
       accent: 'from-[#8a6a37] to-[#c3a66f]',
     },
     {

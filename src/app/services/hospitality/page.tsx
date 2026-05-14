@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
 import { ServiceRequestTypePage } from '@/components/services/ServiceRequestTypePage';
 
-export default function OtherPage() {
+export default function HospitalityRequestsPage() {
   return (
     <Suspense fallback={null}>
-      <ServiceRequestTypePage type="OTHER" />
+      <ServiceRequestTypePage type="HOSPITALITY" />
     </Suspense>
   );
 }

@@ -23,7 +23,7 @@ export const translations = {
     },
     roles: {
       manager: 'مدير',
-      warehouse: 'مسؤول مخزن',
+      warehouse: 'مراقب نظام',
       user: 'موظف',
     },
     auth: {
@@ -128,7 +128,7 @@ export const translations = {
     },
     roles: {
       manager: 'Manager',
-      warehouse: 'Warehouse Officer',
+      warehouse: 'System Observer',
       user: 'Employee',
     },
     auth: {

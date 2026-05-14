@@ -26,7 +26,7 @@ const ICONS: Record<string, string> = {
   '/services/requests': '⌘',
   '/services/maintenance': '🛠',
   '/services/cleaning': '✦',
-  '/services/purchases': '🛒',
+  '/services/hospitality': '☕',
   '/services/other': '◍',
   '/services/approvals': '✓',
   '/services/email-drafts': '↗',

@@ -65,7 +65,7 @@ export default function EmailDraftsPage() {
     total: 0,
   });
 
-  const isManager = user?.role === 'manager';
+  const isManager = user?.role === 'manager' || user?.role === 'warehouse';
   const deferredSearch = useDeferredValue(search);
 
   async function load() {

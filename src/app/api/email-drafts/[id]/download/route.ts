@@ -150,7 +150,7 @@ export async function GET(
 ) {
   try {
     const sessionUser = await resolveSessionUser(request);
-    if (sessionUser.role !== Role.MANAGER) {
+    if (sessionUser.role !== Role.MANAGER && sessionUser.role !== Role.WAREHOUSE) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 

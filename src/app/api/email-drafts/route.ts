@@ -1,5 +1,5 @@
 import { DraftStatus, Prisma } from '@prisma/client';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import {
   AttachmentPayload,
@@ -12,6 +12,7 @@ import {
   stripHtmlToText,
 } from '@/lib/external-email';
 import { pruneExpiredSuggestionAttachmentBodies } from '@/lib/service-attachment-retention';
+import { resolveSessionUser } from '@/lib/auth/session';
 
 type JsonObject = Record<string, any>;
 
@@ -171,8 +172,13 @@ function findLinkedSuggestion(
   return suggestion || null;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    const session = await resolveSessionUser(request);
+    if (session.role !== 'MANAGER' && session.role !== 'WAREHOUSE') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
+    }
+
     try {
       await pruneExpiredSuggestionAttachmentBodies();
     } catch (cleanupError) {

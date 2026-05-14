@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/Card';
@@ -74,7 +74,7 @@ const emptyForm: FormState = {
 };
 
 function formatDate(value?: string | null) {
-  if (!value) return '—';
+  if (!value) return 'â€”';
   try {
     return new Intl.DateTimeFormat('ar-SA', {
       year: 'numeric',
@@ -82,7 +82,7 @@ function formatDate(value?: string | null) {
       day: 'numeric',
     }).format(new Date(value));
   } catch {
-    return '—';
+    return 'â€”';
   }
 }
 
@@ -90,12 +90,12 @@ function normalizeArabic(value: string) {
   return (value || '')
     .toLowerCase()
     .trim()
-    .replace(/[أإآ]/g, 'ا')
-    .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
-    .replace(/ؤ/g, 'و')
-    .replace(/ئ/g, 'ي')
-    .replace(/ء/g, '')
+    .replace(/[ط£ط¥ط¢]/g, 'ط§')
+    .replace(/ط©/g, 'ظ‡')
+    .replace(/ظ‰/g, 'ظٹ')
+    .replace(/ط¤/g, 'ظˆ')
+    .replace(/ط¦/g, 'ظٹ')
+    .replace(/ط،/g, '')
     .replace(/\s+/g, ' ');
 }
 
@@ -117,7 +117,7 @@ function normalizeLanguage(value: unknown): AppLanguage {
 }
 
 function languageLabel(language: AppLanguage) {
-  return language === 'en' ? 'English' : 'العربية';
+  return language === 'en' ? 'English' : 'ط§ظ„ط¹ط±ط¨ظٹط©';
 }
 
 function getPrimaryRole(roles: RoleValue[]): RoleValue {
@@ -130,21 +130,21 @@ function roleLabelFromRoles(roles: RoleValue[]) {
   const normalized = normalizeRoles(roles);
 
   if (normalized.includes('manager') && normalized.includes('warehouse')) {
-    return 'مدير + مسؤول مخزن + موظف';
+    return 'ظ…ط¯ظٹط± + ظ…ط³ط¤ظˆظ„ ظ…ط®ط²ظ† + ظ…ظˆط¸ظپ';
   }
 
-  if (normalized.includes('manager')) return 'مدير + موظف';
-  if (normalized.includes('warehouse')) return 'مسؤول مخزن + موظف';
-  return 'موظف';
+  if (normalized.includes('manager')) return 'ظ…ط¯ظٹط± + ظ…ظˆط¸ظپ';
+  if (normalized.includes('warehouse')) return 'ظ…ط³ط¤ظˆظ„ ظ…ط®ط²ظ† + ظ…ظˆط¸ظپ';
+  return 'ظ…ظˆط¸ظپ';
 }
 
 function roleShortBadges(roles: RoleValue[]) {
   const normalized = normalizeRoles(roles);
   const badges: string[] = [];
 
-  if (normalized.includes('manager')) badges.push('مدير');
-  if (normalized.includes('warehouse')) badges.push('مسؤول مخزن');
-  badges.push('موظف');
+  if (normalized.includes('manager')) badges.push('ظ…ط¯ظٹط±');
+  if (normalized.includes('warehouse')) badges.push('ظ…ط³ط¤ظˆظ„ ظ…ط®ط²ظ†');
+  badges.push('ظ…ظˆط¸ظپ');
 
   return badges;
 }
@@ -153,22 +153,22 @@ function roleDescriptionFromRoles(roles: RoleValue[]) {
   const normalized = normalizeRoles(roles);
 
   if (normalized.includes('manager') && normalized.includes('warehouse')) {
-    return 'له صلاحية الإدارة والمخزن، ويحتفظ دائمًا بصلاحية الموظف داخل المنصة.';
+    return 'ظ„ظ‡ طµظ„ط§ط­ظٹط© ط§ظ„ط¥ط¯ط§ط±ط© ظˆط§ظ„ظ…ط®ط²ظ†طŒ ظˆظٹط­طھظپط¸ ط¯ط§ط¦ظ…ظ‹ط§ ط¨طµظ„ط§ط­ظٹط© ط§ظ„ظ…ظˆط¸ظپ ط¯ط§ط®ظ„ ط§ظ„ظ…ظ†طµط©.';
   }
 
   if (normalized.includes('manager')) {
-    return 'له صلاحية الإدارة، ويحتفظ بإمكانية العمل كموظف داخل المنصة.';
+    return 'ظ„ظ‡ طµظ„ط§ط­ظٹط© ط§ظ„ط¥ط¯ط§ط±ط©طŒ ظˆظٹط­طھظپط¸ ط¨ط¥ظ…ظƒط§ظ†ظٹط© ط§ظ„ط¹ظ…ظ„ ظƒظ…ظˆط¸ظپ ط¯ط§ط®ظ„ ط§ظ„ظ…ظ†طµط©.';
   }
 
   if (normalized.includes('warehouse')) {
-    return 'له صلاحية المخزن، ويحتفظ بإمكانية العمل كموظف داخل المنصة.';
+    return 'ظ„ظ‡ طµظ„ط§ط­ظٹط© ط§ظ„ظ…ط®ط²ظ†طŒ ظˆظٹط­طھظپط¸ ط¨ط¥ظ…ظƒط§ظ†ظٹط© ط§ظ„ط¹ظ…ظ„ ظƒظ…ظˆط¸ظپ ط¯ط§ط®ظ„ ط§ظ„ظ…ظ†طµط©.';
   }
 
-  return 'يعمل بصلاحيات الموظف فقط.';
+  return 'ظٹط¹ظ…ظ„ ط¨طµظ„ط§ط­ظٹط§طھ ط§ظ„ظ…ظˆط¸ظپ ظپظ‚ط·.';
 }
 
 function statusLabel(status: UserStatus) {
-  return status === 'active' ? 'نشط' : 'موقوف';
+  return status === 'active' ? 'ظ†ط´ط·' : 'ظ…ظˆظ‚ظˆظپ';
 }
 
 function statusVariant(status: UserStatus): 'success' | 'danger' {
@@ -234,7 +234,7 @@ function InfoPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-[#e4e8e7] bg-[#fbfcfc] px-3 py-2">
       <div className="text-[11px] font-semibold text-[#7b8786]">{label}</div>
-      <div className="mt-1 text-sm text-[#243635]">{value || '—'}</div>
+      <div className="mt-1 text-sm text-[#243635]">{value || 'â€”'}</div>
     </div>
   );
 }
@@ -356,12 +356,12 @@ export default function UsersPage() {
     if (!editing) return;
 
     if (!form.fullName.trim() || !form.email.trim()) {
-      alert('الاسم والبريد الإلكتروني مطلوبان');
+      alert('ط§ظ„ط§ط³ظ… ظˆط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ ظ…ط·ظ„ظˆط¨ط§ظ†');
       return;
     }
 
     if (form.password && form.password !== form.confirmPassword) {
-      alert('كلمة المرور وتأكيدها غير متطابقين');
+      alert('ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ظˆطھط£ظƒظٹط¯ظ‡ط§ ط؛ظٹط± ظ…طھط·ط§ط¨ظ‚ظٹظ†');
       return;
     }
 
@@ -396,7 +396,7 @@ export default function UsersPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        alert(data?.error || 'تعذر حفظ التعديلات');
+        alert(data?.error || 'طھط¹ط°ط± ط­ظپط¸ ط§ظ„طھط¹ط¯ظٹظ„ط§طھ');
         return;
       }
 
@@ -423,7 +423,7 @@ export default function UsersPage() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        alert(data?.error || 'تعذر تحديث حالة الحساب');
+        alert(data?.error || 'طھط¹ط°ط± طھط­ط¯ظٹط« ط­ط§ظ„ط© ط§ظ„ط­ط³ط§ط¨');
         return;
       }
 
@@ -434,7 +434,7 @@ export default function UsersPage() {
         setSelected((prev) => (prev ? { ...prev, status: nextStatus } : prev));
       }
     } catch {
-      alert('تعذر تحديث حالة الحساب');
+      alert('طھط¹ط°ط± طھط­ط¯ظٹط« ط­ط§ظ„ط© ط§ظ„ط­ط³ط§ط¨');
     }
   };
 
@@ -448,7 +448,7 @@ export default function UsersPage() {
   if (!isManager) {
     return (
       <div className="rounded-[22px] border border-red-200 bg-red-50 p-6 text-center text-red-700 sm:rounded-[26px]">
-        غير مصرح لك بالوصول لهذه الصفحة
+        ط؛ظٹط± ظ…طµط±ط­ ظ„ظƒ ط¨ط§ظ„ظˆطµظˆظ„ ظ„ظ‡ط°ظ‡ ط§ظ„طµظپط­ط©
       </div>
     );
   }
@@ -460,17 +460,17 @@ export default function UsersPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
               <h1 className="text-[24px] font-extrabold leading-[1.2] text-[#016564] sm:text-[30px]">
-                إدارة المستخدمين
+                ط¥ط¯ط§ط±ط© ط§ظ„ظ…ط³طھط®ط¯ظ…ظٹظ†
               </h1>
               <p className="max-w-3xl text-[13px] leading-7 text-[#536463] sm:text-sm">
-                لوحة أكثر وضوحًا لإدارة الحسابات، مع إبراز أن المدير ومسؤول المخزن يحتفظان دائمًا
-                بدور الموظف داخل المنصة.
+                ظ„ظˆط­ط© ط£ظƒط«ط± ظˆط¶ظˆط­ظ‹ط§ ظ„ط¥ط¯ط§ط±ط© ط§ظ„ط­ط³ط§ط¨ط§طھطŒ ظ…ط¹ ط¥ط¨ط±ط§ط² ط£ظ† ط§ظ„ظ…ط¯ظٹط± ظˆظ…ط³ط¤ظˆظ„ ط§ظ„ظ…ط®ط²ظ† ظٹط­طھظپط¸ط§ظ† ط¯ط§ط¦ظ…ظ‹ط§
+                ط¨ط¯ظˆط± ط§ظ„ظ…ظˆط¸ظپ ط¯ط§ط®ظ„ ط§ظ„ظ…ظ†طµط©.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
               <StatCard
-                title="إجمالي الحسابات"
+                title="ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ط­ط³ط§ط¨ط§طھ"
                 value={stats.total}
                 accent="bg-[#016564]"
                 active={roleFilter === 'ALL' && statusFilter === 'ALL'}
@@ -480,35 +480,35 @@ export default function UsersPage() {
                 }}
               />
               <StatCard
-                title="المديرون"
+                title="ط§ظ„ظ…ط¯ظٹط±ظˆظ†"
                 value={stats.managers}
                 accent="bg-[#d0b284]"
                 active={roleFilter === 'manager'}
                 onClick={() => setRoleFilter('manager')}
               />
               <StatCard
-                title="مسؤولو المخزن"
+                title="ظ…ط³ط¤ظˆظ„ظˆ ط§ظ„ظ…ط®ط²ظ†"
                 value={stats.warehouses}
                 accent="bg-[#498983]"
                 active={roleFilter === 'warehouse'}
                 onClick={() => setRoleFilter('warehouse')}
               />
               <StatCard
-                title="الموظفون فقط"
+                title="ط§ظ„ظ…ظˆط¸ظپظˆظ† ظپظ‚ط·"
                 value={stats.usersOnly}
                 accent="bg-[#98aaaa]"
                 active={roleFilter === 'user'}
                 onClick={() => setRoleFilter('user')}
               />
               <StatCard
-                title="الحسابات النشطة"
+                title="ط§ظ„ط­ط³ط§ط¨ط§طھ ط§ظ„ظ†ط´ط·ط©"
                 value={stats.active}
                 accent="bg-emerald-500"
                 active={statusFilter === 'active'}
                 onClick={() => setStatusFilter('active')}
               />
               <StatCard
-                title="الحسابات الموقوفة"
+                title="ط§ظ„ط­ط³ط§ط¨ط§طھ ط§ظ„ظ…ظˆظ‚ظˆظپط©"
                 value={stats.disabled}
                 accent="bg-rose-600"
                 active={statusFilter === 'disabled'}
@@ -521,14 +521,14 @@ export default function UsersPage() {
         <div className="p-4 sm:p-5">
           <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
             <Input
-              label="بحث"
+              label="ط¨ط­ط«"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="الاسم، البريد، الجوال، التحويلة، أو المشروع"
+              placeholder="ط§ظ„ط§ط³ظ…طŒ ط§ظ„ط¨ط±ظٹط¯طŒ ط§ظ„ط¬ظˆط§ظ„طŒ ط§ظ„طھط­ظˆظٹظ„ط©طŒ ط£ظˆ ط§ظ„ظ…ط´ط±ظˆط¹"
             />
 
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">الدور</label>
+              <label className="block text-sm font-semibold text-slate-700">ط§ظ„ط¯ظˆط±</label>
               <select
                 value={roleFilter}
                 onChange={(e) =>
@@ -536,29 +536,29 @@ export default function UsersPage() {
                 }
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
               >
-                <option value="ALL">الكل</option>
-                <option value="manager">يملك صلاحية مدير</option>
-                <option value="warehouse">يملك صلاحية مسؤول مخزن</option>
-                <option value="user">موظف فقط</option>
+                <option value="ALL">ط§ظ„ظƒظ„</option>
+                <option value="manager">ظٹظ…ظ„ظƒ طµظ„ط§ط­ظٹط© ظ…ط¯ظٹط±</option>
+                <option value="warehouse">ظٹظ…ظ„ظƒ طµظ„ط§ط­ظٹط© ظ…ط³ط¤ظˆظ„ ظ…ط®ط²ظ†</option>
+                <option value="user">ظ…ظˆط¸ظپ ظپظ‚ط·</option>
               </select>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">الحالة</label>
+              <label className="block text-sm font-semibold text-slate-700">ط§ظ„ط­ط§ظ„ط©</label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'ALL' | 'active' | 'disabled')}
                 className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
               >
-                <option value="ALL">الكل</option>
-                <option value="active">نشط</option>
-                <option value="disabled">موقوف</option>
+                <option value="ALL">ط§ظ„ظƒظ„</option>
+                <option value="active">ظ†ط´ط·</option>
+                <option value="disabled">ظ…ظˆظ‚ظˆظپ</option>
               </select>
             </div>
 
             <div className="flex items-end">
               <Button variant="ghost" className="w-full xl:w-auto" onClick={clearFilters}>
-                إعادة الضبط
+                ط¥ط¹ط§ط¯ط© ط§ظ„ط¶ط¨ط·
               </Button>
             </div>
           </div>
@@ -568,13 +568,13 @@ export default function UsersPage() {
       <section className="rounded-[24px] border border-[#d6d7d4] bg-white shadow-sm sm:rounded-[28px]">
         <div className="flex flex-col gap-2 border-b border-[#edf1f0] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
-            <div className="text-[18px] font-bold text-[#152625]">قائمة الحسابات</div>
+            <div className="text-[18px] font-bold text-[#152625]">ظ‚ط§ط¦ظ…ط© ط§ظ„ط­ط³ط§ط¨ط§طھ</div>
             <div className="mt-1 text-sm text-[#61706f]">
-              {loading ? 'جارٍ تحميل البيانات...' : `إجمالي النتائج المطابقة: ${pagination.total}`}
+              {loading ? 'ط¬ط§ط±ظچ طھط­ظ…ظٹظ„ ط§ظ„ط¨ظٹط§ظ†ط§طھ...' : `ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظ†طھط§ط¦ط¬ ط§ظ„ظ…ط·ط§ط¨ظ‚ط©: ${pagination.total}`}
             </div>
           </div>
           <div className="text-xs text-[#61706f]">
-            الصلاحيات الإضافية تظهر فوق صلاحية الموظف الأساسية.
+            ط§ظ„طµظ„ط§ط­ظٹط§طھ ط§ظ„ط¥ط¶ط§ظپظٹط© طھط¸ظ‡ط± ظپظˆظ‚ طµظ„ط§ط­ظٹط© ط§ظ„ظ…ظˆط¸ظپ ط§ظ„ط£ط³ط§ط³ظٹط©.
           </div>
         </div>
 
@@ -586,19 +586,19 @@ export default function UsersPage() {
               ))}
             </div>
           ) : filteredRows.length === 0 ? (
-            <div className="p-8 text-center text-sm text-[#61706f]">لا توجد نتائج مطابقة</div>
+            <div className="p-8 text-center text-sm text-[#61706f]">ظ„ط§ طھظˆط¬ط¯ ظ†طھط§ط¦ط¬ ظ…ط·ط§ط¨ظ‚ط©</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-[#edf1f0]">
                 <thead className="bg-[#fbfcfc]">
                   <tr className="text-right text-sm text-[#61706f]">
-                    <th className="px-5 py-4 font-semibold">المستخدم</th>
-                    <th className="px-5 py-4 font-semibold">الصلاحيات</th>
-                    <th className="px-5 py-4 font-semibold">الحالة</th>
-                    <th className="px-5 py-4 font-semibold">التواصل</th>
-                    <th className="px-5 py-4 font-semibold">المشروع</th>
-                    <th className="px-5 py-4 font-semibold">الإنشاء</th>
-                    <th className="px-5 py-4 font-semibold">الإجراءات</th>
+                    <th className="px-5 py-4 font-semibold">ط§ظ„ظ…ط³طھط®ط¯ظ…</th>
+                    <th className="px-5 py-4 font-semibold">ط§ظ„طµظ„ط§ط­ظٹط§طھ</th>
+                    <th className="px-5 py-4 font-semibold">ط§ظ„ط­ط§ظ„ط©</th>
+                    <th className="px-5 py-4 font-semibold">ط§ظ„طھظˆط§طµظ„</th>
+                    <th className="px-5 py-4 font-semibold">ط§ظ„ظ…ط´ط±ظˆط¹</th>
+                    <th className="px-5 py-4 font-semibold">ط§ظ„ط¥ظ†ط´ط§ط،</th>
+                    <th className="px-5 py-4 font-semibold">ط§ظ„ط¥ط¬ط±ط§ط،ط§طھ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#edf1f0]">
@@ -607,12 +607,12 @@ export default function UsersPage() {
                       <td className="px-5 py-4">
                         <div className="font-bold text-[#152625]">{row.fullName}</div>
                         <div className="mt-1 break-all text-sm text-[#61706f]">{row.email}</div>
-                        <div className="mt-1 text-xs text-[#91a09f]">{row.jobTitle || '—'}</div>
+                        <div className="mt-1 text-xs text-[#91a09f]">{row.jobTitle || 'â€”'}</div>
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap gap-2">
                           {roleShortBadges(row.roles).map((badge) => (
-                            <Badge key={`${row.id}-${badge}`} variant={badge === 'موظف' ? 'success' : 'info'}>
+                            <Badge key={`${row.id}-${badge}`} variant={badge === 'ظ…ظˆط¸ظپ' ? 'success' : 'info'}>
                               {badge}
                             </Badge>
                           ))}
@@ -625,27 +625,27 @@ export default function UsersPage() {
                         <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
                       </td>
                       <td className="px-5 py-4 text-sm text-[#304342]">
-                        <div>الجوال: {row.mobile || '—'}</div>
-                        <div className="mt-1">التحويلة: {row.extension || '—'}</div>
+                        <div>ط§ظ„ط¬ظˆط§ظ„: {row.mobile || 'â€”'}</div>
+                        <div className="mt-1">ط§ظ„طھط­ظˆظٹظ„ط©: {row.extension || 'â€”'}</div>
                       </td>
                       <td className="px-5 py-4 text-sm text-[#304342]">
-                        {row.operationalProject || row.department || '—'}
+                        {row.operationalProject || row.department || 'â€”'}
                       </td>
                       <td className="px-5 py-4 text-sm text-[#304342]">{formatDate(row.createdAt)}</td>
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap gap-2">
                           <Button variant="ghost" className="!px-4" onClick={() => setSelected(row)}>
-                            عرض
+                            ط¹ط±ط¶
                           </Button>
                           <Button className="!px-4" onClick={() => openEdit(row)}>
-                            تعديل
+                            طھط¹ط¯ظٹظ„
                           </Button>
                           <Button
                             variant={row.status === 'active' ? 'danger' : 'secondary'}
                             className="!px-4"
                             onClick={() => quickToggleStatus(row)}
                           >
-                            {row.status === 'active' ? 'إيقاف' : 'تنشيط'}
+                            {row.status === 'active' ? 'ط¥ظٹظ‚ط§ظپ' : 'طھظ†ط´ظٹط·'}
                           </Button>
                         </div>
                       </td>
@@ -666,7 +666,7 @@ export default function UsersPage() {
             </div>
           ) : filteredRows.length === 0 ? (
             <Card className="rounded-[24px] border border-[#d6d7d4] p-8 text-center text-sm text-[#61706f] shadow-none">
-              لا توجد نتائج مطابقة
+              ظ„ط§ طھظˆط¬ط¯ ظ†طھط§ط¦ط¬ ظ…ط·ط§ط¨ظ‚ط©
             </Card>
           ) : (
             filteredRows.map((row) => (
@@ -683,7 +683,7 @@ export default function UsersPage() {
                     <div className="flex flex-wrap gap-2">
                       <Badge variant={statusVariant(row.status)}>{statusLabel(row.status)}</Badge>
                       {roleShortBadges(row.roles).map((badge) => (
-                        <Badge key={`${row.id}-mobile-${badge}`} variant={badge === 'موظف' ? 'success' : 'info'}>
+                        <Badge key={`${row.id}-mobile-${badge}`} variant={badge === 'ظ…ظˆط¸ظپ' ? 'success' : 'info'}>
                           {badge}
                         </Badge>
                       ))}
@@ -691,10 +691,10 @@ export default function UsersPage() {
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <InfoPill label="الجوال" value={row.mobile || '—'} />
-                    <InfoPill label="التحويلة" value={row.extension || '—'} />
-                    <InfoPill label="المشروع" value={row.operationalProject || row.department || '—'} />
-                    <InfoPill label="تاريخ الإنشاء" value={formatDate(row.createdAt)} />
+                    <InfoPill label="ط§ظ„ط¬ظˆط§ظ„" value={row.mobile || 'â€”'} />
+                    <InfoPill label="ط§ظ„طھط­ظˆظٹظ„ط©" value={row.extension || 'â€”'} />
+                    <InfoPill label="ط§ظ„ظ…ط´ط±ظˆط¹" value={row.operationalProject || row.department || 'â€”'} />
+                    <InfoPill label="طھط§ط±ظٹط® ط§ظ„ط¥ظ†ط´ط§ط،" value={formatDate(row.createdAt)} />
                   </div>
 
                   <div className="rounded-2xl border border-[#edf1f0] bg-[#fbfcfc] px-3 py-3 text-sm text-[#556867]">
@@ -703,17 +703,17 @@ export default function UsersPage() {
 
                   <div className="grid gap-2 sm:grid-cols-3">
                     <Button variant="ghost" className="w-full" onClick={() => setSelected(row)}>
-                      عرض
+                      ط¹ط±ط¶
                     </Button>
                     <Button className="w-full" onClick={() => openEdit(row)}>
-                      تعديل
+                      طھط¹ط¯ظٹظ„
                     </Button>
                     <Button
                       variant={row.status === 'active' ? 'danger' : 'secondary'}
                       className="w-full"
                       onClick={() => quickToggleStatus(row)}
                     >
-                      {row.status === 'active' ? 'إيقاف الحساب' : 'تنشيط الحساب'}
+                      {row.status === 'active' ? 'ط¥ظٹظ‚ط§ظپ ط§ظ„ط­ط³ط§ط¨' : 'طھظ†ط´ظٹط· ط§ظ„ط­ط³ط§ط¨'}
                     </Button>
                   </div>
                 </div>
@@ -726,9 +726,9 @@ export default function UsersPage() {
           <div className="border-t border-[#edf1f0] px-4 py-4 sm:px-5">
             <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
               <div className="text-sm font-bold text-[#016564]">
-                الصفحة {pagination.page} من {pagination.totalPages}
+                ط§ظ„طµظپط­ط© {pagination.page} ظ…ظ† {pagination.totalPages}
               </div>
-              <div className="text-xs text-[#61706f]">عدد السجلات في هذا العرض: {pagination.total}</div>
+              <div className="text-xs text-[#61706f]">ط¹ط¯ط¯ ط§ظ„ط³ط¬ظ„ط§طھ ظپظٹ ظ‡ط°ط§ ط§ظ„ط¹ط±ط¶: {pagination.total}</div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -736,7 +736,7 @@ export default function UsersPage() {
                   disabled={pagination.page <= 1}
                   className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  السابق
+                  ط§ظ„ط³ط§ط¨ظ‚
                 </button>
                 <button
                   type="button"
@@ -749,7 +749,7 @@ export default function UsersPage() {
                   disabled={pagination.page >= pagination.totalPages}
                   className="rounded-full border border-[#d6d7d4] px-4 py-2 text-sm font-bold text-[#425554] disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  التالي
+                  ط§ظ„طھط§ظ„ظٹ
                 </button>
               </div>
             </div>
@@ -760,22 +760,22 @@ export default function UsersPage() {
       <Modal
         isOpen={!!selected}
         onClose={() => setSelected(null)}
-        title={selected ? `تفاصيل المستخدم: ${selected.fullName}` : 'تفاصيل المستخدم'}
+        title={selected ? `طھظپط§طµظٹظ„ ط§ظ„ظ…ط³طھط®ط¯ظ…: ${selected.fullName}` : 'طھظپط§طµظٹظ„ ط§ظ„ظ…ط³طھط®ط¯ظ…'}
       >
         {selected ? (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <InfoPill label="الاسم" value={selected.fullName} />
-              <InfoPill label="البريد الإلكتروني" value={selected.email} />
-              <InfoPill label="الصلاحيات" value={roleLabelFromRoles(selected.roles)} />
-              <InfoPill label="الحالة" value={statusLabel(selected.status)} />
-              <InfoPill label="لغة الواجهة" value={languageLabel(selected.preferredLanguage)} />
-              <InfoPill label="الجوال" value={selected.mobile || '—'} />
-              <InfoPill label="التحويلة" value={selected.extension || '—'} />
+              <InfoPill label="ط§ظ„ط§ط³ظ…" value={selected.fullName} />
+              <InfoPill label="ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ" value={selected.email} />
+              <InfoPill label="ط§ظ„طµظ„ط§ط­ظٹط§طھ" value={roleLabelFromRoles(selected.roles)} />
+              <InfoPill label="ط§ظ„ط­ط§ظ„ط©" value={statusLabel(selected.status)} />
+              <InfoPill label="ظ„ط؛ط© ط§ظ„ظˆط§ط¬ظ‡ط©" value={languageLabel(selected.preferredLanguage)} />
+              <InfoPill label="ط§ظ„ط¬ظˆط§ظ„" value={selected.mobile || 'â€”'} />
+              <InfoPill label="ط§ظ„طھط­ظˆظٹظ„ط©" value={selected.extension || 'â€”'} />
               <div className="sm:col-span-2">
                 <InfoPill
-                  label="المشروع التشغيلي"
-                  value={selected.operationalProject || selected.department || '—'}
+                  label="ط§ظ„ظ…ط´ط±ظˆط¹ ط§ظ„طھط´ط؛ظٹظ„ظٹ"
+                  value={selected.operationalProject || selected.department || 'â€”'}
                 />
               </div>
             </div>
@@ -786,7 +786,7 @@ export default function UsersPage() {
 
             <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
               <Button variant="ghost" onClick={() => setSelected(null)} className="w-full sm:w-auto">
-                إغلاق
+                ط¥ط؛ظ„ط§ظ‚
               </Button>
 
               <Button
@@ -797,7 +797,7 @@ export default function UsersPage() {
                 }}
                 className="w-full sm:w-auto"
               >
-                {selected.status === 'active' ? 'إيقاف الحساب' : 'تنشيط الحساب'}
+                {selected.status === 'active' ? 'ط¥ظٹظ‚ط§ظپ ط§ظ„ط­ط³ط§ط¨' : 'طھظ†ط´ظٹط· ط§ظ„ط­ط³ط§ط¨'}
               </Button>
             </div>
           </div>
@@ -807,46 +807,46 @@ export default function UsersPage() {
       <Modal
         isOpen={!!editing}
         onClose={closeEdit}
-        title={editing ? `تعديل المستخدم: ${editing.fullName}` : 'تعديل المستخدم'}
+        title={editing ? `طھط¹ط¯ظٹظ„ ط§ظ„ظ…ط³طھط®ط¯ظ…: ${editing.fullName}` : 'طھط¹ط¯ظٹظ„ ط§ظ„ظ…ط³طھط®ط¯ظ…'}
       >
         {editing ? (
           <div className="space-y-5">
             <div className="rounded-[22px] border border-[#d6d7d4] bg-[#fbfcfc] px-4 py-4 text-sm text-[#556867]">
-              <div className="font-bold text-[#016564]">ملاحظة الصلاحيات</div>
+              <div className="font-bold text-[#016564]">ظ…ظ„ط§ط­ط¸ط© ط§ظ„طµظ„ط§ط­ظٹط§طھ</div>
               <div className="mt-2 leading-7">
-                الموظف يملك دائمًا صلاحية <span className="font-bold">موظف</span> كأساس ثابت،
-                ويمكن إضافة صلاحية <span className="font-bold">مدير</span> و/أو صلاحية
-                <span className="font-bold"> مسؤول مخزن</span> فوقها بحسب الحاجة.
+                ط§ظ„ظ…ظˆط¸ظپ ظٹظ…ظ„ظƒ ط¯ط§ط¦ظ…ظ‹ط§ طµظ„ط§ط­ظٹط© <span className="font-bold">ظ…ظˆط¸ظپ</span> ظƒط£ط³ط§ط³ ط«ط§ط¨طھطŒ
+                ظˆظٹظ…ظƒظ† ط¥ط¶ط§ظپط© طµظ„ط§ط­ظٹط© <span className="font-bold">ظ…ط¯ظٹط±</span> ظˆ/ط£ظˆ طµظ„ط§ط­ظٹط©
+                <span className="font-bold"> ظ…ط³ط¤ظˆظ„ ظ…ط®ط²ظ†</span> ظپظˆظ‚ظ‡ط§ ط¨ط­ط³ط¨ ط§ظ„ط­ط§ط¬ط©.
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Input
-                label="الاسم"
+                label="ط§ظ„ط§ط³ظ…"
                 value={form.fullName}
                 onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))}
               />
 
               <Input
-                label="البريد الإلكتروني"
+                label="ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ"
                 value={form.email}
                 onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
               />
 
               <Input
-                label="الجوال"
+                label="ط§ظ„ط¬ظˆط§ظ„"
                 value={form.mobile}
                 onChange={(e) => setForm((prev) => ({ ...prev, mobile: e.target.value }))}
               />
 
               <Input
-                label="التحويلة"
+                label="ط§ظ„طھط­ظˆظٹظ„ط©"
                 value={form.extension}
                 onChange={(e) => setForm((prev) => ({ ...prev, extension: e.target.value }))}
               />
 
               <div className="space-y-2 sm:col-span-2">
-                <label className="block text-sm font-semibold text-slate-700">الصلاحيات الإضافية</label>
+                <label className="block text-sm font-semibold text-slate-700">ط§ظ„طµظ„ط§ط­ظٹط§طھ ط§ظ„ط¥ط¶ط§ظپظٹط©</label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
                     <input
@@ -858,9 +858,9 @@ export default function UsersPage() {
                       className="mt-1 h-4 w-4 rounded border-slate-300 text-[#016564] focus:ring-[#016564]"
                     />
                     <div>
-                      <div className="text-sm font-bold text-[#152625]">مدير</div>
+                      <div className="text-sm font-bold text-[#152625]">ظ…ط¯ظٹط±</div>
                       <div className="mt-1 text-xs leading-6 text-[#61706f]">
-                        يضيف صلاحيات الإدارة مع بقاء صلاحية الموظف.
+                        ظٹط¶ظٹظپ طµظ„ط§ط­ظٹط§طھ ط§ظ„ط¥ط¯ط§ط±ط© ظ…ط¹ ط¨ظ‚ط§ط، طµظ„ط§ط­ظٹط© ط§ظ„ظ…ظˆط¸ظپ.
                       </div>
                     </div>
                   </label>
@@ -875,16 +875,16 @@ export default function UsersPage() {
                       className="mt-1 h-4 w-4 rounded border-slate-300 text-[#016564] focus:ring-[#016564]"
                     />
                     <div>
-                      <div className="text-sm font-bold text-[#152625]">مسؤول مخزن</div>
+                      <div className="text-sm font-bold text-[#152625]">ظ…ط³ط¤ظˆظ„ ظ…ط®ط²ظ†</div>
                       <div className="mt-1 text-xs leading-6 text-[#61706f]">
-                        يضيف صلاحيات الصرف والاستلام مع بقاء صلاحية الموظف.
+                        ظٹط¶ظٹظپ طµظ„ط§ط­ظٹط§طھ ط§ظ„طµط±ظپ ظˆط§ظ„ط§ط³طھظ„ط§ظ… ظ…ط¹ ط¨ظ‚ط§ط، طµظ„ط§ط­ظٹط© ط§ظ„ظ…ظˆط¸ظپ.
                       </div>
                     </div>
                   </label>
                 </div>
 
                 <div className="rounded-2xl border border-[#edf1f0] bg-[#fbfcfc] px-4 py-3 text-sm text-[#556867]">
-                  الصلاحية النهائية لهذا المستخدم: {roleLabelFromRoles([
+                  ط§ظ„طµظ„ط§ط­ظٹط© ط§ظ„ظ†ظ‡ط§ط¦ظٹط© ظ„ظ‡ط°ط§ ط§ظ„ظ…ط³طھط®ط¯ظ…: {roleLabelFromRoles([
                     'user',
                     ...(form.hasWarehouseRole ? ['warehouse' as const] : []),
                     ...(form.hasManagerRole ? ['manager' as const] : []),
@@ -893,7 +893,7 @@ export default function UsersPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">الحالة</label>
+                <label className="block text-sm font-semibold text-slate-700">ط§ظ„ط­ط§ظ„ط©</label>
                 <select
                   value={form.status}
                   onChange={(e) =>
@@ -904,14 +904,14 @@ export default function UsersPage() {
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
                 >
-                  <option value="active">نشط</option>
-                  <option value="disabled">موقوف</option>
+                  <option value="active">ظ†ط´ط·</option>
+                  <option value="disabled">ظ…ظˆظ‚ظˆظپ</option>
                 </select>
               </div>
 
               <div className="sm:col-span-2">
                 <Input
-                  label="المشروع التشغيلي"
+                  label="ط§ظ„ظ…ط´ط±ظˆط¹ ط§ظ„طھط´ط؛ظٹظ„ظٹ"
                   value={form.operationalProject}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, operationalProject: e.target.value }))
@@ -920,7 +920,7 @@ export default function UsersPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">لغة الواجهة</label>
+                <label className="block text-sm font-semibold text-slate-700">ظ„ط؛ط© ط§ظ„ظˆط§ط¬ظ‡ط©</label>
                 <select
                   value={form.preferredLanguage}
                   onChange={(e) =>
@@ -931,35 +931,35 @@ export default function UsersPage() {
                   }
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10"
                 >
-                  <option value="ar">العربية</option>
+                  <option value="ar">ط§ظ„ط¹ط±ط¨ظٹط©</option>
                   <option value="en">English</option>
                 </select>
               </div>
 
               <Input
-                label="كلمة مرور جديدة"
+                label="ظƒظ„ظ…ط© ظ…ط±ظˆط± ط¬ط¯ظٹط¯ط©"
                 type="password"
                 value={form.password}
                 onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                placeholder="اتركه فارغًا إذا لا تريد تغييرها"
+                placeholder="ط§طھط±ظƒظ‡ ظپط§ط±ط؛ظ‹ط§ ط¥ط°ط§ ظ„ط§ طھط±ظٹط¯ طھط؛ظٹظٹط±ظ‡ط§"
               />
 
               <Input
-                label="تأكيد كلمة المرور الجديدة"
+                label="طھط£ظƒظٹط¯ ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط± ط§ظ„ط¬ط¯ظٹط¯ط©"
                 type="password"
                 value={form.confirmPassword}
                 onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                placeholder="أعد كتابة كلمة المرور"
+                placeholder="ط£ط¹ط¯ ظƒطھط§ط¨ط© ظƒظ„ظ…ط© ط§ظ„ظ…ط±ظˆط±"
               />
             </div>
 
             <div className="flex flex-col-reverse gap-2 border-t border-[#edf1f0] pt-4 sm:flex-row sm:justify-end">
               <Button variant="ghost" onClick={closeEdit} className="w-full sm:w-auto">
-                إلغاء
+                ط¥ظ„ط؛ط§ط،
               </Button>
 
               <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
-                {saving ? 'جارٍ الحفظ...' : 'حفظ التعديل'}
+                {saving ? 'ط¬ط§ط±ظچ ط§ظ„ط­ظپط¸...' : 'ط­ظپط¸ ط§ظ„طھط¹ط¯ظٹظ„'}
               </Button>
             </div>
           </div>
@@ -968,3 +968,4 @@ export default function UsersPage() {
     </div>
   );
 }
+

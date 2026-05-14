@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 
-type SuggestionType = 'MAINTENANCE' | 'CLEANING' | 'PURCHASE' | 'OTHER';
+type SuggestionType = 'MAINTENANCE' | 'CLEANING' | 'HOSPITALITY' | 'OTHER';
 type SuggestionStatus = 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'IMPLEMENTED';
 type RequestScope = 'PROGRAM' | 'BUILDING';
 type UploadStage = 'idle' | 'preparing' | 'uploading';
@@ -62,6 +62,9 @@ type SuggestionRow = {
 };
 
 type FormState = {
+  visitorName: string;
+  visitorMobile: string;
+  visitorType: 'EMPLOYEE' | 'TRAINER' | 'TRAINEE';
   scope: RequestScope;
   programName: string;
   location: string;
@@ -77,6 +80,9 @@ type FormState = {
 const PAGE_SIZE = 5;
 const MAX_ATTACHMENTS = 8;
 const DEFAULT_FORM: FormState = {
+  visitorName: '',
+  visitorMobile: '',
+  visitorType: 'EMPLOYEE',
   scope: 'BUILDING',
   programName: '',
   location: '',
@@ -229,7 +235,7 @@ function postJsonWithProgress<T>(url: string, body: unknown, onProgress: (progre
 function typeMeta(type: SuggestionType) {
   if (type === 'MAINTENANCE') return { label: 'طلب صيانة', variant: 'danger' as const };
   if (type === 'CLEANING') return { label: 'طلب نظافة', variant: 'info' as const };
-  if (type === 'PURCHASE') return { label: 'طلب شراء مباشر', variant: 'warning' as const };
+  if (type === 'HOSPITALITY') return { label: 'ملاحظات الضيافة', variant: 'warning' as const };
   return { label: 'طلب آخر', variant: 'neutral' as const };
 }
 
@@ -243,19 +249,19 @@ function statusMeta(status: SuggestionStatus) {
 function buildPageTitle(type: SuggestionType) {
   if (type === 'MAINTENANCE') return 'طلبات الصيانة';
   if (type === 'CLEANING') return 'طلبات النظافة';
-  if (type === 'PURCHASE') return 'طلبات الشراء المباشر';
+  if (type === 'HOSPITALITY') return 'ملاحظات الضيافة';
   return 'الطلبات الأخرى';
 }
 
 function buildCreateTitle(type: SuggestionType) {
   if (type === 'MAINTENANCE') return 'طلب صيانة';
   if (type === 'CLEANING') return 'طلب نظافة';
-  if (type === 'PURCHASE') return 'طلب شراء مباشر';
+  if (type === 'HOSPITALITY') return 'ملاحظة على الضيافة';
   return 'طلب آخر';
 }
 
 function buildDefaultRecipient(type: SuggestionType) {
-  if (type === 'PURCHASE') return 'wa.n1@nauss.edu.sa';
+  if (type === 'HOSPITALITY') return 'hospitality@nauss.edu.sa';
   if (type === 'MAINTENANCE' || type === 'CLEANING') return 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa';
   return '';
 }
@@ -263,7 +269,7 @@ function buildDefaultRecipient(type: SuggestionType) {
 function routeForType(type: SuggestionType) {
   if (type === 'MAINTENANCE') return '/services/maintenance';
   if (type === 'CLEANING') return '/services/cleaning';
-  if (type === 'PURCHASE') return '/services/purchases';
+  if (type === 'HOSPITALITY') return '/services/hospitality';
   return '/services/other';
 }
 
@@ -281,7 +287,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const canManage = user?.role === 'manager';
+  const canManage = user?.role === 'manager' || user?.role === 'warehouse';
   const page = Math.max(1, Number(searchParams.get('page') || 1));
   const openId = String(searchParams.get('open') || '').trim();
   const isCreateMode = searchParams.get('new') === '1';
@@ -482,10 +488,15 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
       }
     }
 
-    if (type === 'PURCHASE') {
+    if (!form.visitorName.trim() || !form.visitorMobile.trim()) {
+      setFeedback({ type: 'error', message: 'اكتب الاسم الثلاثي ورقم الجوال قبل إرسال الملاحظة.' });
+      return;
+    }
+
+    if (type === 'HOSPITALITY') {
       itemName = form.itemName.trim();
       if (!itemName || !form.issueSummary.trim()) {
-        setFeedback({ type: 'error', message: 'أكمل بيانات طلب الشراء المباشر.' });
+        setFeedback({ type: 'error', message: 'أكمل بيانات ملاحظة الضيافة.' });
         return;
       }
     }
@@ -526,6 +537,11 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
           programName: form.programName.trim(),
           area: selectedItems.join('، '),
           serviceItems: selectedItems,
+          visitor: {
+            fullName: form.visitorName.trim(),
+            mobile: form.visitorMobile.trim(),
+            type: form.visitorType,
+          },
           attachments: attachmentPayloads,
         }),
       });
@@ -549,7 +565,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
     if (!selected) return;
     setProcessing(true);
     try {
-      const targetDepartment = type === 'PURCHASE' ? 'FINANCE' : type === 'OTHER' ? 'OTHER' : 'SUPPORT_SERVICES';
+      const targetDepartment = type === 'HOSPITALITY' ? 'HOSPITALITY' : type === 'OTHER' ? 'OTHER' : 'SUPPORT_SERVICES';
       const res = await fetch('/api/suggestions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -607,7 +623,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
                 : 'يعرض هذا القسم طلباتك النشطة فقط. عند اعتماد الطلب ينتقل إلى المراسلات الخارجية ولا يبقى هنا.'}
             </p>
           </div>
-          {!canManage ? <Button className="w-full sm:w-auto" onClick={() => router.push(`${basePath}?new=1`)}>طلب جديد</Button> : null}
+          {!canManage ? <Button className="w-full sm:w-auto" onClick={() => router.push(`${basePath}?new=1`)}>رفع ملاحظة جديدة</Button> : null}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-3">
           <Card className="rounded-[20px] border border-[#d6d7d4] p-3 shadow-none"><div className="text-[12px] text-[#6f7b7a]">إجمالي الطلبات</div><div className="mt-1 text-[22px] font-extrabold leading-none text-[#016564]">{pagination.total}</div></Card>
@@ -652,6 +668,21 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
       <Modal isOpen={isCreateMode} onClose={closeCreateMode} title={buildCreateTitle(type)} size="2xl" bodyClassName="overflow-visible">
         <form onSubmit={handleCreate} className="space-y-4">
           {feedback ? <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type === 'error' ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{feedback.message}</div> : null}
+          <div className="rounded-[22px] border border-slate-200 bg-[#f8fbfb] p-4">
+            <div className="mb-3 text-sm font-extrabold text-[#016564]">بيانات مقدم الملاحظة</div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Input label="الاسم الثلاثي" value={form.visitorName} onChange={(e) => updateForm('visitorName', e.target.value)} placeholder="اكتب اسمك الثلاثي" />
+              <Input label="رقم الجوال" value={form.visitorMobile} onChange={(e) => updateForm('visitorMobile', e.target.value)} placeholder="05xxxxxxxx" />
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700">الصفة</label>
+                <select value={form.visitorType} onChange={(e) => updateForm('visitorType', e.target.value as FormState['visitorType'])} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10">
+                  <option value="EMPLOYEE">موظف</option>
+                  <option value="TRAINER">مدرب</option>
+                  <option value="TRAINEE">متدرب</option>
+                </select>
+              </div>
+            </div>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-slate-700">مصدر الحاجة</label>
@@ -679,7 +710,7 @@ export function ServiceRequestTypePage({ type }: { type: SuggestionType }) {
               {form.serviceItems.includes('أخرى') ? <textarea value={form.customServiceItems} onChange={(e) => updateForm('customServiceItems', e.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="كل بند في سطر مستقل" /> : null}
             </div>
           ) : null}
-          {type === 'PURCHASE' ? <div className="grid gap-3 sm:grid-cols-2"><Input label="الصنف المطلوب" value={form.itemName} onChange={(e) => updateForm('itemName', e.target.value)} placeholder="اكتب اسم الصنف المطلوب" /><Input label="الكمية" type="number" min="1" value={form.quantity} onChange={(e) => updateForm('quantity', e.target.value)} placeholder="1" /></div> : null}
+          {type === 'HOSPITALITY' ? <Input label="عنصر الضيافة أو موقعها" value={form.itemName} onChange={(e) => updateForm('itemName', e.target.value)} placeholder="مثال: القهوة، الماء، منطقة الضيافة" /> : null}
           {type === 'OTHER' ? <div className="grid gap-3 sm:grid-cols-2"><Input label="عنوان الطلب" value={form.otherTitle} onChange={(e) => updateForm('otherTitle', e.target.value)} placeholder="مثال: طلب معالجة تشغيلية أخرى" /><Input label="الجهة المقترحة مبدئيًا" value={form.otherRecipient} onChange={(e) => updateForm('otherRecipient', e.target.value)} placeholder="اختياري" /></div> : null}
           <div className="space-y-2"><label className="block text-sm font-semibold text-slate-700">سبب الطلب أو الملاحظة</label><textarea value={form.issueSummary} onChange={(e) => updateForm('issueSummary', e.target.value)} rows={4} className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-7 text-slate-800 outline-none transition focus:border-[#016564] focus:ring-4 focus:ring-[#016564]/10" placeholder="اكتب وصفًا واضحًا ومباشرًا" /></div>
           <div className="rounded-[22px] border border-slate-200 bg-[#f8fbfb] p-4">

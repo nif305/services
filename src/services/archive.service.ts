@@ -64,7 +64,7 @@ function categoryLabel(category: string) {
   const normalized = String(category || '').trim().toUpperCase();
   if (normalized === 'MAINTENANCE') return 'طلب صيانة';
   if (normalized === 'CLEANING') return 'طلب نظافة';
-  if (normalized === 'PURCHASE') return 'طلب شراء مباشر';
+  if (normalized === 'HOSPITALITY' || normalized === 'PURCHASE') return 'ملاحظة على الضيافة';
   return 'طلب آخر';
 }
 
@@ -329,7 +329,7 @@ function mapRejectedSuggestionRow(row: {
       ? 'service-maintenance'
       : categoryKey === 'CLEANING'
         ? 'service-cleaning'
-        : categoryKey === 'PURCHASE'
+        : categoryKey === 'HOSPITALITY' || categoryKey === 'PURCHASE'
           ? 'service-purchase'
           : 'service-other';
 
@@ -497,7 +497,7 @@ async function getServiceCorrespondenceRows(page: number, limit: number, search:
 }
 
 async function getRejectedSuggestionRows(
-  category: 'MAINTENANCE' | 'CLEANING' | 'PURCHASE' | 'OTHER',
+  category: 'MAINTENANCE' | 'CLEANING' | 'HOSPITALITY' | 'PURCHASE' | 'OTHER',
   page: number,
   limit: number,
   search: string
@@ -787,7 +787,7 @@ async function getFolderCounts(source: ArchiveSource): Promise<ArchiveFolderCoun
         where: { status: SuggestionStatus.REJECTED, category: 'CLEANING' },
       }),
       prisma.suggestion.count({
-        where: { status: SuggestionStatus.REJECTED, category: 'PURCHASE' },
+        where: { status: SuggestionStatus.REJECTED, category: 'HOSPITALITY' },
       }),
       prisma.suggestion.count({
         where: { status: SuggestionStatus.REJECTED, category: 'OTHER' },
@@ -888,7 +888,7 @@ export const ArchiveService = {
         result = await getRejectedSuggestionRows('CLEANING', page, limit, search);
         break;
       case 'service-purchase':
-        result = await getRejectedSuggestionRows('PURCHASE', page, limit, search);
+        result = await getRejectedSuggestionRows('HOSPITALITY', page, limit, search);
         break;
       case 'service-other':
         result = await getRejectedSuggestionRows('OTHER', page, limit, search);

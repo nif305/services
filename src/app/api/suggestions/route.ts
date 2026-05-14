@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Priority, PurchaseStatus, Role, Status, SuggestionStatus, MaintenanceStatus } from '@prisma/client';
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { Priority, Role, Status, SuggestionStatus, MaintenanceStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   normalizeServiceAttachments,
@@ -7,9 +7,9 @@ import {
 } from '@/lib/service-attachment-retention';
 
 const SUPPORT_RECIPIENTS = 'ssd@nauss.edu.sa,AAlosaimi@nauss.edu.sa';
-const PURCHASE_RECIPIENT = 'wa.n1@nauss.edu.sa';
+const HOSPITALITY_RECIPIENT = 'hospitality@nauss.edu.sa';
 
-type SuggestionCategory = 'MAINTENANCE' | 'CLEANING' | 'PURCHASE' | 'OTHER';
+type SuggestionCategory = 'MAINTENANCE' | 'CLEANING' | 'HOSPITALITY' | 'OTHER';
 
 type JsonObject = Record<string, any>;
 
@@ -24,7 +24,7 @@ function normalizeCategory(value: any): SuggestionCategory {
   const normalized = String(value || '').trim().toUpperCase();
   if (normalized === 'MAINTENANCE') return 'MAINTENANCE';
   if (normalized === 'CLEANING') return 'CLEANING';
-  if (normalized === 'PURCHASE') return 'PURCHASE';
+  if (normalized === 'HOSPITALITY' || normalized === 'PURCHASE') return 'HOSPITALITY';
   return 'OTHER';
 }
 
@@ -148,10 +148,10 @@ async function resolveSessionUser(request: NextRequest) {
     });
   }
 
-  if (!user) throw new Error('تعذر التحقق من المستخدم الحالي. أعد تسجيل الدخول ثم حاول مرة أخرى.');
-  if (user.status !== Status.ACTIVE) throw new Error('الحساب غير نشط.');
+  if (!user) throw new Error('طھط¹ط°ط± ط§ظ„طھط­ظ‚ظ‚ ظ…ظ† ط§ظ„ظ…ط³طھط®ط¯ظ… ط§ظ„ط­ط§ظ„ظٹ. ط£ط¹ط¯ طھط³ط¬ظٹظ„ ط§ظ„ط¯ط®ظˆظ„ ط«ظ… ط­ط§ظˆظ„ ظ…ط±ط© ط£ط®ط±ظ‰.');
+  if (user.status !== Status.ACTIVE) throw new Error('ط§ظ„ط­ط³ط§ط¨ ط؛ظٹط± ظ†ط´ط·.');
   if (!Array.isArray(user.roles) || !user.roles.includes(activeRole)) {
-    throw new Error('الدور النشط غير صالح لهذا المستخدم.');
+    throw new Error('ط§ظ„ط¯ظˆط± ط§ظ„ظ†ط´ط· ط؛ظٹط± طµط§ظ„ط­ ظ„ظ‡ط°ط§ ط§ظ„ظ…ط³طھط®ط¯ظ….');
   }
 
   return { ...user, role: activeRole };
@@ -160,13 +160,13 @@ async function resolveSessionUser(request: NextRequest) {
 function categoryMeta(category: SuggestionCategory) {
   switch (category) {
     case 'MAINTENANCE':
-      return { prefix: 'MNT', label: 'طلب صيانة', notification: 'طلب صيانة' };
+      return { prefix: 'MNT', label: 'ط·ظ„ط¨ طµظٹط§ظ†ط©', notification: 'ط·ظ„ط¨ طµظٹط§ظ†ط©' };
     case 'CLEANING':
-      return { prefix: 'CLN', label: 'طلب نظافة', notification: 'طلب نظافة' };
-    case 'PURCHASE':
-      return { prefix: 'PRC', label: 'طلب شراء مباشر', notification: 'طلب شراء مباشر' };
+      return { prefix: 'CLN', label: 'ط·ظ„ط¨ ظ†ط¸ط§ظپط©', notification: 'ط·ظ„ط¨ ظ†ط¸ط§ظپط©' };
+    case 'HOSPITALITY':
+      return { prefix: 'HSP', label: 'ظ…ظ„ط§ط­ط¸ط© ط¹ظ„ظ‰ ط§ظ„ط¶ظٹط§ظپط©', notification: 'ظ…ظ„ط§ط­ط¸ط© ط¹ظ„ظ‰ ط§ظ„ط¶ظٹط§ظپط©' };
     default:
-      return { prefix: 'OTH', label: 'طلب آخر', notification: 'طلب آخر' };
+      return { prefix: 'OTH', label: 'ط·ظ„ط¨ ط¢ط®ط±', notification: 'ط·ظ„ط¨ ط¢ط®ط±' };
   }
 }
 
@@ -176,8 +176,8 @@ function categoryRoute(category: SuggestionCategory) {
       return '/services/maintenance';
     case 'CLEANING':
       return '/services/cleaning';
-    case 'PURCHASE':
-      return '/services/purchases';
+    case 'HOSPITALITY':
+      return '/services/hospitality';
     default:
       return '/services/other';
   }
@@ -236,13 +236,13 @@ async function generateLinkedCode(category: SuggestionCategory) {
 }
 
 function buildRecipients(category: SuggestionCategory, provided?: string | null) {
-  if (category === 'PURCHASE') return PURCHASE_RECIPIENT;
+  if (category === 'HOSPITALITY') return HOSPITALITY_RECIPIENT;
   if (category === 'MAINTENANCE' || category === 'CLEANING') return SUPPORT_RECIPIENTS;
   return String(provided || '').trim();
 }
 
 function buildNotificationTitle(category: SuggestionCategory) {
-  return `${categoryMeta(category).notification} جديد`;
+  return `${categoryMeta(category).notification} ط¬ط¯ظٹط¯`;
 }
 
 function buildExternalEmailHtml(params: {
@@ -264,39 +264,39 @@ function buildExternalEmailHtml(params: {
   attachmentsSummary?: string;
 }) {
   const rows = [
-    ['رقم الطلب', params.requestCode],
-    ['نوع الطلب', params.requestTitle],
-    ['التاريخ', new Intl.DateTimeFormat('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(params.createdAt))],
-    ['مقدم الطلب', params.requesterName],
-    ['الإدارة', 'إدارة عمليات التدريب'],
-    ['البريد الإلكتروني', params.requesterEmail || '—'],
-    ['الجوال', params.requesterMobile || '—'],
-    ['رقم التحويلة', params.requesterExtension || '—'],
-    ['الموقع', params.location || '—'],
-    ['العنصر المطلوب', params.itemName || '—'],
-    ['سبب الطلب', params.description || '—'],
+    ['ط±ظ‚ظ… ط§ظ„ط·ظ„ط¨', params.requestCode],
+    ['ظ†ظˆط¹ ط§ظ„ط·ظ„ط¨', params.requestTitle],
+    ['ط§ظ„طھط§ط±ظٹط®', new Intl.DateTimeFormat('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(params.createdAt))],
+    ['ظ…ظ‚ط¯ظ… ط§ظ„ط·ظ„ط¨', params.requesterName],
+    ['ط§ظ„ط¥ط¯ط§ط±ط©', 'ط¥ط¯ط§ط±ط© ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھط¯ط±ظٹط¨'],
+    ['ط§ظ„ط¨ط±ظٹط¯ ط§ظ„ط¥ظ„ظƒطھط±ظˆظ†ظٹ', params.requesterEmail || 'â€”'],
+    ['ط§ظ„ط¬ظˆط§ظ„', params.requesterMobile || 'â€”'],
+    ['ط±ظ‚ظ… ط§ظ„طھط­ظˆظٹظ„ط©', params.requesterExtension || 'â€”'],
+    ['ط§ظ„ظ…ظˆظ‚ط¹', params.location || 'â€”'],
+    ['ط§ظ„ط¹ظ†طµط± ط§ظ„ظ…ط·ظ„ظˆط¨', params.itemName || 'â€”'],
+    ['ط³ط¨ط¨ ط§ظ„ط·ظ„ط¨', params.description || 'â€”'],
   ];
-  if (params.justification) rows.push(['إيضاحات إضافية', params.justification]);
-  if (params.adminNotes) rows.push(['توجيه المدير', params.adminNotes]);
-  if (params.attachmentsSummary) rows.push(['المرفقات المرفوعة', params.attachmentsSummary]);
+  if (params.justification) rows.push(['ط¥ظٹط¶ط§ط­ط§طھ ط¥ط¶ط§ظپظٹط©', params.justification]);
+  if (params.adminNotes) rows.push(['طھظˆط¬ظٹظ‡ ط§ظ„ظ…ط¯ظٹط±', params.adminNotes]);
+  if (params.attachmentsSummary) rows.push(['ط§ظ„ظ…ط±ظپظ‚ط§طھ ط§ظ„ظ…ط±ظپظˆط¹ط©', params.attachmentsSummary]);
 
   const tableRows = rows.map(([label, value]) => `<tr><td style="padding:10px 12px;border:1px solid #d6d7d4;font-weight:700;background:#f8fbfb;width:180px;">${label}</td><td style="padding:10px 12px;border:1px solid #d6d7d4;">${value}</td></tr>`).join('');
 
   return `
   <div dir="rtl" style="font-family:Cairo,Tahoma,Arial,sans-serif;color:#1f2937;line-height:2;">
     <div style="font-size:18px;font-weight:700;margin-bottom:12px;">${params.recipientLabel}</div>
-    <div style="margin-bottom:12px;">السلام عليكم ورحمة الله وبركاته،</div>
-    <div style="margin-bottom:12px;">تحية طيبة وبعد،</div>
-    <div style="margin-bottom:12px;">تهديكم إدارة عمليات التدريب أطيب التحايا، وتفيدكم بأن الموظف/ <strong>${params.requesterName || 'مقدم الطلب'}</strong> قد رفع ${params.requestTitle} بشأن <strong>${params.itemName || params.requestTitle}</strong>، ونأمل من سعادتكم التكرم بالاطلاع على التفاصيل الموضحة أدناه واتخاذ ما يلزم حيال معالجته في أقرب وقت ممكن.</div>
+    <div style="margin-bottom:12px;">ط§ظ„ط³ظ„ط§ظ… ط¹ظ„ظٹظƒظ… ظˆط±ط­ظ…ط© ط§ظ„ظ„ظ‡ ظˆط¨ط±ظƒط§طھظ‡طŒ</div>
+    <div style="margin-bottom:12px;">طھط­ظٹط© ط·ظٹط¨ط© ظˆط¨ط¹ط¯طŒ</div>
+    <div style="margin-bottom:12px;">طھظ‡ط¯ظٹظƒظ… ط¥ط¯ط§ط±ط© ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھط¯ط±ظٹط¨ ط£ط·ظٹط¨ ط§ظ„طھط­ط§ظٹط§طŒ ظˆطھظپظٹط¯ظƒظ… ط¨ط£ظ† ط§ظ„ظ…ظˆط¸ظپ/ <strong>${params.requesterName || 'ظ…ظ‚ط¯ظ… ط§ظ„ط·ظ„ط¨'}</strong> ظ‚ط¯ ط±ظپط¹ ${params.requestTitle} ط¨ط´ط£ظ† <strong>${params.itemName || params.requestTitle}</strong>طŒ ظˆظ†ط£ظ…ظ„ ظ…ظ† ط³ط¹ط§ط¯طھظƒظ… ط§ظ„طھظƒط±ظ… ط¨ط§ظ„ط§ط·ظ„ط§ط¹ ط¹ظ„ظ‰ ط§ظ„طھظپط§طµظٹظ„ ط§ظ„ظ…ظˆط¶ط­ط© ط£ط¯ظ†ط§ظ‡ ظˆط§طھط®ط§ط° ظ…ط§ ظٹظ„ط²ظ… ط­ظٹط§ظ„ ظ…ط¹ط§ظ„ط¬طھظ‡ ظپظٹ ط£ظ‚ط±ط¨ ظˆظ‚طھ ظ…ظ…ظƒظ†.</div>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">${tableRows}</table>
-    <div style="margin-top:14px;">وتفضلوا بقبول خالص التحية والتقدير.</div>
-    <div style="margin-top:18px;font-weight:700;">فريق عمل إدارة عمليات التدريب<br/>وكالة الجامعة للتدريب</div>
+    <div style="margin-top:14px;">ظˆطھظپط¶ظ„ظˆط§ ط¨ظ‚ط¨ظˆظ„ ط®ط§ظ„طµ ط§ظ„طھط­ظٹط© ظˆط§ظ„طھظ‚ط¯ظٹط±.</div>
+    <div style="margin-top:18px;font-weight:700;">ظپط±ظٹظ‚ ط¹ظ…ظ„ ط¥ط¯ط§ط±ط© ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھط¯ط±ظٹط¨<br/>ظˆظƒط§ظ„ط© ط§ظ„ط¬ط§ظ…ط¹ط© ظ„ظ„طھط¯ط±ظٹط¨</div>
   </div>`;
 }
 
 async function notifyManagersAboutSuggestion(params: { suggestionId: string; category: SuggestionCategory; title: string; requesterName: string; code: string; }) {
   const managers = await prisma.user.findMany({
-    where: { status: Status.ACTIVE, roles: { has: Role.MANAGER } },
+    where: { status: Status.ACTIVE, roles: { hasSome: [Role.MANAGER, Role.WAREHOUSE] } },
     select: { id: true },
   });
   if (!managers.length) return;
@@ -305,7 +305,7 @@ async function notifyManagersAboutSuggestion(params: { suggestionId: string; cat
       userId: manager.id,
       type: 'SUGGESTION_PENDING',
       title: buildNotificationTitle(params.category),
-      message: `تم رفع ${categoryMeta(params.category).label} برقم ${params.code} من ${params.requesterName}`,
+      message: `طھظ… ط±ظپط¹ ${categoryMeta(params.category).label} ط¨ط±ظ‚ظ… ${params.code} ظ…ظ† ${params.requesterName}`,
       link: categoryRoute(params.category),
       entityId: params.suggestionId,
       entityType: 'suggestion',
@@ -314,12 +314,13 @@ async function notifyManagersAboutSuggestion(params: { suggestionId: string; cat
 }
 
 async function notifyRequesterAboutSuggestion(params: { requesterId: string; suggestionId: string; category: SuggestionCategory; title: string; action: 'APPROVED' | 'REJECTED'; reason?: string; }) {
+  if (params.requesterId.startsWith('guest-')) return;
   await prisma.notification.create({
     data: {
       userId: params.requesterId,
       type: `SUGGESTION_${params.action}`,
-      title: params.action === 'APPROVED' ? `${categoryMeta(params.category).label} تمت الموافقة عليه` : `${categoryMeta(params.category).label} تم رفضه`,
-      message: params.action === 'APPROVED' ? `تم اعتماد ${params.title}` : `تم رفض ${params.title}${params.reason ? `: ${params.reason}` : ''}`,
+      title: params.action === 'APPROVED' ? `${categoryMeta(params.category).label} طھظ…طھ ط§ظ„ظ…ظˆط§ظپظ‚ط© ط¹ظ„ظٹظ‡` : `${categoryMeta(params.category).label} طھظ… ط±ظپط¶ظ‡`,
+      message: params.action === 'APPROVED' ? `طھظ… ط§ط¹طھظ…ط§ط¯ ${params.title}` : `طھظ… ط±ظپط¶ ${params.title}${params.reason ? `: ${params.reason}` : ''}`,
       link: categoryRoute(params.category),
       entityId: params.suggestionId,
       entityType: 'suggestion',
@@ -330,15 +331,26 @@ async function notifyRequesterAboutSuggestion(params: { requesterId: string; sug
 function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
   const justificationData = parseJsonObject(item.justification);
   const adminData = parseJsonObject(item.adminNotes);
-  const requester = requesterMap.get(item.requesterId) || null;
+  const visitor = parseJsonObject(justificationData.visitor);
+  const requester = requesterMap.get(item.requesterId) || (
+    visitor.fullName
+      ? {
+          fullName: visitor.fullName,
+          department: visitor.typeLabel || visitor.type || 'ط²ط§ط¦ط± ط§ظ„ظ…ط¨ظ†ظ‰',
+          email: '',
+          mobile: visitor.mobile || '',
+          extension: visitor.typeLabel || visitor.type || '',
+        }
+      : null
+  );
   const rawAttachments = Array.isArray(justificationData.attachments) ? justificationData.attachments : [];
   const attachments = rawAttachments.filter((file: any) => String(file?.base64Content || '').trim()).map((file: any, index: number) => {
     const type = String(file?.contentType || file?.type || '').toLowerCase();
     const name = String(file?.filename || file?.name || '').toLowerCase();
-    let label = `مرفق ${index + 1}`;
-    if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) label = `صورة مرفقة ${index + 1}`;
-    else if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) label = `فيديو مرفق ${index + 1}`;
-    else if (type.includes('pdf') || /\.pdf$/i.test(name)) label = `ملف PDF مرفق ${index + 1}`;
+    let label = `ظ…ط±ظپظ‚ ${index + 1}`;
+    if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) label = `طµظˆط±ط© ظ…ط±ظپظ‚ط© ${index + 1}`;
+    else if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) label = `ظپظٹط¯ظٹظˆ ظ…ط±ظپظ‚ ${index + 1}`;
+    else if (type.includes('pdf') || /\.pdf$/i.test(name)) label = `ظ…ظ„ظپ PDF ظ…ط±ظپظ‚ ${index + 1}`;
     const filename = String(file?.filename || file?.name || `attachment-${index + 1}`);
     const contentType = String(file?.contentType || file?.type || 'application/octet-stream');
     const base64Content = String(file?.base64Content || '');
@@ -349,6 +361,7 @@ function mapSuggestionRow(item: any, requesterMap: Map<string, any>) {
     ...item,
     code: justificationData.publicCode || adminData.linkedCode || item.id,
     requester,
+    visitor,
     itemName: justificationData.itemName || '',
     quantity: justificationData.quantity || null,
     location: justificationData.location || '',
@@ -376,7 +389,12 @@ export async function GET(request: NextRequest) {
       console.error('Failed to prune expired service attachments', cleanupError);
     }
 
-    const sessionUser = await resolveSessionUser(request);
+    let sessionUser: any = null;
+    try {
+      sessionUser = await resolveSessionUser(request);
+    } catch {
+      sessionUser = { id: '', role: Role.USER, publicGuest: true };
+    }
     const categoryParam = request.nextUrl.searchParams.get('category') || request.nextUrl.searchParams.get('type') || '';
     const category = categoryParam ? normalizeCategory(categoryParam) : null;
     const scope = String(request.nextUrl.searchParams.get('scope') || 'active').toLowerCase();
@@ -393,7 +411,7 @@ export async function GET(request: NextRequest) {
 
     const where: any = {
       ...(category ? { category } : {}),
-      ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+      ...(sessionUser.role === Role.MANAGER || sessionUser.role === Role.WAREHOUSE ? {} : sessionUser.publicGuest ? { requesterId: '__public_guest__' } : { requesterId: sessionUser.id }),
       ...(statusFilter ? { status: statusFilter } : {}),
     };
 
@@ -450,7 +468,7 @@ export async function GET(request: NextRequest) {
     const rows = suggestions.map((item) => mapSuggestionRow(item, requesterMap));
 
     const scopedWhere = {
-      ...(sessionUser.role === Role.MANAGER ? {} : { requesterId: sessionUser.id }),
+      ...(sessionUser.role === Role.MANAGER || sessionUser.role === Role.WAREHOUSE ? {} : { requesterId: sessionUser.id }),
     };
     const countBy = async (cat: SuggestionCategory, status?: SuggestionStatus) =>
       prisma.suggestion.count({
@@ -461,10 +479,10 @@ export async function GET(request: NextRequest) {
         },
       });
 
-    const [maintenancePending, cleaningPending, purchasePending, otherPending] = await Promise.all([
+    const [maintenancePending, cleaningPending, hospitalityPending, otherPending] = await Promise.all([
       countBy('MAINTENANCE', SuggestionStatus.PENDING),
       countBy('CLEANING', SuggestionStatus.PENDING),
-      countBy('PURCHASE', SuggestionStatus.PENDING),
+      countBy('HOSPITALITY', SuggestionStatus.PENDING),
       countBy('OTHER', SuggestionStatus.PENDING),
     ]);
 
@@ -477,7 +495,7 @@ export async function GET(request: NextRequest) {
         rejected: rejectedCount,
         maintenancePending,
         cleaningPending,
-        purchasePending,
+        hospitalityPending,
         otherPending,
       },
       pagination: {
@@ -488,14 +506,26 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'تعذر جلب الطلبات' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'طھط¹ط°ط± ط¬ظ„ط¨ ط§ظ„ط·ظ„ط¨ط§طھ' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const sessionUser = await resolveSessionUser(request);
+    let sessionUser: any = null;
+    try {
+      sessionUser = await resolveSessionUser(request);
+    } catch {
+      const visitorBody = parseJsonObject(body?.visitor);
+      sessionUser = {
+        id: `guest-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        fullName: String(visitorBody.fullName || '').trim(),
+        mobile: String(visitorBody.mobile || '').trim(),
+        role: Role.USER,
+        publicGuest: true,
+      };
+    }
 
     const category = normalizeCategory(body.category);
     const priority = normalizePriority(body.priority);
@@ -510,14 +540,26 @@ export async function POST(request: NextRequest) {
     try {
       attachments = normalizeServiceAttachments(body.attachments);
     } catch (attachmentError: any) {
-      return NextResponse.json({ error: attachmentError?.message || 'تعذر تجهيز المرفقات' }, { status: 413 });
+      return NextResponse.json({ error: attachmentError?.message || 'طھط¹ط°ط± طھط¬ظ‡ظٹط² ط§ظ„ظ…ط±ظپظ‚ط§طھ' }, { status: 413 });
     }
     const serviceItems = Array.isArray(body.serviceItems) ? body.serviceItems.map((item: any) => String(item || '').trim()).filter(Boolean) : [];
     const description = String(body.description || '').trim();
     const title = String(body.title || '').trim() || categoryMeta(category).label;
+    const visitorInput = parseJsonObject(body?.visitor);
+    const visitorType = String(visitorInput.type || '').toUpperCase();
+    const visitor = {
+      fullName: String(visitorInput.fullName || sessionUser.fullName || '').trim(),
+      mobile: String(visitorInput.mobile || sessionUser.mobile || '').trim(),
+      type: ['EMPLOYEE', 'TRAINER', 'TRAINEE'].includes(visitorType) ? visitorType : 'EMPLOYEE',
+      typeLabel: visitorType === 'TRAINER' ? 'ظ…ط¯ط±ط¨' : visitorType === 'TRAINEE' ? 'ظ…طھط¯ط±ط¨' : 'ظ…ظˆط¸ظپ',
+    };
 
     if (!description) {
-      return NextResponse.json({ error: 'يرجى كتابة سبب الطلب أو الملاحظة' }, { status: 400 });
+      return NextResponse.json({ error: 'ظٹط±ط¬ظ‰ ظƒطھط§ط¨ط© ط³ط¨ط¨ ط§ظ„ط·ظ„ط¨ ط£ظˆ ط§ظ„ظ…ظ„ط§ط­ط¸ط©' }, { status: 400 });
+    }
+
+    if (!visitor.fullName || !visitor.mobile) {
+      return NextResponse.json({ error: 'ط§ظ„ط§ط³ظ… ط§ظ„ط«ظ„ط§ط«ظٹ ظˆط±ظ‚ظ… ط§ظ„ط¬ظˆط§ظ„ ظ…ط·ظ„ظˆط¨ط§ظ† ظ„ط±ظپط¹ ط§ظ„ظ…ظ„ط§ط­ط¸ط©' }, { status: 400 });
     }
 
     const publicCode = await generatePublicCode(category);
@@ -536,6 +578,7 @@ export async function POST(request: NextRequest) {
           programName,
           area,
           serviceItems,
+          visitor,
           attachments,
         }),
         category,
@@ -547,7 +590,7 @@ export async function POST(request: NextRequest) {
 
     await prisma.auditLog.create({
       data: {
-        userId: sessionUser.id,
+        userId: sessionUser.publicGuest ? null : sessionUser.id,
         action: 'CREATE_SUGGESTION',
         entity: 'Suggestion',
         entityId: suggestion.id,
@@ -559,13 +602,13 @@ export async function POST(request: NextRequest) {
       suggestionId: suggestion.id,
       category,
       title,
-      requesterName: sessionUser.fullName || 'مستخدم النظام',
+      requesterName: sessionUser.fullName || 'ظ…ط³طھط®ط¯ظ… ط§ظ„ظ†ط¸ط§ظ…',
       code: publicCode,
     });
 
     return NextResponse.json({ data: { ...suggestion, code: publicCode } }, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'تعذر إنشاء الطلب' }, { status: 400 });
+    return NextResponse.json({ error: error.message || 'طھط¹ط°ط± ط¥ظ†ط´ط§ط، ط§ظ„ط·ظ„ط¨' }, { status: 400 });
   }
 }
 
@@ -573,8 +616,8 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const sessionUser = await resolveSessionUser(request);
-    if (sessionUser.role !== Role.MANAGER) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
+    if (sessionUser.role !== Role.MANAGER && sessionUser.role !== Role.WAREHOUSE) {
+      return NextResponse.json({ error: 'ط؛ظٹط± ظ…طµط±ط­' }, { status: 403 });
     }
 
     const suggestionId = String(body.suggestionId || '').trim();
@@ -583,12 +626,12 @@ export async function PATCH(request: NextRequest) {
     const targetDepartment = normalizeTargetDepartment(body.targetDepartment);
 
     if (!suggestionId || !action) {
-      return NextResponse.json({ error: 'البيانات غير مكتملة' }, { status: 400 });
+      return NextResponse.json({ error: 'ط§ظ„ط¨ظٹط§ظ†ط§طھ ط؛ظٹط± ظ…ظƒطھظ…ظ„ط©' }, { status: 400 });
     }
 
     const suggestion = await prisma.suggestion.findUnique({ where: { id: suggestionId } });
     if (!suggestion) {
-      return NextResponse.json({ error: 'الطلب غير موجود' }, { status: 404 });
+      return NextResponse.json({ error: 'ط§ظ„ط·ظ„ط¨ ط؛ظٹط± ظ…ظˆط¬ظˆط¯' }, { status: 404 });
     }
 
     const requester = await prisma.user.findUnique({
@@ -601,7 +644,7 @@ export async function PATCH(request: NextRequest) {
     const category = normalizeCategory(suggestion.category);
     const publicCode = String(justificationData.publicCode || adminData.publicCode || await generatePublicCode(category));
     const serviceItems = Array.isArray(justificationData.serviceItems) ? justificationData.serviceItems.map((item: any) => String(item || '').trim()).filter(Boolean) : [];
-    const itemName = String(justificationData.itemName || serviceItems.join('، ') || '').trim();
+    const itemName = String(justificationData.itemName || serviceItems.join('طŒ ') || '').trim();
     const quantity = Math.max(1, Number(justificationData.quantity || 1));
     const location = String(justificationData.location || '').trim();
     const requestSource = String(justificationData.requestSource || '').trim();
@@ -645,7 +688,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (action !== 'approve') {
-      return NextResponse.json({ error: 'الإجراء غير صالح' }, { status: 400 });
+      return NextResponse.json({ error: 'ط§ظ„ط¥ط¬ط±ط§ط، ط؛ظٹط± طµط§ظ„ط­' }, { status: 400 });
     }
 
     let linkedEntityType = String(adminData.linkedEntityType || '');
@@ -696,51 +739,6 @@ export async function PATCH(request: NextRequest) {
           linkedCode = duplicate.code;
         }
       }
-    } else if (category === 'PURCHASE') {
-      if (linkedEntityId) {
-        const existing = await prisma.purchaseRequest.findUnique({ where: { id: linkedEntityId } });
-        if (!existing) linkedEntityId = '';
-        else {
-          linkedEntityType = 'PurchaseRequest';
-          linkedCode = existing.code || linkedCode;
-        }
-      }
-
-      if (!linkedEntityId && linkedCode && linkedCode !== publicCode) {
-        const existing = await prisma.purchaseRequest.findFirst({ where: { code: linkedCode } });
-        if (existing) {
-          linkedEntityId = existing.id;
-          linkedEntityType = 'PurchaseRequest';
-          linkedCode = existing.code || linkedCode;
-        }
-      }
-
-      if (!linkedEntityId) {
-        linkedCode = linkedCode || publicCode || await generateLinkedCode(category);
-        try {
-          const purchase = await prisma.purchaseRequest.create({
-            data: {
-              code: linkedCode,
-              requesterId: suggestion.requesterId,
-              items: itemName || suggestion.title,
-              reason: suggestion.description,
-              budgetNote: adminNotes || null,
-              estimatedValue: null,
-              targetDepartment,
-              status: PurchaseStatus.APPROVED,
-            },
-          });
-          linkedEntityType = 'PurchaseRequest';
-          linkedEntityId = purchase.id;
-          linkedCode = purchase.code;
-        } catch (error: any) {
-          const duplicate = await prisma.purchaseRequest.findFirst({ where: { code: linkedCode } });
-          if (!duplicate) throw error;
-          linkedEntityType = 'PurchaseRequest';
-          linkedEntityId = duplicate.id;
-          linkedCode = duplicate.code;
-        }
-      }
     } else {
       linkedEntityType = 'Suggestion';
       linkedEntityId = suggestionId;
@@ -748,7 +746,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const recipient = buildRecipients(category, externalRecipient);
-    const recipientLabel = category === 'PURCHASE' ? 'سعادة الأستاذ/ نواف المحارب سلمه الله' : (category === 'MAINTENANCE' || category === 'CLEANING') ? 'سعادة مدير إدارة الخدمات المساندة سلمه الله' : 'إلى من يهمه الأمر';
+    const recipientLabel = category === 'HOSPITALITY' ? 'سعادة مسؤول الضيافة المحترم' : (category === 'MAINTENANCE' || category === 'CLEANING') ? 'سعادة مدير إدارة الخدمات المساندة المحترم' : 'إلى من يهمه الأمر';
 
     let linkedDraftId = String(adminData.linkedDraftId || '');
     let draft = null as any;
@@ -770,11 +768,11 @@ export async function PATCH(request: NextRequest) {
       ? justificationData.attachments.map((file: any, index: number) => {
           const type = String(file?.contentType || file?.type || '').toLowerCase();
           const name = String(file?.filename || file?.name || '').toLowerCase();
-          if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `صورة مرفقة ${index + 1}`;
-          if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `فيديو مرفق ${index + 1}`;
-          if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ملف PDF مرفق ${index + 1}`;
-          return `مرفق ${index + 1}`;
-        }).join('، ')
+          if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name)) return `طµظˆط±ط© ظ…ط±ظپظ‚ط© ${index + 1}`;
+          if (type.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|wmv)$/i.test(name)) return `ظپظٹط¯ظٹظˆ ظ…ط±ظپظ‚ ${index + 1}`;
+          if (type.includes('pdf') || /\.pdf$/i.test(name)) return `ظ…ظ„ظپ PDF ظ…ط±ظپظ‚ ${index + 1}`;
+          return `ظ…ط±ظپظ‚ ${index + 1}`;
+        }).join('طŒ ')
       : '';
 
     const draftBody = buildExternalEmailHtml({
@@ -783,11 +781,11 @@ export async function PATCH(request: NextRequest) {
       requestCode: linkedCode,
       requestTitle: suggestion.title,
       createdAt: suggestion.createdAt,
-      requesterName: requester?.fullName || '—',
-      requesterDepartment: 'إدارة عمليات التدريب',
+      requesterName: requester?.fullName || justificationData.visitor?.fullName || '—',
+      requesterDepartment: 'ط¥ط¯ط§ط±ط© ط¹ظ…ظ„ظٹط§طھ ط§ظ„طھط¯ط±ظٹط¨',
       requesterEmail: requester?.email || '—',
-      requesterMobile: requester?.mobile || '—',
-      requesterExtension: requester?.jobTitle || '—',
+      requesterMobile: requester?.mobile || justificationData.visitor?.mobile || '—',
+      requesterExtension: requester?.jobTitle || justificationData.visitor?.typeLabel || '—',
       location,
       itemName,
       description: suggestion.description,
@@ -880,7 +878,7 @@ export async function PATCH(request: NextRequest) {
       linkedDraftId: draft.id,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'تعذر معالجة الطلب' }, { status: 400 });
+    return NextResponse.json({ error: error.message || 'طھط¹ط°ط± ظ…ط¹ط§ظ„ط¬ط© ط§ظ„ط·ظ„ط¨' }, { status: 400 });
   }
 }
 
